@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AFRICA PHONE - Gestion des Ventes</title>
+  <!-- jsPDF and jsPDF-AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* CSS Variables */
+    :root {
+      --primary-color: #006064;
+      --secondary-color: #004d40;
+      --accent-color: #ff6f00;
+      --bg-color: #f5f7fa;
+      --white: #ffffff;
+      --text-color: #333;
+      --border-radius: 8px;
+      --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    /* Global Reset & Mobile Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+    }
+    input, button, textarea, select {
+      font-family: inherit;
+    }
+    /* App container and screens */
+    #app {
+      padding-bottom: 60px;
+    }
+    .screen {
+      display: none;
+      padding: 15px;
+    }
+    .screen.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    header {
+      text-align: center;
+      margin-bottom: 15px;
+      position: relative;
+    }
+    header h1 {
+      font-size: 20px;
+      color: var(--primary-color);
+    }
+    .back-btn {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--primary-color);
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin-bottom: 5px;
+    }
+    .timestamp {
+      font-size: 12px;
+      color: var(--secondary-color);
+      margin-top: 5px;
+    }
+    /* Form sections */
+    .form-section {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: var(--shadow);
+    }
+    .form-section h2 {
+      margin-bottom: 10px;
+      color: var(--primary-color);
+      font-size: 18px;
+      text-align: center;
+    }
+    .vente-form label {
+      font-weight: 500;
+      margin-bottom: 5px;
+      display: block;
+      font-size: 14px;
+    }
+    .vente-form input,
+    .vente-form textarea,
+    .vente-form button,
+    .vente-form select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .vente-form input:focus,
+    .vente-form textarea:focus,
+    .vente-form select:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
+      outline: none;
+    }
+    .vente-form button {
+      background-color: var(--primary-color);
+      color: var(--white);
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .vente-form button:hover {
+      background-color: var(--secondary-color);
+    }
+    /* Quantity controls */
+    .quantity-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .quantity-container button {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      font-size: 20px;
+      background-color: var(--primary-color);
+      color: var(--white);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+    }
+    .quantity-container input {
+      flex: 1;
+      text-align: center;
+      margin: 0 8px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+    }
+    /* Input container for suggestions */
+    .input-container {
+      position: relative;
+    }
+    .suggestion-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--white);
+      border: 1px solid #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    .suggestion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background-color: var(--primary-color);
+      color: var(--white);
+    }
+    .suggestion-item.no-result {
+      cursor: default;
+      background-color: #f9f9f9;
+      color: #666;
+    }
+    /* Additional Delivery Fields */
+    #deliveryFields {
+      display: none;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #fafafa;
+    }
+    /* Buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background-color: var(--accent-color);
+      color: var(--white);
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 16px;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+    .btn:hover {
+      background-color: #e65c00;
+    }
+    /* Stock Section - Interface modifiée */
+    .cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .product-card {
+      background: var(--white);
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 10px;
+      width: calc(50% - 10px);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+    }
+    /* For search view: full-width cards */
+    #stock-category .product-card {
+      width: 100% !important;
+    }
+    .product-icon {
+      font-size: 32px;
+      margin-right: 10px;
+    }
+    .product-details h3 {
+      margin: 0 0 5px;
+      font-size: 16px;
+    }
+    /* Price item */
+    .price-item {
+      background: var(--white);
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+    .modal-content {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90%;
+      overflow-y: auto;
+      padding: 15px;
+      position: relative;
+      box-shadow: var(--shadow);
+    }
+    .modal-content h2 {
+      margin-bottom: 10px;
+      text-align: center;
+      color: var(--primary-color);
+    }
+    .modal .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--white);
+      border-top: 1px solid #ddd;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      height: 55px;
+      box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+      z-index: 1500;
+    }
+    .nav-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--text-color);
+      flex: 1;
+      padding: 8px;
+    }
+    .nav-btn.active {
+      color: var(--primary-color);
+      font-weight: bold;
+      border-top: 2px solid var(--primary-color);
+    }
+    /* Sales History Cards */
+    .list-container {
+      padding: 5px;
+    }
+    .vente-card {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .vente-card p {
+      margin-bottom: 6px;
+    }
+    .vente-card button {
+      width: auto;
+      padding: 8px 12px;
+      font-size: 14px;
+      background-color: var(--primary-color);
+      color: var(--white);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .vente-card button:hover {
+      background-color: var(--secondary-color);
+    }
+    /* Pour les livraisons échouées */
+    .echouee {
+      border: 2px solid red;
+    }
+    /* Panier Item Style */
+    .panier-item {
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: var(--border-radius);
+      padding: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Message de progression pour les téléchargements -->
+  <div id="downloadProgress" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:var(--white); padding:10px 20px; border-radius:5px; z-index:3000;"></div>
+  
+  <div id="app">
+    <!-- Screen 1: Nouvelle Vente -->
+    <section id="screen-vendre" class="screen active">
+      <header>
+        <div class="logo">AFRICA PHONE</div>
+        <h1>Nouvelle Vente</h1>
+        <div class="timestamp">
+          <span id="dateAffiche"></span> - <span id="heureAffiche"></span>
+        </div>
+      </header>
+      
+      <!-- Formulaire d'ajout d'article pour la vente -->
+      <div class="form-section">
+        <h2>Ajouter un Article</h2>
+        <form class="vente-form" onsubmit="event.preventDefault();">
+          <label for="produit">Article</label>
+          <div class="input-container">
+            <input type="text" id="produit" placeholder="Rechercher un article" autocomplete="off" />
+            <div id="suggestionList" class="suggestion-list"></div>
+          </div>
+          <label for="prix">Prix Unitaire</label>
+          <input type="number" id="prix" placeholder="Prix unitaire" oninput="calculerTotalArticle()" />
+          <label for="quantite">Quantité</label>
+          <div class="quantity-container">
+            <button type="button" onclick="decrementQuantity()">–</button>
+            <input type="number" id="quantite" min="1" value="1" oninput="calculerTotalArticle()" />
+            <button type="button" onclick="incrementQuantity()">+</button>
+          </div>
+          <label for="totalArticle">Montant Total</label>
+          <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
+          <button type="button" onclick="ajouterArticle()">Ajouter Article</button>
+        </form>
+        <button class="btn" onclick="ouvrirPanier()">Voir Panier</button>
+      </div>
+      
+      <!-- Section Informations Client -->
+      <div class="form-section">
+        <h2>Informations Client</h2>
+        <form class="vente-form" onsubmit="event.preventDefault();">
+          <label for="clientNom">Nom du Client</label>
+          <input type="text" id="clientNom" placeholder="Nom du client" required />
+          <label for="clientNumero">WhatsApp</label>
+          <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
+        </form>
+      </div>
+      
+      <!-- Section Informations Vendeur -->
+      <div class="form-section">
+        <h2>Informations Vendeur</h2>
+        <form class="vente-form" onsubmit="event.preventDefault();">
+          <label for="vendeurSelect">Vendeur</label>
+          <select id="vendeurSelect">
+            <!-- Options générées par JS -->
+          </select>
+          <label for="photoFacture">Photo de la facture</label>
+          <input type="file" accept="image/*" capture="camera" id="photoFacture" />
+          <label for="observationsVendeur">Observations</label>
+          <textarea id="observationsVendeur" placeholder="Observations (facultatif)"></textarea>
+          <label for="isDelivery">
+            <input type="checkbox" id="isDelivery" onchange="toggleDeliveryFields()" /> Vente avec Livraison
+          </label>
+          <div id="deliveryFields">
+            <label for="livreurNom">Nom du Livreur</label>
+            <input type="text" id="livreurNom" placeholder="Nom du livreur" />
+            <label for="livreurNumero">Numéro du Livreur</label>
+            <input type="text" id="livreurNumero" placeholder="Numéro du livreur" />
+            <label for="lieuLivraison">Lieu de Livraison</label>
+            <input type="text" id="lieuLivraison" placeholder="Lieu de livraison" />
+          </div>
+          <button type="button" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">Valider Vente</button>
+          <button type="button" onclick="if(confirm('Exporter les ventes en PDF ?')) { exporterPDF(); }">Exporter PDF</button>
+          <button type="button" onclick="if(confirm('Exporter les factures en PDF ?')) { exporterFacturesPDF(); }">Factures PDF</button>
+        </form>
+      </div>
+    </section>
+    
+    <!-- Screen 2: Livraisons -->
+    <section id="screen-livraisons" class="screen">
+      <header>
+        <h1>Historique des Livraisons</h1>
+        <div class="timestamp">
+          <span id="dateLivraison"></span>
+        </div>
+      </header>
+      <div id="livraisonsContainer" class="list-container"></div>
+    </section>
+    
+    <!-- Screen 3: Historique des Ventes -->
+    <section id="screen-historique" class="screen">
+      <header>
+        <h1>Historique des Ventes</h1>
+        <div class="timestamp">
+          <span id="dateAfficheHist"></span>
+        </div>
+      </header>
+      <div id="ventesContainer" class="list-container"></div>
+    </section>
+
+    <!-- Screen 4: Stock -->
+    <section id="screen-stock" class="screen">
+      <header>
+        <h1>Stock</h1>
+        <div class="timestamp">
+          <span id="dateStock"></span>
+        </div>
+      </header>
+      <!-- Vue d'accueil du Stock -->
+      <div id="stock-home">
+        <div class="summary" style="padding: 15px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow); margin-bottom: 15px;">
+          <p><strong>Total Téléphones :</strong> <span id="total-telephones">0</span></p>
+          <p><strong>Total Accessoires :</strong> <span id="total-accessoires">0</span></p>
+        </div>
+        <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="stock-card" style="padding: 15px; background: var(--primary-color); color: var(--white); border: none; border-radius: var(--border-radius); font-size: 16px; cursor: pointer;" onclick="showStockCategory('telephones')">📱 Téléphones</button>
+          <button class="stock-card" style="padding: 15px; background: var(--primary-color); color: var(--white); border: none; border-radius: var(--border-radius); font-size: 16px; cursor: pointer;" onclick="showStockCategory('accessoires')">🎧 Accessoires</button>
+        </div>
+      </div>
+      <!-- Vue de recherche pour une catégorie -->
+      <div id="stock-category" style="display: none;">
+        <button style="margin-bottom: 10px; padding: 8px 12px; background: var(--secondary-color); color: var(--white); border: none; border-radius: var(--border-radius); cursor: pointer;" onclick="backToStockHome()">← Retour</button>
+        <input type="text" id="search-category" placeholder="Rechercher..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: var(--border-radius);" oninput="filterStockCategory()">
+        <div id="category-container" class="cards-container"></div>
+      </div>
+    </section>
+
+    <!-- Screen 5: Paramètres -->
+    <section id="screen-parametres" class="screen">
+      <header>
+        <h1>Paramètres</h1>
+        <div class="timestamp">
+          <span id="dateParametres"></span>
+        </div>
+      </header>
+      <div class="list-container">
+        <p>Paramètres de l'application...</p>
+      </div>
+      <!-- Section d'import du Stock avec choix de catégorie -->
+      <div class="form-section">
+        <h2>Paramètres Stock</h2>
+        <label for="importCategorie">Catégorie d'importation :</label>
+        <select id="importCategorie">
+          <option value="telephones">Téléphones</option>
+          <option value="accessoires">Accessoires</option>
+        </select>
+        <button class="btn" onclick="document.getElementById('importStockInput').click()">Importer Stock</button>
+        <input type="file" id="importStockInput" accept=".txt" style="display:none" onchange="importStockFile(event)" />
+      </div>
+      <!-- Section Entrée de Stock -->
+      <div class="form-section">
+        <h2>Entrée de Stock</h2>
+        <button class="btn" onclick="showScreen('screen-entree-stock')">Effectuer une Entrée de Stock</button>
+      </div>
+      <!-- Nouvelle section Gestion des Vendeurs -->
+      <div class="form-section">
+        <h2>Gestion des Vendeurs</h2>
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterVendeur();">
+          <label for="nomVendeur">Nom du Vendeur</label>
+          <input type="text" id="nomVendeur" placeholder="Nom du vendeur" required />
+          <button type="submit">Ajouter Vendeur</button>
+        </form>
+        <div id="listeVendeurs"></div>
+      </div>
+    </section>
+    
+    <!-- Screen 6: Entrée de Stock avec choix de catégorie -->
+    <section id="screen-entree-stock" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('screen-parametres')">← Retour</button>
+        <h1>Nouvelle Entrée de Stock</h1>
+      </header>
+      <div class="form-section">
+        <h2>Ajouter un Article</h2>
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
+          <!-- Nouveau champ pour choisir la catégorie -->
+          <label for="categorieEntree">Catégorie</label>
+          <select id="categorieEntree">
+            <option value="telephones">Téléphones</option>
+            <option value="accessoires">Accessoires</option>
+          </select>
+          <label for="produitEntree">Article</label>
+          <div class="input-container">
+            <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
+            <div id="suggestionListEntree" class="suggestion-list"></div>
+          </div>
+          <label for="prixEntree">Prix d'Achat Unitaire</label>
+          <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
+          <label for="quantiteEntree">Quantité</label>
+          <div class="quantity-container">
+            <button type="button" onclick="decrementQuantityEntree()">–</button>
+            <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
+            <button type="button" onclick="incrementQuantityEntree()">+</button>
+          </div>
+          <label for="totalEntree">Montant Total</label>
+          <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
+          <button type="submit">Ajouter Entrée</button>
+        </form>
+      </div>
+    </section>
+    
+  </div>
+  
+  <!-- Modal: Détails d'une vente -->
+  <div id="modalDetail" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerModal()">&times;</span>
+      <h2>Détails de la Vente</h2>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+  
+  <!-- Modal: Panier des Articles -->
+  <div id="modalPanier" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerPanier()">&times;</span>
+      <h2>Panier d'Articles</h2>
+      <div id="panierContent"></div>
+    </div>
+  </div>
+  
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button id="navVendre" class="nav-btn active" onclick="showScreen('screen-vendre')">🛒</button>
+    <button id="navStock" class="nav-btn" onclick="showScreen('screen-stock')">📦</button>
+    <button id="navLivraisons" class="nav-btn" onclick="showScreen('screen-livraisons'); afficherLivraisons();">🚚</button>
+    <button id="navHistorique" class="nav-btn" onclick="showScreen('screen-historique'); afficherVentes();">📜</button>
+    <button id="navParametres" class="nav-btn" onclick="showScreen('screen-parametres')">⚙️</button>
+  </nav>
+  
+  <script>
+    /**************** IndexedDB Setup (Version 2 pour inclure le stock) ****************/
+    let db;
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open("ventesDB", 2);
+        request.onupgradeneeded = function (event) {
+          db = event.target.result;
+          // Création de l'object store pour les ventes
+          if (!db.objectStoreNames.contains("ventes")) {
+            const store = db.createObjectStore("ventes", { keyPath: "id", autoIncrement: true });
+            store.createIndex("dateVente", "dateVente", { unique: false });
+          }
+          // Création de l'object store pour le stock
+          if (!db.objectStoreNames.contains("stock")) {
+            const stockStore = db.createObjectStore("stock", { keyPath: "id", autoIncrement: true });
+            stockStore.createIndex("nameIndex", "name", { unique: false });
+            stockStore.createIndex("categoryIndex", "category", { unique: false });
+          }
+        };
+        request.onsuccess = function (event) {
+          db = event.target.result;
+          resolve(db);
+        };
+        request.onerror = function (event) {
+          reject(new Error("Erreur lors de l'ouverture de la base de données: " + event.target.error));
+        };
+      });
+    }
+    openDB()
+      .then(() => {
+        updateTimestamp();
+        afficherVentes();
+        updateStockSummary();
+        chargerVendeurs(); // Chargement initial de la liste des vendeurs
+      })
+      .catch((error) => console.error("Erreur d'ouverture de la DB : " + error.message));
+      
+    function addSaleIndexedDB(vente) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject(new Error("La base de données n'est pas initialisée."));
+        }
+        try {
+          const transaction = db.transaction(["ventes"], "readwrite");
+          const store = transaction.objectStore("ventes");
+          const request = store.add(vente);
+          request.onsuccess = (e) => resolve(e.target.result);
+          request.onerror = (e) => reject(new Error("Erreur lors de l'ajout de la vente : " + e.target.error));
+        } catch (err) {
+          reject(new Error("Exception dans addSaleIndexedDB : " + err.message));
+        }
+      });
+    }
+    function updateSaleIndexedDB(vente) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject(new Error("La base de données n'est pas initialisée."));
+        }
+        try {
+          const transaction = db.transaction(["ventes"], "readwrite");
+          const store = transaction.objectStore("ventes");
+          const request = store.put(vente);
+          request.onsuccess = (e) => resolve(e.target.result);
+          request.onerror = (e) => reject(new Error("Erreur lors de la mise à jour de la vente : " + e.target.error));
+        } catch (err) {
+          reject(new Error("Exception dans updateSaleIndexedDB : " + err.message));
+        }
+      });
+    }
+    function getSalesForToday() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject(new Error("La base de données n'est pas initialisée. Veuillez attendre l'initialisation."));
+        }
+        try {
+          const today = new Date().toLocaleDateString("fr-FR");
+          const transaction = db.transaction(["ventes"], "readonly");
+          const store = transaction.objectStore("ventes");
+          const index = store.index("dateVente");
+          const range = IDBKeyRange.only(today);
+          const sales = [];
+          index.openCursor(range).onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+              sales.push(cursor.value);
+              cursor.continue();
+            } else {
+              resolve(sales);
+            }
+          };
+          index.openCursor(range).onerror = (event) => reject(new Error("Erreur lors de l'ouverture du curseur sur 'ventes' : " + event.target.error));
+        } catch (err) {
+          reject(new Error("Exception dans getSalesForToday : " + err.message));
+        }
+      });
+    }
+    function getSaleById(id) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject(new Error("La base de données n'est pas initialisée."));
+        }
+        try {
+          const transaction = db.transaction(["ventes"], "readonly");
+          const store = transaction.objectStore("ventes");
+          const request = store.get(id);
+          request.onsuccess = (event) => resolve(event.target.result);
+          request.onerror = (event) => reject(new Error("Erreur lors de la récupération de la vente : " + event.target.error));
+        } catch (err) {
+          reject(new Error("Exception dans getSaleById : " + err.message));
+        }
+      });
+    }
+    
+    /**************** Gestion du STOCK dans IndexedDB ****************/
+    function getAllStock() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject(new Error("La base de données n'est pas encore initialisée. Veuillez attendre que l'initialisation soit terminée."));
+        }
+        try {
+          const transaction = db.transaction(["stock"], "readonly");
+          const store = transaction.objectStore("stock");
+          const request = store.getAll();
+          request.onsuccess = function(event) {
+            if (event.target.result) {
+              resolve(event.target.result);
+            } else {
+              reject(new Error("Aucune donnée trouvée dans l'object store 'stock'."));
+            }
+          };
+          request.onerror = function(event) {
+            reject(new Error("Erreur lors de la récupération des données de 'stock' : " + event.target.error));
+          };
+        } catch (err) {
+          reject(new Error("Exception dans getAllStock : " + err.message));
+        }
+      });
+    }
+    function importStockToDB(stocks) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          return reject(new Error("La base de données n'est pas initialisée."));
+        }
+        try {
+          const transaction = db.transaction(["stock"], "readwrite");
+          const store = transaction.objectStore("stock");
+          const clearRequest = store.clear();
+          clearRequest.onsuccess = function() {
+            let addPromises = stocks.map(stockItem => {
+              return new Promise((res, rej) => {
+                const addRequest = store.add(stockItem);
+                addRequest.onsuccess = (e) => res(e.target.result);
+                addRequest.onerror = (e) => rej(new Error("Erreur lors de l'ajout de l'élément " + stockItem.name + " : " + e.target.error));
+              });
+            });
+            Promise.all(addPromises).then(() => resolve()).catch(err => reject(err));
+          };
+          clearRequest.onerror = function(e) { reject(new Error("Erreur lors du vidage de l'object store 'stock' : " + e.target.error)); };
+        } catch (err) {
+          reject(new Error("Exception dans importStockToDB : " + err.message));
+        }
+      });
+    }
+    function updateStockAfterSale(items) {
+      let promises = items.map(item => {
+        return new Promise((res, rej) => {
+          if (!db) {
+            return rej(new Error("La base de données n'est pas initialisée."));
+          }
+          try {
+            const transaction = db.transaction(["stock"], "readwrite");
+            const store = transaction.objectStore("stock");
+            const index = store.index("nameIndex");
+            const request = index.get(item.produit);
+            request.onsuccess = function(e) {
+              const stockRecord = e.target.result;
+              if(stockRecord) {
+                stockRecord.stock = Math.max(0, stockRecord.stock - item.quantite);
+                const updateRequest = store.put(stockRecord);
+                updateRequest.onsuccess = () => res();
+                updateRequest.onerror = (err) => rej(new Error("Erreur lors de la mise à jour du stock pour " + item.produit + " : " + err.target.error));
+              } else {
+                res();
+              }
+            };
+            request.onerror = (err) => rej(new Error("Erreur lors de la récupération du stock pour " + item.produit + " : " + err.target.error));
+          } catch (err) {
+            rej(new Error("Exception dans updateStockAfterSale : " + err.message));
+          }
+        });
+      });
+      return Promise.all(promises).then(() => updateStockSummary());
+    }
+    
+    /**************** Timestamp & Navigation ****************/
+    function updateTimestamp() {
+      const now = new Date();
+      const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+      let dateStr = now.toLocaleDateString("fr-FR", options);
+      dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+      document.getElementById("dateAffiche").innerText = dateStr;
+      document.getElementById("heureAffiche").innerText = now.toLocaleTimeString("fr-FR");
+      document.getElementById("dateAfficheHist").innerText = now.toLocaleDateString("fr-FR");
+      document.getElementById("dateLivraison").innerText = now.toLocaleDateString("fr-FR");
+      document.getElementById("dateStock").innerText = now.toLocaleDateString("fr-FR");
+      document.getElementById("dateParametres").innerText = now.toLocaleDateString("fr-FR");
+    }
+    setInterval(updateTimestamp, 1000);
+    
+    function showScreen(screenId) {
+      // Protection par mot de passe pour la section Paramètres
+      if(screenId === "screen-parametres") {
+        var pass = prompt("Veuillez saisir le mot de passe pour accéder aux paramètres :");
+        if(pass !== "Karim123456789,x1") {
+          alert("Mot de passe incorrect !");
+          return;
+        }
+      }
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      if(screenId === "screen-vendre") {
+        document.getElementById("navVendre").classList.add("active");
+      } else if(screenId === "screen-stock") {
+        document.getElementById("navStock").classList.add("active");
+        document.getElementById("stock-home").style.display = "block";
+        document.getElementById("stock-category").style.display = "none";
+        updateStockSummary();
+      } else if(screenId === "screen-livraisons") {
+        document.getElementById("navLivraisons").classList.add("active");
+      } else if(screenId === "screen-historique") {
+        document.getElementById("navHistorique").classList.add("active");
+      } else if(screenId === "screen-parametres") {
+        document.getElementById("navParametres").classList.add("active");
+      }
+    }
+    
+    /**************** Gestion du Panier (Vente) ****************/
+    function updatePanier() {
+      const panierContainer = document.getElementById("panierContent");
+      panierContainer.innerHTML = "";
+      if(currentItems.length === 0) {
+        panierContainer.innerHTML = "<p>Le panier est vide.</p>";
+        return;
+      }
+      currentItems.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "panier-item";
+        div.innerHTML = `<strong>${item.produit}</strong><br>Prix: ${item.prix} | Qté: ${item.quantite} | Total: ${item.total}`;
+        panierContainer.appendChild(div);
+      });
+    }
+    function ouvrirPanier() {
+      updatePanier();
+      document.getElementById("modalPanier").style.display = "flex";
+    }
+    function fermerPanier() {
+      document.getElementById("modalPanier").style.display = "none";
+    }
+    
+    /**************** Affichage des Articles du Panier (Vente) ****************/
+    function ajouterArticle() {
+      const produit = document.getElementById("produit").value.trim();
+      const prix = parseFloat(document.getElementById("prix").value);
+      const quantite = parseInt(document.getElementById("quantite").value);
+      const total = document.getElementById("totalArticle").value;
+      if(!produit) {
+        alert("Veuillez sélectionner un article.");
+        return;
+      }
+      if(!prix || prix <= 0) {
+        alert("Veuillez entrer un prix unitaire valide.");
+        return;
+      }
+      if(!quantite || quantite <= 0) {
+        alert("Veuillez entrer une quantité valide.");
+        return;
+      }
+      const article = { produit, prix, quantite, total };
+      currentItems.push(article);
+      document.getElementById("produit").value = "";
+      document.getElementById("prix").value = "";
+      document.getElementById("quantite").value = 1;
+      document.getElementById("totalArticle").value = "";
+      alert("Article ajouté au panier.");
+    }
+    
+    function calculerTotalArticle() {
+      const prix = parseFloat(document.getElementById("prix").value) || 0;
+      const quantite = parseInt(document.getElementById("quantite").value) || 0;
+      document.getElementById("totalArticle").value = (prix * quantite).toFixed(2);
+    }
+    function decrementQuantity() {
+      const input = document.getElementById("quantite");
+      let value = parseInt(input.value) || 1;
+      if(value > 1) {
+        input.value = --value;
+        calculerTotalArticle();
+      }
+    }
+    function incrementQuantity() {
+      const input = document.getElementById("quantite");
+      let value = parseInt(input.value) || 1;
+      input.value = ++value;
+      calculerTotalArticle();
+    }
+    
+    /**************** Gestion de la Livraison dans la Vente ****************/
+    function toggleDeliveryFields() {
+      const isDelivery = document.getElementById("isDelivery").checked;
+      const deliveryFields = document.getElementById("deliveryFields");
+      const btnValider = document.getElementById("btnValider");
+      if(isDelivery) {
+        deliveryFields.style.display = "block";
+        btnValider.textContent = "Valider Livraison";
+      } else {
+        deliveryFields.style.display = "none";
+        btnValider.textContent = "Valider Vente";
+      }
+    }
+    
+    function getValidationMessage() {
+      return document.getElementById("isDelivery").checked ? "Valider la livraison ?" : "Valider la vente ?";
+    }
+    
+    /**************** Validation et Finalisation de la Vente ****************/
+    function validerVente() {
+      if(currentItems.length === 0) {
+        alert("Veuillez ajouter au moins un article.");
+        return;
+      }
+      const clientNom = document.getElementById("clientNom").value.trim();
+      const clientNumero = document.getElementById("clientNumero").value.trim();
+      if(!clientNom) {
+        alert("Veuillez entrer le nom du client.");
+        return;
+      }
+      if(!clientNumero) {
+        alert("Veuillez entrer le numéro WhatsApp du client.");
+        return;
+      }
+      // Récupération des informations vendeur depuis le nouveau bloc
+      const vendeur = document.getElementById("vendeurSelect").value;
+      const photoFile = document.getElementById("photoFacture").files[0];
+      const observationsVendeur = document.getElementById("observationsVendeur").value.trim();
+      
+      let isDelivery = document.getElementById("isDelivery").checked;
+      let livreurNom = "";
+      let livreurNumero = "";
+      let lieuLivraison = "";
+      if(isDelivery) {
+        livreurNom = document.getElementById("livreurNom").value.trim();
+        livreurNumero = document.getElementById("livreurNumero").value.trim();
+        lieuLivraison = document.getElementById("lieuLivraison").value.trim();
+        if(!livreurNom || !livreurNumero || !lieuLivraison) {
+          alert("Veuillez remplir toutes les informations de livraison.");
+          return;
+        }
+      }
+      
+      if(photoFile) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const photoData = e.target.result;
+          finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+        };
+        reader.onerror = function (e) {
+          console.error("Erreur lors de la lecture de l'image : " + e.message);
+          alert("Erreur lors de la lecture de l'image. La vente sera ajoutée sans photo.");
+          finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+        };
+        reader.readAsDataURL(photoFile);
+      } else {
+        finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+      }
+    }
+    
+    function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+      const now = new Date();
+      const dateVente = now.toLocaleDateString("fr-FR");
+      const heureVente = now.toLocaleTimeString("fr-FR");
+      const overallTotal = currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
+      
+      const vente = { 
+        dateVente, 
+        heureVente, 
+        clientNom, 
+        clientNumero, 
+        vendeur,
+        items: currentItems, 
+        overallTotal, 
+        photoFacture: photoData, 
+        observationsVendeur,
+        isDelivery: isDelivery 
+      };
+      if(isDelivery) {
+        vente.livreurNom = livreurNom;
+        vente.livreurNumero = livreurNumero;
+        vente.lieuLivraison = lieuLivraison;
+        vente.deliveryStatus = "en cours";
+        vente.convertedToSale = false;
+      }
+      
+      addSaleIndexedDB(vente)
+        .then((id) => {
+          updateStockAfterSale(currentItems)
+            .then(() => {
+              alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+              currentItems = [];
+              document.getElementById("clientNom").value = "";
+              document.getElementById("clientNumero").value = "";
+              document.getElementById("photoFacture").value = "";
+              document.getElementById("observationsVendeur").value = "";
+              document.getElementById("isDelivery").checked = false;
+              toggleDeliveryFields();
+              if(vente.isDelivery){
+                afficherLivraisons();
+                afficherVentes();
+              } else {
+                afficherVentes();
+              }
+            })
+            .catch((error) => {
+              alert("Erreur lors de la mise à jour du stock : " + error.message);
+            });
+        })
+        .catch((error) => {
+          alert("Erreur lors de l'ajout de la vente : " + error.message);
+        });
+    }
+    
+    /**************** Affichage et Détails des Ventes ****************/
+    function afficherVentes() {
+      getSalesForToday()
+        .then((sales) => {
+          const ventes = sales.filter(sale => !sale.isDelivery || (sale.isDelivery && sale.convertedToSale));
+          ventes.sort((a, b) => b.id - a.id);
+          const container = document.getElementById("ventesContainer");
+          container.innerHTML = "";
+          if(ventes.length === 0) {
+            container.innerHTML = "<p>Aucune vente enregistrée aujourd'hui.</p>";
+            return;
+          }
+          ventes.forEach((sale) => {
+            const card = document.createElement("div");
+            card.className = "vente-card";
+            card.innerHTML = `
+              <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+              <p>Vendeur : ${sale.vendeur}</p>
+              <p>Articles : ${sale.items ? sale.items.length : 0}</p>
+              <p>Total : ${sale.overallTotal}</p>
+              <button onclick="ouvrirDetails(${sale.id})">Détails</button>
+            `;
+            container.appendChild(card);
+          });
+        })
+        .catch((error) => {
+          console.error("Erreur lors de la récupération des ventes : " + error.message);
+        });
+    }
+    
+    /**************** Affichage des Livraisons ****************/
+    function afficherLivraisons() {
+      getSalesForToday()
+        .then((sales) => {
+          const livraisons = sales.filter(sale => sale.isDelivery);
+          livraisons.sort((a, b) => b.id - a.id);
+          const container = document.getElementById("livraisonsContainer");
+          container.innerHTML = "";
+          if(livraisons.length === 0) {
+            container.innerHTML = "<p>Aucune livraison enregistrée aujourd'hui.</p>";
+            return;
+          }
+          livraisons.forEach((sale) => {
+            let statusEmoji = "🟠 En cours";
+            if(sale.deliveryStatus === "réussie") {
+              statusEmoji = "🟢 Réussie";
+            } else if(sale.deliveryStatus === "échouée") {
+              statusEmoji = "🔴 Échouée";
+            }
+            const card = document.createElement("div");
+            card.className = "vente-card";
+            if(sale.deliveryStatus === "échouée") {
+              card.classList.add("echouee");
+            }
+            let actionButtons = "";
+            if(sale.deliveryStatus === "en cours") {
+              actionButtons = `
+                <button onclick="marquerCommeReussie(${sale.id})">Marquer comme Réussie</button>
+                <button onclick="marquerCommeEchouee(${sale.id})">Marquer comme Échouée</button>
+              `;
+            }
+            card.innerHTML = `
+              <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+              <p>Vendeur : ${sale.vendeur}</p>
+              <p>Livraison par : ${sale.livreurNom} (${sale.livreurNumero})</p>
+              <p>Lieu : ${sale.lieuLivraison}</p>
+              <p>Statut : ${statusEmoji}</p>
+              <p>Total : ${sale.overallTotal}</p>
+              <button onclick="ouvrirDetails(${sale.id})">Détails</button>
+              ${actionButtons}
+            `;
+            container.appendChild(card);
+          });
+        })
+        .catch((error) => {
+          console.error("Erreur lors de la récupération des livraisons : " + error.message);
+        });
+    }
+    
+    /**************** Fonctions de Marquage des Livraisons ****************/
+    function marquerCommeReussie(id) {
+      if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
+        getSaleById(id)
+          .then((sale) => {
+            if(!sale) {
+              alert("Livraison non trouvée.");
+              return;
+            }
+            sale.deliveryStatus = "réussie";
+            sale.convertedToSale = true;
+            updateSaleIndexedDB(sale)
+              .then(() => {
+                alert("Livraison marquée comme réussie et convertie en vente !");
+                afficherLivraisons();
+                afficherVentes();
+              })
+              .catch((error) => {
+                alert("Erreur lors de la mise à jour de la vente : " + error.message);
+              });
+          })
+          .catch((error) => {
+            alert("Erreur dans marquerCommeReussie : " + error.message);
+          });
+      }
+    }
+    
+    function marquerCommeEchouee(id) {
+      if(confirm("Voulez-vous marquer cette livraison comme échouée ?")) {
+        getSaleById(id)
+          .then((sale) => {
+            if(!sale) {
+              alert("Livraison non trouvée.");
+              return;
+            }
+            sale.deliveryStatus = "échouée";
+            updateSaleIndexedDB(sale)
+              .then(() => {
+                alert("Livraison marquée comme échouée !");
+                afficherLivraisons();
+              })
+              .catch((error) => {
+                alert("Erreur lors de la mise à jour de la livraison : " + error.message);
+              });
+          })
+          .catch((error) => {
+            alert("Erreur dans marquerCommeEchouee : " + error.message);
+          });
+      }
+    }
+    
+    /**************** Détails d'une Vente ****************/
+    function ouvrirDetails(id) {
+      getSaleById(id)
+        .then((sale) => {
+          let articlesText = "";
+          if (Array.isArray(sale.items)) {
+            sale.items.forEach((item) => {
+              articlesText += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Montant : " + item.total + ")<br>";
+            });
+          } else {
+            articlesText = "Aucun article.";
+          }
+          let detailHTML = `
+            <p><strong>Date :</strong> ${sale.dateVente}</p>
+            <p><strong>Heure :</strong> ${sale.heureVente}</p>
+            <p><strong>Client :</strong> ${sale.clientNom} (${sale.clientNumero})</p>
+            <p><strong>Vendeur :</strong> ${sale.vendeur}</p>
+            <p><strong>Articles :</strong><br>${articlesText}</p>
+            <p><strong>Total Général :</strong> ${sale.overallTotal}</p>
+            <p><strong>Observations :</strong> ${sale.observationsVendeur || "Aucune"}</p>
+          `;
+          if(sale.isDelivery) {
+            let statusEmoji = "🟠 En cours";
+            if(sale.deliveryStatus === "réussie") {
+              statusEmoji = "🟢 Réussie";
+            } else if(sale.deliveryStatus === "échouée") {
+              statusEmoji = "🔴 Échouée";
+            }
+            detailHTML += `
+              <p><strong>Livraison par :</strong> ${sale.livreurNom} (${sale.livreurNumero})</p>
+              <p><strong>Lieu de Livraison :</strong> ${sale.lieuLivraison}</p>
+              <p><strong>Statut de Livraison :</strong> ${statusEmoji}</p>
+            `;
+          }
+          if(sale.photoFacture) {
+            detailHTML += `<p><strong>Photo :</strong><br>
+                        <img src="${sale.photoFacture}" alt="Photo" style="max-width:100%; border-radius:5px;"></p>`;
+          }
+          document.getElementById("detailContent").innerHTML = detailHTML;
+          document.getElementById("modalDetail").style.display = "flex";
+        })
+        .catch((error) => {
+          console.error("Erreur lors de la récupération de la vente : " + error.message);
+        });
+    }
+    function fermerModal() {
+      document.getElementById("modalDetail").style.display = "none";
+    }
+    window.onclick = function (event) {
+      if (event.target === document.getElementById("modalDetail")) {
+        fermerModal();
+      }
+      if (event.target === document.getElementById("modalPanier")) {
+        fermerPanier();
+      }
+    };
+    
+    /**************** Export PDF (Format JSON) ****************/
+    function exporterPDF() {
+      const progressElem = document.getElementById("downloadProgress");
+      progressElem.style.display = "block";
+      progressElem.textContent = "Téléchargement en cours...";
+      getSalesForToday()
+        .then((sales) => {
+          try {
+            if (!sales || sales.length === 0) {
+              throw new Error("Aucune vente récupérée.");
+            }
+            // Modification : exclure les données de photo des ventes exportées en JSON
+            const jsonOutput = JSON.stringify(sales, (key, value) => {
+              if(key === "photoRecu" || key === "photoFacture") return undefined;
+              return value;
+            }, 2);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(10);
+            const lines = doc.splitTextToSize(jsonOutput, 180);
+            doc.text(lines, 10, 10);
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.save("ventes_json.pdf");
+            setTimeout(() => {
+              progressElem.textContent = "Téléchargement terminé";
+              setTimeout(() => { progressElem.style.display = "none"; }, 2000);
+            }, 1000);
+          } catch (e) {
+            console.error("Erreur lors de l'exportation du PDF JSON : " + e.message);
+            progressElem.textContent = "Erreur lors du téléchargement: " + e.message;
+            setTimeout(() => { progressElem.style.display = "none"; }, 4000);
+            alert("Erreur : " + e.message);
+          }
+        })
+        .catch((error) => {
+          console.error("Erreur lors de l'exportation du PDF JSON : " + error.message);
+          progressElem.textContent = "Erreur lors du téléchargement: " + error.message;
+          setTimeout(() => { progressElem.style.display = "none"; }, 4000);
+          alert("Erreur : " + error.message);
+        });
+    }
+    
+    /**************** Export Factures PDF ****************/
+    function exporterFacturesPDF() {
+      getSalesForToday()
+        .then((sales) => {
+          try {
+            const salesWithFacture = sales.filter(sale => sale.photoFacture);
+            if (!salesWithFacture.length) {
+              alert("Aucune vente avec facture disponible pour l'exportation.");
+              return;
+            }
+            salesWithFacture.sort((a, b) => b.id - a.id);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text("Factures des Ventes", 14, 15);
+            doc.setFontSize(10);
+            let currentY = 25;
+            salesWithFacture.forEach((sale, index) => {
+              if(index > 0) {
+                doc.addPage();
+                currentY = 20;
+              }
+              doc.text("Date : " + sale.dateVente, 14, currentY);
+              currentY += 7;
+              doc.text("Heure : " + sale.heureVente, 14, currentY);
+              currentY += 7;
+              doc.text("Client : " + sale.clientNom + " (" + sale.clientNumero + ")", 14, currentY);
+              currentY += 7;
+              doc.text("Observations : " + (sale.observationsVendeur || "Aucune"), 14, currentY);
+              currentY += 7;
+              try {
+                doc.addImage(sale.photoFacture, "JPEG", 14, currentY, 60, 40);
+                currentY += 50;
+              } catch (err) {
+                console.error("Erreur lors de l'ajout de l'image : " + err.message);
+                alert("Erreur lors de l'ajout de l'image pour une vente: " + err.message);
+              }
+            });
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.save("factures.pdf");
+          } catch (e) {
+            console.error("Erreur lors de l'exportation des factures en PDF : " + e.message);
+            alert("Erreur : " + e.message);
+          }
+        })
+        .catch((error) => {
+          console.error("Erreur lors de l'exportation des factures en PDF : " + error.message);
+          alert("Erreur : " + error.message);
+        });
+    }
+    
+    /**************** Auto-suggestion pour la Vente ****************/
+    const produitInput = document.getElementById("produit");
+    const suggestionList = document.getElementById("suggestionList");
+    produitInput.addEventListener("input", function () {
+      const query = this.value.trim().toLowerCase();
+      suggestionList.innerHTML = "";
+      if (query === "") {
+        suggestionList.style.display = "none";
+        return;
+      }
+      // Récupérer tous les produits (téléphones et accessoires)
+      getAllStock().then(stocks => {
+        const produits = stocks.map(s => s.name);
+        const filtered = produits.filter(name => name.toLowerCase().includes(query));
+        if(filtered.length === 0) {
+          const noResult = document.createElement("div");
+          noResult.className = "suggestion-item no-result";
+          noResult.textContent = "Aucun produit trouvé";
+          suggestionList.appendChild(noResult);
+        } else {
+          filtered.forEach(prod => {
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.textContent = prod;
+            div.addEventListener("click", function () {
+              produitInput.value = prod;
+              suggestionList.innerHTML = "";
+              suggestionList.style.display = "none";
+            });
+            suggestionList.appendChild(div);
+          });
+        }
+        suggestionList.style.display = "block";
+      }).catch(err => {
+        console.error("Erreur lors de la récupération des produits : " + err.message);
+        suggestionList.innerHTML = "<div class='suggestion-item no-result'>Erreur lors de la récupération</div>";
+        suggestionList.style.display = "block";
+      });
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target !== produitInput) {
+        suggestionList.style.display = "none";
+      }
+    });
+    
+    /**************** Auto-suggestion pour l'Entrée de Stock ****************/
+    const produitEntreeInput = document.getElementById("produitEntree");
+    const suggestionListEntree = document.getElementById("suggestionListEntree");
+    produitEntreeInput.addEventListener("input", function () {
+      const query = this.value.trim().toLowerCase();
+      suggestionListEntree.innerHTML = "";
+      if (query === "") {
+        suggestionListEntree.style.display = "none";
+        return;
+      }
+      getAllStock().then(stocks => {
+        const produits = stocks.map(s => s.name);
+        const filtered = produits.filter(name => name.toLowerCase().includes(query));
+        if(filtered.length === 0) {
+          const noResult = document.createElement("div");
+          noResult.className = "suggestion-item no-result";
+          noResult.textContent = "Aucun produit trouvé";
+          suggestionListEntree.appendChild(noResult);
+        } else {
+          filtered.forEach(prod => {
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.textContent = prod;
+            div.addEventListener("click", function () {
+              produitEntreeInput.value = prod;
+              suggestionListEntree.innerHTML = "";
+              suggestionListEntree.style.display = "none";
+            });
+            suggestionListEntree.appendChild(div);
+          });
+        }
+        suggestionListEntree.style.display = "block";
+      }).catch(err => {
+        console.error("Erreur lors de la récupération des produits : " + err.message);
+        suggestionListEntree.innerHTML = "<div class='suggestion-item no-result'>Erreur lors de la récupération</div>";
+        suggestionListEntree.style.display = "block";
+      });
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target !== produitEntreeInput) {
+        suggestionListEntree.style.display = "none";
+      }
+    });
+    
+    /**************** Gestion des onglets dans la section Stock ****************/
+    function filterStockItems(category) {
+      let searchTerm = "";
+      let containerId = "";
+      if(category === 'telephones'){
+        const inputElement = document.getElementById("search-telephones");
+        if (!inputElement) {
+          console.error('L\'élément avec l\'id "search-telephones" n\'a pas été trouvé.');
+          return;
+        }
+        searchTerm = inputElement.value.toLowerCase();
+        containerId = "telephones-container";
+      } else if(category === 'accessoires'){
+        const inputElement = document.getElementById("search-accessoires");
+        if (!inputElement) {
+          console.error('L\'élément avec l\'id "search-accessoires" n\'a pas été trouvé.');
+          return;
+        }
+        searchTerm = inputElement.value.toLowerCase();
+        containerId = "accessoires-container";
+      } else if(category === 'liste-prix'){
+        const inputElement = document.getElementById("search-prix");
+        if (!inputElement) {
+          console.error('L\'élément avec l\'id "search-prix" n\'a pas été trouvé.');
+          return;
+        }
+        searchTerm = inputElement.value.toLowerCase();
+        containerId = "liste-prix-container";
+      }
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      getAllStock().then(stocks => {
+        let filteredProducts = stocks.filter(prod => prod.category === category && prod.name.toLowerCase().includes(searchTerm));
+        if(filteredProducts.length === 0){
+          container.innerHTML = "<p>Aucun produit trouvé.</p>";
+          return;
+        }
+        if(category === 'liste-prix'){
+          filteredProducts.forEach(prod => {
+            const div = document.createElement("div");
+            div.className = "price-item";
+            div.innerHTML = `<p><strong>${prod.name}</strong> - 💰 Prix : ${prod.price.toLocaleString()} FCFA</p>`;
+            container.appendChild(div);
+          });
+        } else {
+          filteredProducts.forEach(prod => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = `
+              <div class="product-icon">${prod.icon}</div>
+              <div class="product-details">
+                <h3>${prod.name}</h3>
+                <p>🔹 Stock : ${prod.stock} unités</p>
+                <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+              </div>
+            `;
+            container.appendChild(card);
+          });
+        }
+      }).catch(err => console.error("Erreur dans filterStockItems : " + err.message));
+    }
+    
+    let currentStockCategory = "";
+    function updateStockSummary() {
+      getAllStock().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
+    }
+    function showStockCategory(category) {
+      currentStockCategory = category;
+      document.getElementById("stock-home").style.display = "none";
+      document.getElementById("stock-category").style.display = "block";
+      const searchInput = document.getElementById("search-category");
+      if (!searchInput) {
+        console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
+        return;
+      }
+      searchInput.placeholder = category === "telephones" ? "Rechercher un téléphone..." : "Rechercher un accessoire...";
+      searchInput.value = "";
+      filterStockCategory();
+    }
+    function backToStockHome() {
+      document.getElementById("stock-category").style.display = "none";
+      document.getElementById("stock-home").style.display = "block";
+    }
+    function filterStockCategory() {
+      const searchInput = document.getElementById("search-category");
+      if (!searchInput) {
+        console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
+        return;
+      }
+      const searchTerm = searchInput.value.toLowerCase();
+      getAllStock().then(stocks => {
+        const filteredProducts = stocks.filter(prod => prod.category === currentStockCategory && prod.name.toLowerCase().includes(searchTerm));
+        const container = document.getElementById("category-container");
+        container.innerHTML = "";
+        if(filteredProducts.length === 0) {
+          container.innerHTML = "<p>Aucun produit trouvé.</p>";
+          return;
+        }
+        filteredProducts.forEach(prod => {
+          const card = document.createElement("div");
+          card.className = "product-card";
+          card.innerHTML = `
+            <div class="product-icon">${prod.icon}</div>
+            <div class="product-details">
+              <h3>${prod.name}</h3>
+              <p>🔹 Stock : ${prod.stock} unités</p>
+              <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
+    }
+    
+    /**************** Importation du stock depuis un fichier TXT ****************/
+    function importStockFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!db) {
+        openDB().then(() => {
+          readAndImport(file);
+        }).catch(err => {
+          alert("Erreur avec la base de données : " + err.message);
+        });
+      } else {
+        readAndImport(file);
+      }
+    }
+    function readAndImport(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        parseStockText(text);
+      };
+      reader.readAsText(file);
+    }
+    function parseStockText(text) {
+      const lines = text.split("\n");
+      let importedStocks = [];
+      const selectedCategory = document.getElementById("importCategorie").value;
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+        if (line.toLowerCase().includes("articles")) continue;
+        const parts = line.split("\t").filter(Boolean);
+        if (parts.length < 3) continue;
+        const name = parts[0].trim();
+        const stock = parseInt(parts[1].trim());
+        let priceText = parts[2].trim();
+        let price = parseInt(priceText.replace(/[^\d]/g, ""));
+        const category = selectedCategory;
+        const icon = category === "accessoires" ? "🎧" : "📱";
+        const id = Date.now() + i;
+        importedStocks.push({ id, category, name, stock, stockPercentage: 0, price, icon });
+      }
+      importStockToDB(importedStocks)
+        .then(() => {
+          alert("Stock importé avec succès !");
+          updateStockSummary();
+        })
+        .catch(err => {
+          alert("Erreur lors de l'importation du stock : " + err.message);
+        });
+    }
+    
+    /**************** Gestion de l'Entrée de Stock ****************/
+    function calculerTotalEntree() {
+      const prix = parseFloat(document.getElementById("prixEntree").value) || 0;
+      const quantite = parseInt(document.getElementById("quantiteEntree").value) || 0;
+      document.getElementById("totalEntree").value = (prix * quantite).toFixed(2);
+    }
+    function decrementQuantityEntree() {
+      const input = document.getElementById("quantiteEntree");
+      let value = parseInt(input.value) || 1;
+      if(value > 1) {
+        input.value = --value;
+        calculerTotalEntree();
+      }
+    }
+    function incrementQuantityEntree() {
+      const input = document.getElementById("quantiteEntree");
+      let value = parseInt(input.value) || 1;
+      input.value = ++value;
+      calculerTotalEntree();
+    }
+    function ajouterEntreeStock() {
+      const produit = document.getElementById("produitEntree").value.trim();
+      const prix = parseFloat(document.getElementById("prixEntree").value);
+      const quantite = parseInt(document.getElementById("quantiteEntree").value);
+      const categorie = document.getElementById("categorieEntree").value;
+      const total = document.getElementById("totalEntree").value;
+      if(!produit) {
+        alert("Veuillez saisir le nom de l'article.");
+        return;
+      }
+      if(!prix || prix <= 0) {
+        alert("Veuillez entrer un prix d'achat valide.");
+        return;
+      }
+      if(!quantite || quantite <= 0) {
+        alert("Veuillez entrer une quantité valide.");
+        return;
+      }
+      ajouterOuMettreAJourStock(produit, quantite, prix, categorie)
+        .then(() => {
+          alert("Entrée de stock ajoutée !");
+          document.getElementById("produitEntree").value = "";
+          document.getElementById("prixEntree").value = "";
+          document.getElementById("quantiteEntree").value = 1;
+          document.getElementById("totalEntree").value = "";
+          updateStockSummary();
+        })
+        .catch(err => {
+          alert("Erreur lors de l'ajout de l'entrée de stock : " + err.message);
+        });
+    }
+    function ajouterOuMettreAJourStock(produit, quantite, prix, categorie) {
+      return new Promise((resolve, reject) => {
+        if (!db) { 
+          reject(new Error("La base de données n'est pas initialisée.")); 
+          return;
+        }
+        const transaction = db.transaction(["stock"], "readwrite");
+        const store = transaction.objectStore("stock");
+        const index = store.index("nameIndex");
+        const request = index.get(produit);
+        request.onsuccess = function(e) {
+          const stockRecord = e.target.result;
+          if (stockRecord) {
+            stockRecord.stock = (stockRecord.stock || 0) + quantite;
+            stockRecord.price = prix;
+            const updateRequest = store.put(stockRecord);
+            updateRequest.onsuccess = () => resolve();
+            updateRequest.onerror = (err) => reject(new Error("Erreur lors de la mise à jour du stock pour " + produit + ": " + err.target.error));
+          } else {
+            const category = categorie || "telephones";
+            const icon = category === "accessoires" ? "🎧" : "📱";
+            const newRecord = { id: Date.now(), category, name: produit, stock: quantite, stockPercentage: 0, price: prix, icon };
+            const addRequest = store.add(newRecord);
+            addRequest.onsuccess = () => resolve();
+            addRequest.onerror = (err) => reject(new Error("Erreur lors de l'ajout du nouvel article " + produit + ": " + err.target.error));
+          }
+        };
+        request.onerror = function(err) {
+          reject(new Error("Erreur lors de la récupération du stock pour " + produit + ": " + err.target.error));
+        };
+      });
+    }
+    
+    // Variable globale pour le panier (vente)
+    let currentItems = [];
+    
+    /**************** Gestion des Vendeurs (stocké dans localStorage) ****************/
+    function chargerVendeurs() {
+      let vendeurs = JSON.parse(localStorage.getItem("vendeurs")) || [];
+      const select = document.getElementById("vendeurSelect");
+      select.innerHTML = "";
+      vendeurs.forEach((v, index) => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = v;
+        select.appendChild(option);
+      });
+      const liste = document.getElementById("listeVendeurs");
+      liste.innerHTML = "";
+      vendeurs.forEach((v, index) => {
+        const div = document.createElement("div");
+        div.style.display = "flex";
+        div.style.justifyContent = "space-between";
+        div.style.alignItems = "center";
+        div.style.marginBottom = "5px";
+        div.textContent = v;
+        const btn = document.createElement("button");
+        btn.textContent = "Supprimer";
+        btn.style.backgroundColor = "#ff6f00";
+        btn.style.color = "#fff";
+        btn.style.border = "none";
+        btn.style.borderRadius = "4px";
+        btn.style.cursor = "pointer";
+        btn.onclick = function() { supprimerVendeur(index); };
+        div.appendChild(btn);
+        liste.appendChild(div);
+      });
+    }
+    function ajouterVendeur() {
+      const input = document.getElementById("nomVendeur");
+      const nom = input.value.trim();
+      if(nom === "") {
+        alert("Veuillez saisir le nom du vendeur.");
+        return;
+      }
+      let vendeurs = JSON.parse(localStorage.getItem("vendeurs")) || [];
+      vendeurs.push(nom);
+      localStorage.setItem("vendeurs", JSON.stringify(vendeurs));
+      input.value = "";
+      chargerVendeurs();
+    }
+    function supprimerVendeur(index) {
+      let vendeurs = JSON.parse(localStorage.getItem("vendeurs")) || [];
+      vendeurs.splice(index, 1);
+      localStorage.setItem("vendeurs", JSON.stringify(vendeurs));
+      chargerVendeurs();
+    }
+    
+  </script>
+</body>
+</html>
