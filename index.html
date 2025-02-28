@@ -357,6 +357,31 @@
       font-size: 14px;
     }
   </style>
+  
+  <!-- Configuration Firebase et Firestore -->
+  <script type="module">
+    // Importation des modules Firebase nécessaires (app, analytics et Firestore)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-analytics.js";
+    import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+    
+    // Votre configuration Firebase (remplacez les valeurs par les vôtres si nécessaire)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCVmG85CJPSqPDueR1RnxSS5DLtW3QP0Zs",
+      authDomain: "africaphone-vente.firebaseapp.com",
+      projectId: "africaphone-vente",
+      storageBucket: "africaphone-vente.firebasestorage.app",
+      messagingSenderId: "203471818329",
+      appId: "1:203471818329:web:d0e235db15917d8b596b48",
+      measurementId: "G-EYL8YL86KB"
+    };
+    
+    // Initialisation de Firebase et Analytics
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    // Initialisation de Firestore
+    export const dbFirestore = getFirestore(app);
+  </script>
 </head>
 <body>
   <!-- Message de progression pour les téléchargements -->
@@ -785,6 +810,49 @@
       return Promise.all(promises).then(() => updateStockSummary());
     }
     
+    /**************** Fonctions Firestore pour ventes et stock ****************/
+    // Sauvegarder la vente dans Firestore (en excluant la photo)
+    function saveSaleToFirestore(vente) {
+      // Création d'une copie sans le champ photoFacture
+      const saleForFirestore = Object.assign({}, vente);
+      delete saleForFirestore.photoFacture;
+      return addDoc(collection(dbFirestore, "ventes"), saleForFirestore);
+    }
+    // Mettre à jour le stock dans Firestore pour chaque article vendu
+    async function updateStockInFirestore(items) {
+      const stockCollection = collection(dbFirestore, "stock");
+      for (const item of items) {
+        const q = query(stockCollection, where("name", "==", item.produit));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach(async (docSnapshot) => {
+          const currentStock = docSnapshot.data().stock;
+          const newStock = Math.max(0, currentStock - item.quantite);
+          await updateDoc(doc(dbFirestore, "stock", docSnapshot.id), { stock: newStock });
+        });
+      }
+    }
+    // Ajouter ou mettre à jour un article dans Firestore pour le stock
+    async function addOrUpdateStockInFirestore(produit, quantite, prix, categorie, icon) {
+      const stockCollection = collection(dbFirestore, "stock");
+      const q = query(stockCollection, where("name", "==", produit));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        querySnapshot.forEach(async (docSnapshot) => {
+          const currentStock = docSnapshot.data().stock;
+          const newStock = currentStock + quantite;
+          await updateDoc(doc(dbFirestore, "stock", docSnapshot.id), { stock: newStock, price: prix });
+        });
+      } else {
+        await addDoc(stockCollection, {
+          name: produit,
+          stock: quantite,
+          price: prix,
+          category: categorie,
+          icon: icon
+        });
+      }
+    }
+    
     /**************** Timestamp & Navigation ****************/
     function updateTimestamp() {
       const now = new Date();
@@ -996,8 +1064,12 @@
       
       addSaleIndexedDB(vente)
         .then((id) => {
+          // Sauvegarder la vente dans Firestore (les photos ne sont pas enregistrées en Firestore)
+          saveSaleToFirestore(vente).catch(error => console.error("Erreur Firestore (vente) : " + error.message));
           updateStockAfterSale(currentItems)
             .then(() => {
+              // Mettre à jour également le stock dans Firestore pour chaque article vendu
+              updateStockInFirestore(currentItems).catch(error => console.error("Erreur Firestore (stock) : " + error.message));
               alert(isDelivery ? "Livraison validée !" : "Vente validée !");
               currentItems = [];
               document.getElementById("clientNom").value = "";
@@ -1220,7 +1292,7 @@
             if (!sales || sales.length === 0) {
               throw new Error("Aucune vente récupérée.");
             }
-            // Modification : exclure les données de photo des ventes exportées en JSON
+            // Exclure les données de photo pour l'export en JSON
             const jsonOutput = JSON.stringify(sales, (key, value) => {
               if(key === "photoRecu" || key === "photoFacture") return undefined;
               return value;
@@ -1623,19 +1695,26 @@
         const index = store.index("nameIndex");
         const request = index.get(produit);
         request.onsuccess = function(e) {
-          const stockRecord = e.target.result;
-          if (stockRecord) {
+          if (e.target.result) {
+            const stockRecord = e.target.result;
             stockRecord.stock = (stockRecord.stock || 0) + quantite;
             stockRecord.price = prix;
             const updateRequest = store.put(stockRecord);
-            updateRequest.onsuccess = () => resolve();
+            updateRequest.onsuccess = () => {
+              addOrUpdateStockInFirestore(produit, quantite, prix, categorie, (categorie === "accessoires" ? "🎧" : "📱"))
+                .then(() => resolve())
+                .catch(err => reject(err));
+            };
             updateRequest.onerror = (err) => reject(new Error("Erreur lors de la mise à jour du stock pour " + produit + ": " + err.target.error));
           } else {
-            const category = categorie || "telephones";
-            const icon = category === "accessoires" ? "🎧" : "📱";
-            const newRecord = { id: Date.now(), category, name: produit, stock: quantite, stockPercentage: 0, price: prix, icon };
+            const icon = (categorie === "accessoires" ? "🎧" : "📱");
+            const newRecord = { id: Date.now(), category: categorie, name: produit, stock: quantite, stockPercentage: 0, price: prix, icon };
             const addRequest = store.add(newRecord);
-            addRequest.onsuccess = () => resolve();
+            addRequest.onsuccess = () => {
+              addOrUpdateStockInFirestore(produit, quantite, prix, categorie, icon)
+                .then(() => resolve())
+                .catch(err => reject(err));
+            };
             addRequest.onerror = (err) => reject(new Error("Erreur lors de l'ajout du nouvel article " + produit + ": " + err.target.error));
           }
         };
