@@ -365,7 +365,7 @@
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-analytics.js";
     import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     
-    // Votre configuration Firebase (remplacez les valeurs par les vôtres si nécessaire)
+    // Ta configuration Firebase – remplace les valeurs par les tiennes si nécessaire
     const firebaseConfig = {
       apiKey: "AIzaSyCVmG85CJPSqPDueR1RnxSS5DLtW3QP0Zs",
       authDomain: "africaphone-vente.firebaseapp.com",
@@ -615,7 +615,12 @@
     <button id="navParametres" class="nav-btn" onclick="showScreen('screen-parametres')">⚙️</button>
   </nav>
   
-  <script>
+  <!-- IMPORTANT : Tout le code JavaScript suivant est dans un script de type module -->
+  <script type="module">
+    // Importation depuis Firebase Firestore (la même version que dans le head)
+    import { collection, addDoc, updateDoc, doc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+    import { dbFirestore } from document.currentScript.previousElementSibling; // Récupère le module exporté dans le script précédent
+
     /**************** IndexedDB Setup (Version 2 pour inclure le stock) ****************/
     let db;
     function openDB() {
@@ -811,10 +816,9 @@
     }
     
     /**************** Fonctions Firestore pour ventes et stock ****************/
-    // Sauvegarder la vente dans Firestore (en excluant la photo)
+    // Sauvegarder la vente dans Firestore (sans la photo)
     function saveSaleToFirestore(vente) {
-      // Création d'une copie sans le champ photoFacture
-      const saleForFirestore = Object.assign({}, vente);
+      const saleForFirestore = { ...vente };
       delete saleForFirestore.photoFacture;
       return addDoc(collection(dbFirestore, "ventes"), saleForFirestore);
     }
@@ -869,7 +873,6 @@
     setInterval(updateTimestamp, 1000);
     
     function showScreen(screenId) {
-      // Protection par mot de passe pour la section Paramètres
       if(screenId === "screen-parametres") {
         var pass = prompt("Veuillez saisir le mot de passe pour accéder aux paramètres :");
         if(pass !== "Karim123456789,x1") {
@@ -1000,7 +1003,6 @@
         alert("Veuillez entrer le numéro WhatsApp du client.");
         return;
       }
-      // Récupération des informations vendeur depuis le nouveau bloc
       const vendeur = document.getElementById("vendeurSelect").value;
       const photoFile = document.getElementById("photoFacture").files[0];
       const observationsVendeur = document.getElementById("observationsVendeur").value.trim();
@@ -1064,11 +1066,9 @@
       
       addSaleIndexedDB(vente)
         .then((id) => {
-          // Sauvegarder la vente dans Firestore (les photos ne sont pas enregistrées en Firestore)
           saveSaleToFirestore(vente).catch(error => console.error("Erreur Firestore (vente) : " + error.message));
           updateStockAfterSale(currentItems)
             .then(() => {
-              // Mettre à jour également le stock dans Firestore pour chaque article vendu
               updateStockInFirestore(currentItems).catch(error => console.error("Erreur Firestore (stock) : " + error.message));
               alert(isDelivery ? "Livraison validée !" : "Vente validée !");
               currentItems = [];
@@ -1292,7 +1292,6 @@
             if (!sales || sales.length === 0) {
               throw new Error("Aucune vente récupérée.");
             }
-            // Exclure les données de photo pour l'export en JSON
             const jsonOutput = JSON.stringify(sales, (key, value) => {
               if(key === "photoRecu" || key === "photoFacture") return undefined;
               return value;
@@ -1384,7 +1383,6 @@
         suggestionList.style.display = "none";
         return;
       }
-      // Récupérer tous les produits (téléphones et accessoires)
       getAllStock().then(stocks => {
         const produits = stocks.map(s => s.name);
         const filtered = produits.filter(name => name.toLowerCase().includes(query));
@@ -1778,7 +1776,6 @@
       localStorage.setItem("vendeurs", JSON.stringify(vendeurs));
       chargerVendeurs();
     }
-    
   </script>
 </body>
 </html>
