@@ -357,31 +357,6 @@
       font-size: 14px;
     }
   </style>
-  
-  <!-- Configuration Firebase et Firestore -->
-  <script type="module">
-    // Importation des modules Firebase nécessaires (app, analytics et Firestore)
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-analytics.js";
-    import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
-    
-    // Ta configuration Firebase – remplace les valeurs par les tiennes si nécessaire
-    const firebaseConfig = {
-      apiKey: "AIzaSyCVmG85CJPSqPDueR1RnxSS5DLtW3QP0Zs",
-      authDomain: "africaphone-vente.firebaseapp.com",
-      projectId: "africaphone-vente",
-      storageBucket: "africaphone-vente.firebasestorage.app",
-      messagingSenderId: "203471818329",
-      appId: "1:203471818329:web:d0e235db15917d8b596b48",
-      measurementId: "G-EYL8YL86KB"
-    };
-    
-    // Initialisation de Firebase et Analytics
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    // Initialisation de Firestore
-    export const dbFirestore = getFirestore(app);
-  </script>
 </head>
 <body>
   <!-- Message de progression pour les téléchargements -->
@@ -615,12 +590,7 @@
     <button id="navParametres" class="nav-btn" onclick="showScreen('screen-parametres')">⚙️</button>
   </nav>
   
-  <!-- IMPORTANT : Tout le code JavaScript suivant est dans un script de type module -->
-  <script type="module">
-    // Importation depuis Firebase Firestore (la même version que dans le head)
-    import { collection, addDoc, updateDoc, doc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
-    import { dbFirestore } from document.currentScript.previousElementSibling; // Récupère le module exporté dans le script précédent
-
+  <script>
     /**************** IndexedDB Setup (Version 2 pour inclure le stock) ****************/
     let db;
     function openDB() {
@@ -815,48 +785,6 @@
       return Promise.all(promises).then(() => updateStockSummary());
     }
     
-    /**************** Fonctions Firestore pour ventes et stock ****************/
-    // Sauvegarder la vente dans Firestore (sans la photo)
-    function saveSaleToFirestore(vente) {
-      const saleForFirestore = { ...vente };
-      delete saleForFirestore.photoFacture;
-      return addDoc(collection(dbFirestore, "ventes"), saleForFirestore);
-    }
-    // Mettre à jour le stock dans Firestore pour chaque article vendu
-    async function updateStockInFirestore(items) {
-      const stockCollection = collection(dbFirestore, "stock");
-      for (const item of items) {
-        const q = query(stockCollection, where("name", "==", item.produit));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach(async (docSnapshot) => {
-          const currentStock = docSnapshot.data().stock;
-          const newStock = Math.max(0, currentStock - item.quantite);
-          await updateDoc(doc(dbFirestore, "stock", docSnapshot.id), { stock: newStock });
-        });
-      }
-    }
-    // Ajouter ou mettre à jour un article dans Firestore pour le stock
-    async function addOrUpdateStockInFirestore(produit, quantite, prix, categorie, icon) {
-      const stockCollection = collection(dbFirestore, "stock");
-      const q = query(stockCollection, where("name", "==", produit));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        querySnapshot.forEach(async (docSnapshot) => {
-          const currentStock = docSnapshot.data().stock;
-          const newStock = currentStock + quantite;
-          await updateDoc(doc(dbFirestore, "stock", docSnapshot.id), { stock: newStock, price: prix });
-        });
-      } else {
-        await addDoc(stockCollection, {
-          name: produit,
-          stock: quantite,
-          price: prix,
-          category: categorie,
-          icon: icon
-        });
-      }
-    }
-    
     /**************** Timestamp & Navigation ****************/
     function updateTimestamp() {
       const now = new Date();
@@ -873,6 +801,7 @@
     setInterval(updateTimestamp, 1000);
     
     function showScreen(screenId) {
+      // Protection par mot de passe pour la section Paramètres
       if(screenId === "screen-parametres") {
         var pass = prompt("Veuillez saisir le mot de passe pour accéder aux paramètres :");
         if(pass !== "Karim123456789,x1") {
@@ -1003,6 +932,7 @@
         alert("Veuillez entrer le numéro WhatsApp du client.");
         return;
       }
+      // Récupération des informations vendeur depuis le nouveau bloc
       const vendeur = document.getElementById("vendeurSelect").value;
       const photoFile = document.getElementById("photoFacture").files[0];
       const observationsVendeur = document.getElementById("observationsVendeur").value.trim();
@@ -1066,10 +996,8 @@
       
       addSaleIndexedDB(vente)
         .then((id) => {
-          saveSaleToFirestore(vente).catch(error => console.error("Erreur Firestore (vente) : " + error.message));
           updateStockAfterSale(currentItems)
             .then(() => {
-              updateStockInFirestore(currentItems).catch(error => console.error("Erreur Firestore (stock) : " + error.message));
               alert(isDelivery ? "Livraison validée !" : "Vente validée !");
               currentItems = [];
               document.getElementById("clientNom").value = "";
@@ -1292,6 +1220,7 @@
             if (!sales || sales.length === 0) {
               throw new Error("Aucune vente récupérée.");
             }
+            // Modification : exclure les données de photo des ventes exportées en JSON
             const jsonOutput = JSON.stringify(sales, (key, value) => {
               if(key === "photoRecu" || key === "photoFacture") return undefined;
               return value;
@@ -1383,6 +1312,7 @@
         suggestionList.style.display = "none";
         return;
       }
+      // Récupérer tous les produits (téléphones et accessoires)
       getAllStock().then(stocks => {
         const produits = stocks.map(s => s.name);
         const filtered = produits.filter(name => name.toLowerCase().includes(query));
@@ -1693,26 +1623,19 @@
         const index = store.index("nameIndex");
         const request = index.get(produit);
         request.onsuccess = function(e) {
-          if (e.target.result) {
-            const stockRecord = e.target.result;
+          const stockRecord = e.target.result;
+          if (stockRecord) {
             stockRecord.stock = (stockRecord.stock || 0) + quantite;
             stockRecord.price = prix;
             const updateRequest = store.put(stockRecord);
-            updateRequest.onsuccess = () => {
-              addOrUpdateStockInFirestore(produit, quantite, prix, categorie, (categorie === "accessoires" ? "🎧" : "📱"))
-                .then(() => resolve())
-                .catch(err => reject(err));
-            };
+            updateRequest.onsuccess = () => resolve();
             updateRequest.onerror = (err) => reject(new Error("Erreur lors de la mise à jour du stock pour " + produit + ": " + err.target.error));
           } else {
-            const icon = (categorie === "accessoires" ? "🎧" : "📱");
-            const newRecord = { id: Date.now(), category: categorie, name: produit, stock: quantite, stockPercentage: 0, price: prix, icon };
+            const category = categorie || "telephones";
+            const icon = category === "accessoires" ? "🎧" : "📱";
+            const newRecord = { id: Date.now(), category, name: produit, stock: quantite, stockPercentage: 0, price: prix, icon };
             const addRequest = store.add(newRecord);
-            addRequest.onsuccess = () => {
-              addOrUpdateStockInFirestore(produit, quantite, prix, categorie, icon)
-                .then(() => resolve())
-                .catch(err => reject(err));
-            };
+            addRequest.onsuccess = () => resolve();
             addRequest.onerror = (err) => reject(new Error("Erreur lors de l'ajout du nouvel article " + produit + ": " + err.target.error));
           }
         };
@@ -1776,6 +1699,7 @@
       localStorage.setItem("vendeurs", JSON.stringify(vendeurs));
       chargerVendeurs();
     }
+    
   </script>
 </body>
 </html>
