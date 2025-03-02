@@ -38,6 +38,27 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    /* Sale Loader Popup Styles */
+    #saleLoader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 6000;
+      background: rgba(255,255,255,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #saleLoader .loader-content {
+      text-align: center;
+    }
+    #saleLoader .loader-content p {
+      font-size: 16px;
+      color: var(--primary-color);
+      margin-top: 10px;
+    }
     /* CSS Variables */
     :root {
       --primary-color: #006064;
@@ -342,13 +363,14 @@
       font-weight: bold;
       border-top: 2px solid var(--primary-color);
     }
-    /* Sales History Cards - Modification : suppression des cadres */
+    /* Sales History Cards */
     .list-container {
       padding: 5px;
     }
     .vente-card {
       background: var(--white);
-      /* Cadres supprimés : on retire border-radius et box-shadow */
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
       padding: 12px;
       margin-bottom: 10px;
       font-size: 14px;
@@ -402,6 +424,14 @@
   <!-- Preloader -->
   <div id="preloader">
     <div class="spinner"></div>
+  </div>
+  
+  <!-- Sale Loader Popup -->
+  <div id="saleLoader">
+    <div class="loader-content">
+      <div class="spinner" style="width:40px; height:40px; border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-color);"></div>
+      <p>Enregistrement de la vente...</p>
+    </div>
   </div>
 
   <!-- Message de progression pour les téléchargements -->
@@ -643,8 +673,15 @@
       setTimeout(() => { preloader.style.display = 'none'; }, 500);
     });
 
+    /**************** Sale Loader Functions ****************/
+    function showSaleLoader() {
+      document.getElementById("saleLoader").style.display = "flex";
+    }
+    function hideSaleLoader() {
+      document.getElementById("saleLoader").style.display = "none";
+    }
+
     /**************** Initialisation Firebase et Firestore ****************/
-    // Votre configuration Firebase fournie
     const firebaseConfig = {
       apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
       authDomain: "africaphone1-accfb.firebaseapp.com",
@@ -654,7 +691,6 @@
       appId: "1:747416222232:web:36cb8a93f3c8342ad3e16d",
       measurementId: "G-LFT6C3Q9D9"
     };
-    // Initialisation de Firebase
     firebase.initializeApp(firebaseConfig);
     const dbFirestore = firebase.firestore();
 
@@ -971,6 +1007,7 @@
       }
     }
     function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+      showSaleLoader();
       const now = new Date();
       const dateVente = now.toLocaleDateString("fr-FR");
       const heureVente = now.toLocaleTimeString("fr-FR");
@@ -996,28 +1033,27 @@
       }
       addSaleFirestore(vente)
         .then(id => {
-          updateStockAfterSaleFirestore(currentItems)
-            .then(() => {
-              alert(isDelivery ? "Livraison validée !" : "Vente validée !");
-              currentItems = [];
-              document.getElementById("clientNom").value = "";
-              document.getElementById("clientNumero").value = "";
-              document.getElementById("photoFacture").value = "";
-              document.getElementById("observationsVendeur").value = "";
-              document.getElementById("isDelivery").checked = false;
-              toggleDeliveryFields();
-              if(vente.isDelivery){
-                afficherLivraisons();
-                afficherVentes();
-              } else {
-                afficherVentes();
-              }
-            })
-            .catch(error => {
-              alert("Erreur lors de la mise à jour du stock : " + error.message);
-            });
+          return updateStockAfterSaleFirestore(currentItems);
+        })
+        .then(() => {
+          hideSaleLoader();
+          alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+          currentItems = [];
+          document.getElementById("clientNom").value = "";
+          document.getElementById("clientNumero").value = "";
+          document.getElementById("photoFacture").value = "";
+          document.getElementById("observationsVendeur").value = "";
+          document.getElementById("isDelivery").checked = false;
+          toggleDeliveryFields();
+          if(vente.isDelivery){
+            afficherLivraisons();
+            afficherVentes();
+          } else {
+            afficherVentes();
+          }
         })
         .catch(error => {
+          hideSaleLoader();
           alert("Erreur lors de l'ajout de la vente : " + error.message);
         });
     }
@@ -1207,7 +1243,7 @@
             doc.setFontSize(10);
             const lines = doc.splitTextToSize(jsonOutput, 180);
             doc.text(lines, 10, 10);
-            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'zizou'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
             doc.save("ventes_json.pdf");
             setTimeout(() => {
               progressElem.textContent = "Téléchargement terminé";
@@ -1605,7 +1641,6 @@
           querySnapshot.forEach(doc => {
             vendeurs.push({ id: doc.id, ...doc.data() });
           });
-          // Remplir le select pour le vendeur
           const select = document.getElementById("vendeurSelect");
           select.innerHTML = "";
           vendeurs.forEach(v => {
@@ -1614,7 +1649,6 @@
             option.textContent = v.name;
             select.appendChild(option);
           });
-          // Remplir la liste des vendeurs pour la gestion
           const liste = document.getElementById("listeVendeurs");
           liste.innerHTML = "";
           vendeurs.forEach(v => {
@@ -1662,10 +1696,6 @@
         })
         .catch(err => alert("Erreur lors de la suppression du vendeur : " + err.message));
     }
-
-    /**************** Fin Gestion des Vendeurs ****************/
-
-    // Charger les vendeurs depuis Firestore dès le chargement de la page
     window.addEventListener("load", function() {
       chargerVendeurs();
     });
