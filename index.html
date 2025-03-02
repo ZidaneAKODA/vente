@@ -7,6 +7,9 @@
   <!-- jsPDF and jsPDF-AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
@@ -604,249 +607,135 @@
   </nav>
   
   <script>
-    /**************** IndexedDB Setup (Version 2 pour inclure le stock) ****************/
-    let db;
-    function openDB() {
-      return new Promise((resolve, reject) => {
-        const request = indexedDB.open("ventesDB", 2);
-        request.onupgradeneeded = function (event) {
-          db = event.target.result;
-          // Création de l'object store pour les ventes
-          if (!db.objectStoreNames.contains("ventes")) {
-            const store = db.createObjectStore("ventes", { keyPath: "id", autoIncrement: true });
-            store.createIndex("dateVente", "dateVente", { unique: false });
+    /**************** Initialisation Firebase et Firestore ****************/
+    // Votre configuration Firebase fournie
+    const firebaseConfig = {
+      apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
+      authDomain: "africaphone1-accfb.firebaseapp.com",
+      projectId: "africaphone1-accfb",
+      storageBucket: "africaphone1-accfb.firebasestorage.app",
+      messagingSenderId: "747416222232",
+      appId: "1:747416222232:web:36cb8a93f3c8342ad3e16d",
+      measurementId: "G-LFT6C3Q9D9"
+    };
+    // Initialisation de Firebase
+    firebase.initializeApp(firebaseConfig);
+    const dbFirestore = firebase.firestore();
+
+    /**************** Fonctions Firestore CRUD pour les ventes ****************/
+    function addSaleFirestore(vente) {
+      return dbFirestore.collection("ventes").add(vente)
+        .then(docRef => docRef.id)
+        .catch(error => { throw new Error("Erreur lors de l'ajout de la vente : " + error.message); });
+    }
+    function updateSaleFirestore(venteId, vente) {
+      return dbFirestore.collection("ventes").doc(venteId).set(vente, { merge: true })
+        .then(() => venteId)
+        .catch(error => { throw new Error("Erreur lors de la mise à jour de la vente : " + error.message); });
+    }
+    function getSalesForTodayFirestore() {
+      const today = new Date().toLocaleDateString("fr-FR");
+      return dbFirestore.collection("ventes")
+        .where("dateVente", "==", today)
+        .get()
+        .then(querySnapshot => {
+          const ventes = [];
+          querySnapshot.forEach(doc => {
+            ventes.push({ id: doc.id, ...doc.data() });
+          });
+          return ventes;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération des ventes : " + error.message); });
+    }
+    function getSaleByIdFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).get()
+        .then(doc => {
+          if (doc.exists) {
+            return { id: doc.id, ...doc.data() };
+          } else {
+            throw new Error("Vente non trouvée.");
           }
-          // Création de l'object store pour le stock
-          if (!db.objectStoreNames.contains("stock")) {
-            const stockStore = db.createObjectStore("stock", { keyPath: "id", autoIncrement: true });
-            stockStore.createIndex("nameIndex", "name", { unique: false });
-            stockStore.createIndex("categoryIndex", "category", { unique: false });
-          }
-        };
-        request.onsuccess = function (event) {
-          db = event.target.result;
-          resolve(db);
-        };
-        request.onerror = function (event) {
-          reject(new Error("Erreur lors de l'ouverture de la base de données: " + event.target.error));
-        };
-      });
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération de la vente : " + error.message); });
     }
-    openDB()
-      .then(() => {
-        updateTimestamp();
-        afficherVentes();
-        updateStockSummary();
-        chargerVendeurs(); // Chargement initial de la liste des vendeurs
-      })
-      .catch((error) => console.error("Erreur d'ouverture de la DB : " + error.message));
-      
-    function addSaleIndexedDB(vente) {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas initialisée."));
-        }
-        try {
-          const transaction = db.transaction(["ventes"], "readwrite");
-          const store = transaction.objectStore("ventes");
-          const request = store.add(vente);
-          request.onsuccess = (e) => resolve(e.target.result);
-          request.onerror = (e) => reject(new Error("Erreur lors de l'ajout de la vente : " + e.target.error));
-        } catch (err) {
-          reject(new Error("Exception dans addSaleIndexedDB : " + err.message));
-        }
-      });
+    function deleteSaleFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).delete()
+        .then(() => true)
+        .catch(error => { throw new Error("Erreur lors de la suppression de la vente : " + error.message); });
     }
-    function updateSaleIndexedDB(vente) {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas initialisée."));
-        }
-        try {
-          const transaction = db.transaction(["ventes"], "readwrite");
-          const store = transaction.objectStore("ventes");
-          const request = store.put(vente);
-          request.onsuccess = (e) => resolve(e.target.result);
-          request.onerror = (e) => reject(new Error("Erreur lors de la mise à jour de la vente : " + e.target.error));
-        } catch (err) {
-          reject(new Error("Exception dans updateSaleIndexedDB : " + err.message));
-        }
-      });
+
+    /**************** Fonctions Firestore CRUD pour le stock ****************/
+    function getAllStockFirestore() {
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          const stocks = [];
+          querySnapshot.forEach(doc => {
+            stocks.push({ id: doc.id, ...doc.data() });
+          });
+          return stocks;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération du stock : " + error.message); });
     }
-    function getSalesForToday() {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas initialisée. Veuillez attendre l'initialisation."));
-        }
-        try {
-          const today = new Date().toLocaleDateString("fr-FR");
-          const transaction = db.transaction(["ventes"], "readonly");
-          const store = transaction.objectStore("ventes");
-          const index = store.index("dateVente");
-          const range = IDBKeyRange.only(today);
-          const sales = [];
-          index.openCursor(range).onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-              sales.push(cursor.value);
-              cursor.continue();
-            } else {
-              resolve(sales);
+    function importStockToFirestore(stocks) {
+      // Pour simplifier, on efface la collection existante (à utiliser avec précaution)
+      const batch = dbFirestore.batch();
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          stocks.forEach(stockItem => {
+            const docRef = dbFirestore.collection("stock").doc();
+            batch.set(docRef, stockItem);
+          });
+          return batch.commit();
+        })
+        .catch(error => { throw new Error("Erreur lors de l'importation du stock : " + error.message); });
+    }
+    function updateStockAfterSaleFirestore(items) {
+      const promises = items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = Math.max(0, stockData.stock - item.quantite);
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
             }
-          };
-          index.openCursor(range).onerror = (event) => reject(new Error("Erreur lors de l'ouverture du curseur sur 'ventes' : " + event.target.error));
-        } catch (err) {
-          reject(new Error("Exception dans getSalesForToday : " + err.message));
-        }
-      });
-    }
-    function getSaleById(id) {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas initialisée."));
-        }
-        try {
-          const transaction = db.transaction(["ventes"], "readonly");
-          const store = transaction.objectStore("ventes");
-          const request = store.get(id);
-          request.onsuccess = (event) => resolve(event.target.result);
-          request.onerror = (event) => reject(new Error("Erreur lors de la récupération de la vente : " + event.target.error));
-        } catch (err) {
-          reject(new Error("Exception dans getSaleById : " + err.message));
-        }
-      });
-    }
-    
-    /**************** Gestion du STOCK dans IndexedDB ****************/
-    function getAllStock() {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas encore initialisée. Veuillez attendre que l'initialisation soit terminée."));
-        }
-        try {
-          const transaction = db.transaction(["stock"], "readonly");
-          const store = transaction.objectStore("stock");
-          const request = store.getAll();
-          request.onsuccess = function(event) {
-            if (event.target.result) {
-              resolve(event.target.result);
-            } else {
-              reject(new Error("Aucune donnée trouvée dans l'object store 'stock'."));
-            }
-          };
-          request.onerror = function(event) {
-            reject(new Error("Erreur lors de la récupération des données de 'stock' : " + event.target.error));
-          };
-        } catch (err) {
-          reject(new Error("Exception dans getAllStock : " + err.message));
-        }
-      });
-    }
-    function importStockToDB(stocks) {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas initialisée."));
-        }
-        try {
-          const transaction = db.transaction(["stock"], "readwrite");
-          const store = transaction.objectStore("stock");
-          const clearRequest = store.clear();
-          clearRequest.onsuccess = function() {
-            let addPromises = stocks.map(stockItem => {
-              return new Promise((res, rej) => {
-                const addRequest = store.add(stockItem);
-                addRequest.onsuccess = (e) => res(e.target.result);
-                addRequest.onerror = (e) => rej(new Error("Erreur lors de l'ajout de l'élément " + stockItem.name + " : " + e.target.error));
-              });
-            });
-            Promise.all(addPromises).then(() => resolve()).catch(err => reject(err));
-          };
-          clearRequest.onerror = function(e) { reject(new Error("Erreur lors du vidage de l'object store 'stock' : " + e.target.error)); };
-        } catch (err) {
-          reject(new Error("Exception dans importStockToDB : " + err.message));
-        }
-      });
-    }
-    function updateStockAfterSale(items) {
-      let promises = items.map(item => {
-        return new Promise((res, rej) => {
-          if (!db) {
-            return rej(new Error("La base de données n'est pas initialisée."));
-          }
-          try {
-            const transaction = db.transaction(["stock"], "readwrite");
-            const store = transaction.objectStore("stock");
-            const index = store.index("nameIndex");
-            const request = index.get(item.produit);
-            request.onsuccess = function(e) {
-              const stockRecord = e.target.result;
-              if(stockRecord) {
-                stockRecord.stock = Math.max(0, stockRecord.stock - item.quantite);
-                const updateRequest = store.put(stockRecord);
-                updateRequest.onsuccess = () => res();
-                updateRequest.onerror = (err) => rej(new Error("Erreur lors de la mise à jour du stock pour " + item.produit + " : " + err.target.error));
-              } else {
-                res();
-              }
-            };
-            request.onerror = (err) => rej(new Error("Erreur lors de la récupération du stock pour " + item.produit + " : " + err.target.error));
-          } catch (err) {
-            rej(new Error("Exception dans updateStockAfterSale : " + err.message));
-          }
-        });
+          });
       });
       return Promise.all(promises).then(() => updateStockSummary());
     }
-    
-    /**************** Logique de restockage et annulation de vente ****************/
-    function restockAfterCancellation(sale) {
-      let promises = sale.items.map(item => {
-        return new Promise((res, rej) => {
-          if (!db) {
-            return rej(new Error("La base de données n'est pas initialisée."));
-          }
-          try {
-            const transaction = db.transaction(["stock"], "readwrite");
-            const store = transaction.objectStore("stock");
-            const index = store.index("nameIndex");
-            const request = index.get(item.produit);
-            request.onsuccess = function(e) {
-              const stockRecord = e.target.result;
-              if (stockRecord) {
-                stockRecord.stock += item.quantite;
-                const updateRequest = store.put(stockRecord);
-                updateRequest.onsuccess = () => res();
-                updateRequest.onerror = (err) => rej(new Error("Erreur lors de la mise à jour du stock pour " + item.produit + " : " + err.target.error));
-              } else {
-                res();
-              }
-            };
-            request.onerror = (err) => rej(new Error("Erreur lors de la récupération du stock pour " + item.produit + " : " + err.target.error));
-          } catch (err) {
-            rej(new Error("Exception dans restockAfterCancellation : " + err.message));
-          }
-        });
+    function restockAfterCancellationFirestore(sale) {
+      const promises = sale.items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = stockData.stock + item.quantite;
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
+            }
+          });
       });
       return Promise.all(promises).then(() => updateStockSummary());
     }
-    
-    function supprimerVente(id) {
-      return new Promise((resolve, reject) => {
-        if (!db) {
-          return reject(new Error("La base de données n'est pas initialisée."));
-        }
-        try {
-          const transaction = db.transaction(["ventes"], "readwrite");
-          const store = transaction.objectStore("ventes");
-          const request = store.delete(id);
-          request.onsuccess = () => resolve();
-          request.onerror = (e) => reject(new Error("Erreur lors de la suppression de la vente : " + e.target.error));
-        } catch (err) {
-          reject(new Error("Exception lors de la suppression de la vente : " + err.message));
-        }
-      });
+
+    /**************** Mise à jour de l'affichage du stock ****************/
+    function updateStockSummary() {
+      getAllStockFirestore().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
     }
-    
+
+    /**************** Logique de l'annulation de vente avec restockage ****************/
     function demanderAnnulation(id) {
       const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
       if (motDePasse !== "Karim123456789,x1") {
@@ -854,28 +743,22 @@
         return;
       }
       if (confirm("Voulez-vous vraiment annuler cette vente ? Cela réintégrera les articles dans le stock.")) {
-        getSaleById(id)
-          .then((sale) => {
-            if (!sale) {
-              alert("Vente non trouvée.");
-              return;
-            }
-            restockAfterCancellation(sale)
-              .then(() => {
-                supprimerVente(id)
-                  .then(() => {
-                    alert("Vente annulée et stock mis à jour !");
-                    afficherVentes();
-                  })
-                  .catch(err => alert("Erreur lors de la suppression de la vente : " + err.message));
-              })
-              .catch(err => alert("Erreur lors du restockage : " + err.message));
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            return restockAfterCancellationFirestore(sale).then(() => sale);
           })
-          .catch(err => alert("Erreur lors de la récupération de la vente : " + err.message));
+          .then(sale => {
+            return deleteSaleFirestore(sale.id);
+          })
+          .then(() => {
+            alert("Vente annulée et stock mis à jour !");
+            afficherVentes();
+          })
+          .catch(err => alert("Erreur lors de l'annulation : " + err.message));
       }
     }
-    
-    /**************** Timestamp & Navigation ****************/
+
+    /**************** Gestion des écrans et timestamp ****************/
     function updateTimestamp() {
       const now = new Date();
       const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
@@ -889,9 +772,8 @@
       document.getElementById("dateParametres").innerText = now.toLocaleDateString("fr-FR");
     }
     setInterval(updateTimestamp, 1000);
-    
+
     function showScreen(screenId) {
-      // Protection par mot de passe pour la section Paramètres
       if(screenId === "screen-parametres") {
         var pass = prompt("Veuillez saisir le mot de passe pour accéder aux paramètres :");
         if(pass !== "Karim123456789,x1") {
@@ -917,8 +799,9 @@
         document.getElementById("navParametres").classList.add("active");
       }
     }
-    
+
     /**************** Gestion du Panier (Vente) ****************/
+    let currentItems = [];
     function updatePanier() {
       const panierContainer = document.getElementById("panierContent");
       panierContainer.innerHTML = "";
@@ -940,7 +823,7 @@
     function fermerPanier() {
       document.getElementById("modalPanier").style.display = "none";
     }
-    
+
     /**************** Affichage des Articles du Panier (Vente) ****************/
     function ajouterArticle() {
       const produit = document.getElementById("produit").value.trim();
@@ -967,7 +850,6 @@
       document.getElementById("totalArticle").value = "";
       alert("Article ajouté au panier.");
     }
-    
     function calculerTotalArticle() {
       const prix = parseFloat(document.getElementById("prix").value) || 0;
       const quantite = parseInt(document.getElementById("quantite").value) || 0;
@@ -987,7 +869,7 @@
       input.value = ++value;
       calculerTotalArticle();
     }
-    
+
     /**************** Gestion de la Livraison dans la Vente ****************/
     function toggleDeliveryFields() {
       const isDelivery = document.getElementById("isDelivery").checked;
@@ -1001,11 +883,10 @@
         btnValider.textContent = "Valider Vente";
       }
     }
-    
     function getValidationMessage() {
       return document.getElementById("isDelivery").checked ? "Valider la livraison ?" : "Valider la vente ?";
     }
-    
+
     /**************** Validation et Finalisation de la Vente ****************/
     function validerVente() {
       if(currentItems.length === 0) {
@@ -1022,11 +903,9 @@
         alert("Veuillez entrer le numéro WhatsApp du client.");
         return;
       }
-      // Récupération des informations vendeur depuis le nouveau bloc
       const vendeur = document.getElementById("vendeurSelect").value;
       const photoFile = document.getElementById("photoFacture").files[0];
       const observationsVendeur = document.getElementById("observationsVendeur").value.trim();
-      
       let isDelivery = document.getElementById("isDelivery").checked;
       let livreurNom = "";
       let livreurNumero = "";
@@ -1040,7 +919,6 @@
           return;
         }
       }
-      
       if(photoFile) {
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -1057,13 +935,11 @@
         finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
       }
     }
-    
     function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
       const now = new Date();
       const dateVente = now.toLocaleDateString("fr-FR");
       const heureVente = now.toLocaleTimeString("fr-FR");
       const overallTotal = currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
-      
       const vente = { 
         dateVente, 
         heureVente, 
@@ -1083,10 +959,9 @@
         vente.deliveryStatus = "en cours";
         vente.convertedToSale = false;
       }
-      
-      addSaleIndexedDB(vente)
-        .then((id) => {
-          updateStockAfterSale(currentItems)
+      addSaleFirestore(vente)
+        .then(id => {
+          updateStockAfterSaleFirestore(currentItems)
             .then(() => {
               alert(isDelivery ? "Livraison validée !" : "Vente validée !");
               currentItems = [];
@@ -1103,28 +978,28 @@
                 afficherVentes();
               }
             })
-            .catch((error) => {
+            .catch(error => {
               alert("Erreur lors de la mise à jour du stock : " + error.message);
             });
         })
-        .catch((error) => {
+        .catch(error => {
           alert("Erreur lors de l'ajout de la vente : " + error.message);
         });
     }
-    
+
     /**************** Affichage et Détails des Ventes ****************/
     function afficherVentes() {
-      getSalesForToday()
-        .then((sales) => {
+      getSalesForTodayFirestore()
+        .then(sales => {
           const ventes = sales.filter(sale => !sale.isDelivery || (sale.isDelivery && sale.convertedToSale));
-          ventes.sort((a, b) => b.id - a.id);
+          ventes.sort((a, b) => b.id.localeCompare(a.id));
           const container = document.getElementById("ventesContainer");
           container.innerHTML = "";
           if(ventes.length === 0) {
             container.innerHTML = "<p>Aucune vente enregistrée aujourd'hui.</p>";
             return;
           }
-          ventes.forEach((sale) => {
+          ventes.forEach(sale => {
             const card = document.createElement("div");
             card.className = "vente-card";
             card.innerHTML = `
@@ -1132,30 +1007,28 @@
               <p>Vendeur : ${sale.vendeur}</p>
               <p>Articles : ${sale.items ? sale.items.length : 0}</p>
               <p>Total : ${sale.overallTotal}</p>
-              <button onclick="ouvrirDetails(${sale.id})">Détails</button>
-              <button class="delete-btn" onclick="demanderAnnulation(${sale.id})" title="Annuler la vente">×</button>
+              <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+              <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>
             `;
             container.appendChild(card);
           });
         })
-        .catch((error) => {
-          console.error("Erreur lors de la récupération des ventes : " + error.message);
-        });
+        .catch(error => console.error("Erreur lors de la récupération des ventes : " + error.message));
     }
     
     /**************** Affichage des Livraisons ****************/
     function afficherLivraisons() {
-      getSalesForToday()
-        .then((sales) => {
+      getSalesForTodayFirestore()
+        .then(sales => {
           const livraisons = sales.filter(sale => sale.isDelivery);
-          livraisons.sort((a, b) => b.id - a.id);
+          livraisons.sort((a, b) => b.id.localeCompare(a.id));
           const container = document.getElementById("livraisonsContainer");
           container.innerHTML = "";
           if(livraisons.length === 0) {
             container.innerHTML = "<p>Aucune livraison enregistrée aujourd'hui.</p>";
             return;
           }
-          livraisons.forEach((sale) => {
+          livraisons.forEach(sale => {
             let statusEmoji = "🟠 En cours";
             if(sale.deliveryStatus === "réussie") {
               statusEmoji = "🟢 Réussie";
@@ -1170,86 +1043,67 @@
             let actionButtons = "";
             if(sale.deliveryStatus === "en cours") {
               actionButtons = `
-                <button onclick="marquerCommeReussie(${sale.id})">Marquer comme Réussie</button>
-                <button onclick="marquerCommeEchouee(${sale.id})">Marquer comme Échouée</button>
+                <button onclick="marquerCommeReussie('${sale.id}')">Marquer comme Réussie</button>
+                <button onclick="marquerCommeEchouee('${sale.id}')">Marquer comme Échouée</button>
               `;
             }
             card.innerHTML = `
               <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
               <p>Vendeur : ${sale.vendeur}</p>
-              <p>Livraison par : ${sale.livreurNom} (${sale.livreurNumero})</p>
-              <p>Lieu : ${sale.lieuLivraison}</p>
+              <p>Livraison par : ${sale.livreurNom || ""} (${sale.livreurNumero || ""})</p>
+              <p>Lieu : ${sale.lieuLivraison || ""}</p>
               <p>Statut : ${statusEmoji}</p>
               <p>Total : ${sale.overallTotal}</p>
-              <button onclick="ouvrirDetails(${sale.id})">Détails</button>
+              <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
               ${actionButtons}
             `;
             container.appendChild(card);
           });
         })
-        .catch((error) => {
-          console.error("Erreur lors de la récupération des livraisons : " + error.message);
-        });
+        .catch(error => console.error("Erreur lors de la récupération des livraisons : " + error.message));
     }
     
     /**************** Fonctions de Marquage des Livraisons ****************/
     function marquerCommeReussie(id) {
       if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
-        getSaleById(id)
-          .then((sale) => {
-            if(!sale) {
-              alert("Livraison non trouvée.");
-              return;
-            }
+        getSaleByIdFirestore(id)
+          .then(sale => {
             sale.deliveryStatus = "réussie";
             sale.convertedToSale = true;
-            updateSaleIndexedDB(sale)
+            updateSaleFirestore(sale.id, sale)
               .then(() => {
                 alert("Livraison marquée comme réussie et convertie en vente !");
                 afficherLivraisons();
                 afficherVentes();
               })
-              .catch((error) => {
-                alert("Erreur lors de la mise à jour de la vente : " + error.message);
-              });
+              .catch(error => alert("Erreur lors de la mise à jour de la vente : " + error.message));
           })
-          .catch((error) => {
-            alert("Erreur dans marquerCommeReussie : " + error.message);
-          });
+          .catch(error => alert("Erreur dans marquerCommeReussie : " + error.message));
       }
     }
-    
     function marquerCommeEchouee(id) {
       if(confirm("Voulez-vous marquer cette livraison comme échouée ?")) {
-        getSaleById(id)
-          .then((sale) => {
-            if(!sale) {
-              alert("Livraison non trouvée.");
-              return;
-            }
+        getSaleByIdFirestore(id)
+          .then(sale => {
             sale.deliveryStatus = "échouée";
-            updateSaleIndexedDB(sale)
+            updateSaleFirestore(sale.id, sale)
               .then(() => {
                 alert("Livraison marquée comme échouée !");
                 afficherLivraisons();
               })
-              .catch((error) => {
-                alert("Erreur lors de la mise à jour de la livraison : " + error.message);
-              });
+              .catch(error => alert("Erreur lors de la mise à jour de la livraison : " + error.message));
           })
-          .catch((error) => {
-            alert("Erreur dans marquerCommeEchouee : " + error.message);
-          });
+          .catch(error => alert("Erreur dans marquerCommeEchouee : " + error.message));
       }
     }
     
     /**************** Détails d'une Vente ****************/
     function ouvrirDetails(id) {
-      getSaleById(id)
-        .then((sale) => {
+      getSaleByIdFirestore(id)
+        .then(sale => {
           let articlesText = "";
           if (Array.isArray(sale.items)) {
-            sale.items.forEach((item) => {
+            sale.items.forEach(item => {
               articlesText += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Montant : " + item.total + ")<br>";
             });
           } else {
@@ -1284,14 +1138,12 @@
           document.getElementById("detailContent").innerHTML = detailHTML;
           document.getElementById("modalDetail").style.display = "flex";
         })
-        .catch((error) => {
-          console.error("Erreur lors de la récupération de la vente : " + error.message);
-        });
+        .catch(error => console.error("Erreur lors de la récupération de la vente : " + error.message));
     }
     function fermerModal() {
       document.getElementById("modalDetail").style.display = "none";
     }
-    window.onclick = function (event) {
+    window.onclick = function(event) {
       if (event.target === document.getElementById("modalDetail")) {
         fermerModal();
       }
@@ -1299,19 +1151,18 @@
         fermerPanier();
       }
     };
-    
+
     /**************** Export PDF (Format JSON) ****************/
     function exporterPDF() {
       const progressElem = document.getElementById("downloadProgress");
       progressElem.style.display = "block";
       progressElem.textContent = "Téléchargement en cours...";
-      getSalesForToday()
-        .then((sales) => {
+      getSalesForTodayFirestore()
+        .then(sales => {
           try {
             if (!sales || sales.length === 0) {
               throw new Error("Aucune vente récupérée.");
             }
-            // Modification : exclure les données de photo des ventes exportées en JSON
             const jsonOutput = JSON.stringify(sales, (key, value) => {
               if(key === "photoRecu" || key === "photoFacture") return undefined;
               return value;
@@ -1334,25 +1185,25 @@
             alert("Erreur : " + e.message);
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error("Erreur lors de l'exportation du PDF JSON : " + error.message);
           progressElem.textContent = "Erreur lors du téléchargement: " + error.message;
           setTimeout(() => { progressElem.style.display = "none"; }, 4000);
           alert("Erreur : " + error.message);
         });
     }
-    
+
     /**************** Export Factures PDF ****************/
     function exporterFacturesPDF() {
-      getSalesForToday()
-        .then((sales) => {
+      getSalesForTodayFirestore()
+        .then(sales => {
           try {
             const salesWithFacture = sales.filter(sale => sale.photoFacture);
             if (!salesWithFacture.length) {
               alert("Aucune vente avec facture disponible pour l'exportation.");
               return;
             }
-            salesWithFacture.sort((a, b) => b.id - a.id);
+            salesWithFacture.sort((a, b) => b.id.localeCompare(a.id));
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             doc.setFontSize(14);
@@ -1387,12 +1238,12 @@
             alert("Erreur : " + e.message);
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error("Erreur lors de l'exportation des factures en PDF : " + error.message);
           alert("Erreur : " + error.message);
         });
     }
-    
+
     /**************** Auto-suggestion pour la Vente ****************/
     const produitInput = document.getElementById("produit");
     const suggestionList = document.getElementById("suggestionList");
@@ -1403,8 +1254,7 @@
         suggestionList.style.display = "none";
         return;
       }
-      // Récupérer tous les produits (téléphones et accessoires)
-      getAllStock().then(stocks => {
+      getAllStockFirestore().then(stocks => {
         const produits = stocks.map(s => s.name);
         const filtered = produits.filter(name => name.toLowerCase().includes(query));
         if(filtered.length === 0) {
@@ -1437,7 +1287,7 @@
         suggestionList.style.display = "none";
       }
     });
-    
+
     /**************** Auto-suggestion pour l'Entrée de Stock ****************/
     const produitEntreeInput = document.getElementById("produitEntree");
     const suggestionListEntree = document.getElementById("suggestionListEntree");
@@ -1448,7 +1298,7 @@
         suggestionListEntree.style.display = "none";
         return;
       }
-      getAllStock().then(stocks => {
+      getAllStockFirestore().then(stocks => {
         const produits = stocks.map(s => s.name);
         const filtered = produits.filter(name => name.toLowerCase().includes(query));
         if(filtered.length === 0) {
@@ -1481,7 +1331,7 @@
         suggestionListEntree.style.display = "none";
       }
     });
-    
+
     /**************** Gestion des onglets dans la section Stock ****************/
     function filterStockItems(category) {
       let searchTerm = "";
@@ -1513,7 +1363,7 @@
       }
       const container = document.getElementById(containerId);
       container.innerHTML = "";
-      getAllStock().then(stocks => {
+      getAllStockFirestore().then(stocks => {
         let filteredProducts = stocks.filter(prod => prod.category === category && prod.name.toLowerCase().includes(searchTerm));
         if(filteredProducts.length === 0){
           container.innerHTML = "<p>Aucun produit trouvé.</p>";
@@ -1543,10 +1393,10 @@
         }
       }).catch(err => console.error("Erreur dans filterStockItems : " + err.message));
     }
-    
+
     let currentStockCategory = "";
     function updateStockSummary() {
-      getAllStock().then(stocks => {
+      getAllStockFirestore().then(stocks => {
         const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
         const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
         document.getElementById("total-telephones").innerText = totalTelephones;
@@ -1577,7 +1427,7 @@
         return;
       }
       const searchTerm = searchInput.value.toLowerCase();
-      getAllStock().then(stocks => {
+      getAllStockFirestore().then(stocks => {
         const filteredProducts = stocks.filter(prod => prod.category === currentStockCategory && prod.name.toLowerCase().includes(searchTerm));
         const container = document.getElementById("category-container");
         container.innerHTML = "";
@@ -1600,20 +1450,12 @@
         });
       }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
     }
-    
+
     /**************** Importation du stock depuis un fichier TXT ****************/
     function importStockFile(event) {
       const file = event.target.files[0];
       if (!file) return;
-      if (!db) {
-        openDB().then(() => {
-          readAndImport(file);
-        }).catch(err => {
-          alert("Erreur avec la base de données : " + err.message);
-        });
-      } else {
-        readAndImport(file);
-      }
+      readAndImport(file);
     }
     function readAndImport(file) {
       const reader = new FileReader();
@@ -1639,10 +1481,9 @@
         let price = parseInt(priceText.replace(/[^\d]/g, ""));
         const category = selectedCategory;
         const icon = category === "accessoires" ? "🎧" : "📱";
-        const id = Date.now() + i;
-        importedStocks.push({ id, category, name, stock, stockPercentage: 0, price, icon });
+        importedStocks.push({ name, category, stock, price, icon, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
       }
-      importStockToDB(importedStocks)
+      importStockToFirestore(importedStocks)
         .then(() => {
           alert("Stock importé avec succès !");
           updateStockSummary();
@@ -1651,7 +1492,7 @@
           alert("Erreur lors de l'importation du stock : " + err.message);
         });
     }
-    
+
     /**************** Gestion de l'Entrée de Stock ****************/
     function calculerTotalEntree() {
       const prix = parseFloat(document.getElementById("prixEntree").value) || 0;
@@ -1704,41 +1545,23 @@
         });
     }
     function ajouterOuMettreAJourStock(produit, quantite, prix, categorie) {
-      return new Promise((resolve, reject) => {
-        if (!db) { 
-          reject(new Error("La base de données n'est pas initialisée.")); 
-          return;
-        }
-        const transaction = db.transaction(["stock"], "readwrite");
-        const store = transaction.objectStore("stock");
-        const index = store.index("nameIndex");
-        const request = index.get(produit);
-        request.onsuccess = function(e) {
-          const stockRecord = e.target.result;
-          if (stockRecord) {
-            stockRecord.stock = (stockRecord.stock || 0) + quantite;
-            stockRecord.price = prix;
-            const updateRequest = store.put(stockRecord);
-            updateRequest.onsuccess = () => resolve();
-            updateRequest.onerror = (err) => reject(new Error("Erreur lors de la mise à jour du stock pour " + produit + ": " + err.target.error));
+      return dbFirestore.collection("stock")
+        .where("name", "==", produit)
+        .get()
+        .then(querySnapshot => {
+          if (!querySnapshot.empty) {
+            const doc = querySnapshot.docs[0];
+            const data = doc.data();
+            const newStock = (data.stock || 0) + quantite;
+            return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock, price: prix });
           } else {
-            const category = categorie || "telephones";
-            const icon = category === "accessoires" ? "🎧" : "📱";
-            const newRecord = { id: Date.now(), category, name: produit, stock: quantite, stockPercentage: 0, price: prix, icon };
-            const addRequest = store.add(newRecord);
-            addRequest.onsuccess = () => resolve();
-            addRequest.onerror = (err) => reject(new Error("Erreur lors de l'ajout du nouvel article " + produit + ": " + err.target.error));
+            const icon = (categorie === "accessoires") ? "🎧" : "📱";
+            const newRecord = { name: produit, stock: quantite, price: prix, category: categorie, icon, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+            return dbFirestore.collection("stock").add(newRecord);
           }
-        };
-        request.onerror = function(err) {
-          reject(new Error("Erreur lors de la récupération du stock pour " + produit + ": " + err.target.error));
-        };
-      });
+        });
     }
-    
-    // Variable globale pour le panier (vente)
-    let currentItems = [];
-    
+
     /**************** Gestion des Vendeurs (stocké dans localStorage) ****************/
     function chargerVendeurs() {
       let vendeurs = JSON.parse(localStorage.getItem("vendeurs")) || [];
@@ -1790,7 +1613,6 @@
       localStorage.setItem("vendeurs", JSON.stringify(vendeurs));
       chargerVendeurs();
     }
-    
   </script>
 </body>
 </html>
