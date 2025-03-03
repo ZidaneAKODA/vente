@@ -59,6 +59,46 @@
       color: var(--primary-color);
       margin-top: 10px;
     }
+    /* Toast Notification */
+    #toast {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #007BFF;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 5px;
+      z-index: 3000;
+      font-size: 16px;
+    }
+    /* Sale Stepper Styles */
+    .sale-step {
+      display: none;
+      animation: slideIn 0.3s ease-in-out;
+    }
+    .sale-step.active {
+      display: block;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(100%); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .step-navigation {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    .step-navigation button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: var(--primary-color);
+      color: var(--white);
+    }
     /* CSS Variables */
     :root {
       --primary-color: #006064;
@@ -84,6 +124,7 @@
     }
     input, button, textarea, select {
       font-family: inherit;
+      font-size: 18px; /* Agrandissement pour mobile */
     }
     /* App container and screens */
     #app {
@@ -107,7 +148,7 @@
       position: relative;
     }
     header h1 {
-      font-size: 20px;
+      font-size: 22px;
       color: var(--primary-color);
     }
     .back-btn {
@@ -117,18 +158,18 @@
       transform: translateY(-50%);
       background: none;
       border: none;
-      font-size: 18px;
+      font-size: 20px;
       cursor: pointer;
       color: var(--primary-color);
     }
     .logo {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: bold;
       color: var(--accent-color);
       margin-bottom: 5px;
     }
     .timestamp {
-      font-size: 12px;
+      font-size: 14px;
       color: var(--secondary-color);
       margin-top: 5px;
     }
@@ -136,32 +177,32 @@
     .form-section {
       background: var(--white);
       border-radius: var(--border-radius);
-      padding: 15px;
-      margin-bottom: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
       box-shadow: var(--shadow);
     }
     .form-section h2 {
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       color: var(--primary-color);
-      font-size: 18px;
+      font-size: 20px;
       text-align: center;
     }
     .vente-form label {
       font-weight: 500;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
       display: block;
-      font-size: 14px;
+      font-size: 16px;
     }
     .vente-form input,
     .vente-form textarea,
     .vente-form button,
     .vente-form select {
       width: 100%;
-      padding: 10px;
-      margin-bottom: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
-      font-size: 14px;
+      font-size: 16px;
       transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .vente-form input:focus,
@@ -185,12 +226,12 @@
     .quantity-container {
       display: flex;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
     .quantity-container button {
       flex: none;
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       font-size: 20px;
       background-color: var(--primary-color);
       color: var(--white);
@@ -201,10 +242,11 @@
     .quantity-container input {
       flex: 1;
       text-align: center;
-      margin: 0 8px;
-      padding: 8px;
+      margin: 0 10px;
+      padding: 10px;
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
+      font-size: 18px;
     }
     /* Input container for suggestions */
     .input-container {
@@ -223,8 +265,9 @@
       display: none;
     }
     .suggestion-item {
-      padding: 8px 12px;
+      padding: 10px 14px;
       cursor: pointer;
+      font-size: 16px;
     }
     .suggestion-item:hover {
       background-color: var(--primary-color);
@@ -240,7 +283,7 @@
       display: none;
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
-      padding: 10px;
+      padding: 12px;
       margin-bottom: 15px;
       background: #fafafa;
     }
@@ -248,12 +291,12 @@
     .btn {
       display: block;
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       background-color: var(--accent-color);
       color: var(--white);
       border: none;
       border-radius: var(--border-radius);
-      font-size: 16px;
+      font-size: 18px;
       cursor: pointer;
       margin-bottom: 15px;
     }
@@ -270,7 +313,7 @@
       background: var(--white);
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
-      padding: 10px;
+      padding: 12px;
       width: calc(50% - 10px);
       box-shadow: var(--shadow);
       display: flex;
@@ -281,20 +324,21 @@
       width: 100% !important;
     }
     .product-icon {
-      font-size: 32px;
+      font-size: 36px;
       margin-right: 10px;
     }
     .product-details h3 {
       margin: 0 0 5px;
-      font-size: 16px;
+      font-size: 18px;
     }
     /* Price item */
     .price-item {
       background: var(--white);
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
-      padding: 10px;
+      padding: 12px;
       margin-bottom: 10px;
+      font-size: 18px;
     }
     /* Modal Styles */
     .modal {
@@ -324,13 +368,14 @@
     .modal-content h2 {
       margin-bottom: 10px;
       text-align: center;
+      font-size: 20px;
       color: var(--primary-color);
     }
     .modal .close {
       position: absolute;
       top: 10px;
       right: 15px;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: bold;
       color: var(--text-color);
       cursor: pointer;
@@ -373,7 +418,7 @@
       box-shadow: var(--shadow);
       padding: 12px;
       margin-bottom: 10px;
-      font-size: 14px;
+      font-size: 16px;
       position: relative;
       width: 100%;
     }
@@ -382,8 +427,8 @@
     }
     .vente-card button {
       width: auto;
-      padding: 8px 12px;
-      font-size: 14px;
+      padding: 10px 14px;
+      font-size: 16px;
       background-color: var(--primary-color);
       color: var(--white);
       border: none;
@@ -401,7 +446,7 @@
       right: 8px;
       background: none;
       border: none;
-      font-size: 20px;
+      font-size: 22px;
       color: red;
       cursor: pointer;
     }
@@ -414,9 +459,9 @@
       background: #fafafa;
       border: 1px solid #eee;
       border-radius: var(--border-radius);
-      padding: 10px;
+      padding: 12px;
       margin-bottom: 8px;
-      font-size: 14px;
+      font-size: 16px;
     }
   </style>
 </head>
@@ -434,11 +479,14 @@
     </div>
   </div>
 
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
   <!-- Message de progression pour les téléchargements -->
   <div id="downloadProgress" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:var(--white); padding:10px 20px; border-radius:5px; z-index:3000;"></div>
   
   <div id="app">
-    <!-- Screen 1: Nouvelle Vente -->
+    <!-- Screen 1: Nouvelle Vente - Multi-steps -->
     <section id="screen-vendre" class="screen active">
       <header>
         <div class="logo">AFRICA PHONE</div>
@@ -447,69 +495,97 @@
           <span id="dateAffiche"></span> - <span id="heureAffiche"></span>
         </div>
       </header>
-      
-      <!-- Formulaire d'ajout d'article pour la vente -->
-      <div class="form-section">
-        <h2>Ajouter un Article</h2>
-        <form class="vente-form" onsubmit="event.preventDefault();">
-          <label for="produit">Article</label>
-          <div class="input-container">
-            <input type="text" id="produit" placeholder="Rechercher un article" autocomplete="off" />
-            <div id="suggestionList" class="suggestion-list"></div>
+      <!-- Container for the multi-step form -->
+      <div id="saleSteps">
+        <!-- Étape 1 : Sélection des articles -->
+        <div class="sale-step active" id="step1">
+          <h2>Étape 1 : Ajouter des Articles</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="produit">Article</label>
+            <div class="input-container">
+              <input type="text" id="produit" placeholder="Rechercher un article" autocomplete="off" />
+              <div id="suggestionList" class="suggestion-list"></div>
+            </div>
+            <label for="prix">Prix Unitaire</label>
+            <input type="number" id="prix" placeholder="Prix unitaire" oninput="calculerTotalArticle()" />
+            <label for="quantite">Quantité</label>
+            <div class="quantity-container">
+              <button type="button" onclick="decrementQuantity()">–</button>
+              <input type="number" id="quantite" min="1" value="1" oninput="calculerTotalArticle()" />
+              <button type="button" onclick="incrementQuantity()">+</button>
+            </div>
+            <label for="totalArticle">Montant Total</label>
+            <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
+            <button type="button" onclick="ajouterArticle()">Ajouter Article</button>
+          </form>
+          <button class="btn" onclick="ouvrirPanier()">Voir Panier</button>
+          <div class="step-navigation">
+            <div></div>
+            <button type="button" onclick="nextStep()">Suivant &gt;</button>
           </div>
-          <label for="prix">Prix Unitaire</label>
-          <input type="number" id="prix" placeholder="Prix unitaire" oninput="calculerTotalArticle()" />
-          <label for="quantite">Quantité</label>
-          <div class="quantity-container">
-            <button type="button" onclick="decrementQuantity()">–</button>
-            <input type="number" id="quantite" min="1" value="1" oninput="calculerTotalArticle()" />
-            <button type="button" onclick="incrementQuantity()">+</button>
+        </div>
+        <!-- Étape 2 : Informations Client -->
+        <div class="sale-step" id="step2">
+          <h2>Étape 2 : Informations Client</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="clientNom">Nom du Client</label>
+            <input type="text" id="clientNom" placeholder="Nom du client" required />
+            <label for="clientNumero">WhatsApp</label>
+            <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
+          </form>
+          <div class="step-navigation">
+            <button type="button" onclick="prevStep()">&lt; Retour</button>
+            <button type="button" onclick="nextStep()">Suivant &gt;</button>
           </div>
-          <label for="totalArticle">Montant Total</label>
-          <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
-          <button type="button" onclick="ajouterArticle()">Ajouter Article</button>
-        </form>
-        <button class="btn" onclick="ouvrirPanier()">Voir Panier</button>
-      </div>
-      
-      <!-- Section Informations Client -->
-      <div class="form-section">
-        <h2>Informations Client</h2>
-        <form class="vente-form" onsubmit="event.preventDefault();">
-          <label for="clientNom">Nom du Client</label>
-          <input type="text" id="clientNom" placeholder="Nom du client" required />
-          <label for="clientNumero">WhatsApp</label>
-          <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
-        </form>
-      </div>
-      
-      <!-- Section Informations Vendeur -->
-      <div class="form-section">
-        <h2>Informations Vendeur</h2>
-        <form class="vente-form" onsubmit="event.preventDefault();">
-          <label for="vendeurSelect">Vendeur</label>
-          <select id="vendeurSelect">
-            <!-- Options générées via Firestore -->
-          </select>
-          <label for="photoFacture">Photo de la facture</label>
-          <input type="file" accept="image/*" capture="camera" id="photoFacture" />
-          <label for="observationsVendeur">Observations</label>
-          <textarea id="observationsVendeur" placeholder="Observations (facultatif)"></textarea>
-          <label for="isDelivery">
-            <input type="checkbox" id="isDelivery" onchange="toggleDeliveryFields()" /> Vente avec Livraison
-          </label>
-          <div id="deliveryFields">
+        </div>
+        <!-- Étape 3 : Informations Vendeur -->
+        <div class="sale-step" id="step3">
+          <h2>Étape 3 : Informations Vendeur</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="vendeurSelect">Vendeur</label>
+            <select id="vendeurSelect">
+              <!-- Options générées via Firestore -->
+            </select>
+            <label for="photoFacture">Photo de la facture</label>
+            <input type="file" accept="image/*" capture="camera" id="photoFacture" />
+            <label for="observationsVendeur">Observations</label>
+            <textarea id="observationsVendeur" placeholder="Observations (facultatif)"></textarea>
+            <label for="isDelivery">
+              <input type="checkbox" id="isDelivery" onchange="toggleDeliveryFields()" /> Vente avec Livraison
+            </label>
+          </form>
+          <div class="step-navigation">
+            <button type="button" onclick="prevStep()">&lt; Retour</button>
+            <button type="button" onclick="nextStep()">Suivant &gt;</button>
+          </div>
+        </div>
+        <!-- Étape 4 : Informations Livraison (optionnelle) -->
+        <div class="sale-step" id="step4">
+          <h2>Étape 4 : Informations Livraison</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
             <label for="livreurNom">Nom du Livreur</label>
             <input type="text" id="livreurNom" placeholder="Nom du livreur" />
             <label for="livreurNumero">Numéro du Livreur</label>
             <input type="text" id="livreurNumero" placeholder="Numéro du livreur" />
             <label for="lieuLivraison">Lieu de Livraison</label>
             <input type="text" id="lieuLivraison" placeholder="Lieu de livraison" />
+          </form>
+          <div class="step-navigation">
+            <button type="button" onclick="prevStep()">&lt; Retour</button>
+            <button type="button" onclick="nextStep()">Suivant &gt;</button>
           </div>
-          <button type="button" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">Valider Vente</button>
-          <button type="button" onclick="if(confirm('Exporter les ventes en PDF ?')) { exporterPDF(); }">Exporter PDF</button>
-          <button type="button" onclick="if(confirm('Exporter les factures en PDF ?')) { exporterFacturesPDF(); }">Factures PDF</button>
-        </form>
+        </div>
+        <!-- Étape 5 : Confirmation -->
+        <div class="sale-step" id="step5">
+          <h2>Étape 5 : Confirmation</h2>
+          <div id="saleRecap">
+            <!-- Récapitulatif dynamique de la vente -->
+          </div>
+          <div class="step-navigation">
+            <button type="button" onclick="prevStep()">&lt; Retour</button>
+            <button type="button" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">Confirmer la Vente</button>
+          </div>
+        </div>
       </div>
     </section>
     
@@ -673,12 +749,60 @@
       setTimeout(() => { preloader.style.display = 'none'; }, 500);
     });
 
+    /**************** Toast Notification ****************/
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.style.display = "block";
+      setTimeout(() => { toast.style.display = "none"; }, 3000);
+    }
+
     /**************** Sale Loader Functions ****************/
     function showSaleLoader() {
       document.getElementById("saleLoader").style.display = "flex";
     }
     function hideSaleLoader() {
       document.getElementById("saleLoader").style.display = "none";
+    }
+
+    /**************** Gestion des étapes de vente ****************/
+    let currentStep = 0;
+    const steps = document.querySelectorAll(".sale-step");
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.remove("active");
+        if(i === index) {
+          step.classList.add("active");
+        }
+      });
+      // Si c'est l'étape de confirmation, on génère le récapitulatif
+      if(index === steps.length - 1) {
+        generateRecap();
+      }
+    }
+    function nextStep() {
+      if(currentStep < steps.length - 1) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    }
+    function prevStep() {
+      if(currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    }
+    function generateRecap() {
+      const recap = document.getElementById("saleRecap");
+      let html = "<h3>Récapitulatif de la Vente</h3>";
+      html += "<strong>Articles :</strong><br>";
+      currentItems.forEach(item => {
+        html += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
+      });
+      html += "<br><strong>Client :</strong> " + document.getElementById("clientNom").value + " (" + document.getElementById("clientNumero").value + ")<br>";
+      html += "<strong>Vendeur :</strong> " + document.getElementById("vendeurSelect").value + "<br>";
+      html += "<strong>Total :</strong> " + currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
+      recap.innerHTML = html;
     }
 
     /**************** Initialisation Firebase et Firestore ****************/
@@ -919,7 +1043,7 @@
       document.getElementById("prix").value = "";
       document.getElementById("quantite").value = 1;
       document.getElementById("totalArticle").value = "";
-      alert("Article ajouté au panier.");
+      showToast("Article ajouté au panier !");
     }
     function calculerTotalArticle() {
       const prix = parseFloat(document.getElementById("prix").value) || 0;
