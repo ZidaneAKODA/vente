@@ -12,6 +12,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!-- React et ReactDOM (React 18) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <style>
     /* Preloader Styles */
     #preloader {
@@ -736,13 +739,23 @@
     </div>
   </div>
   
-  <!-- Bottom Navigation -->
+  <!-- Bottom Navigation avec icônes React -->
   <nav class="bottom-nav">
-    <button id="navVendre" class="nav-btn active" onclick="showScreen('screen-vendre')">🛒</button>
-    <button id="navStock" class="nav-btn" onclick="showScreen('screen-stock')">📦</button>
-    <button id="navLivraisons" class="nav-btn" onclick="showScreen('screen-livraisons'); afficherLivraisons();">🚚</button>
-    <button id="navHistorique" class="nav-btn" onclick="showScreen('screen-historique'); afficherVentes();">📜</button>
-    <button id="navParametres" class="nav-btn" onclick="showScreen('screen-parametres')">⚙️</button>
+    <button id="navVendre" class="nav-btn active" onclick="showScreen('screen-vendre')">
+      <span id="iconNavVendre"></span>
+    </button>
+    <button id="navStock" class="nav-btn" onclick="showScreen('screen-stock')">
+      <span id="iconNavStock"></span>
+    </button>
+    <button id="navLivraisons" class="nav-btn" onclick="showScreen('screen-livraisons'); afficherLivraisons();">
+      <span id="iconNavLivraisons"></span>
+    </button>
+    <button id="navHistorique" class="nav-btn" onclick="showScreen('screen-historique'); afficherVentes();">
+      <span id="iconNavHistorique"></span>
+    </button>
+    <button id="navParametres" class="nav-btn" onclick="showScreen('screen-parametres')">
+      <span id="iconNavParametres"></span>
+    </button>
   </nav>
   
   <script>
@@ -1864,6 +1877,30 @@
     }
     window.addEventListener("load", function() {
       chargerVendeurs();
+    });
+  </script>
+  
+  <!-- Script Module pour les icônes React (React-Icons via jsdelivr) -->
+  <script type="module">
+    import { FaShoppingCart, FaBoxOpen, FaTruck, FaHistory, FaCog } from "https://cdn.jsdelivr.net/npm/react-icons@4.10.1/fa/index.esm.js";
+    import React from "https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js";
+    import ReactDOM from "https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js";
+    
+    // Liste des icônes et des éléments cibles
+    const icons = {
+      iconNavVendre: FaShoppingCart,
+      iconNavStock: FaBoxOpen,
+      iconNavLivraisons: FaTruck,
+      iconNavHistorique: FaHistory,
+      iconNavParametres: FaCog
+    };
+    
+    // Monter chaque icône dans l'élément correspondant
+    Object.entries(icons).forEach(([id, IconComponent]) => {
+      const element = document.getElementById(id);
+      if (element) {
+        ReactDOM.createRoot(element).render(React.createElement(IconComponent, { size: 24 }));
+      }
     });
   </script>
 </body>
