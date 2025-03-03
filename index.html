@@ -765,7 +765,7 @@
       document.getElementById("saleLoader").style.display = "none";
     }
 
-    /**************** Gestion des étapes de vente ****************/
+    /**************** Gestion des étapes de vente (Stepper) ****************/
     let currentStep = 0;
     const steps = document.querySelectorAll(".sale-step");
     function showStep(index) {
@@ -775,7 +775,7 @@
           step.classList.add("active");
         }
       });
-      // Si c'est l'étape de confirmation, on génère le récapitulatif
+      // Si c'est l'étape de confirmation, générer le récapitulatif
       if(index === steps.length - 1) {
         generateRecap();
       }
@@ -803,6 +803,28 @@
       html += "<strong>Vendeur :</strong> " + document.getElementById("vendeurSelect").value + "<br>";
       html += "<strong>Total :</strong> " + currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
       recap.innerHTML = html;
+    }
+
+    /**************** Compression de l'image ****************/
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          // Calcul du ratio pour respecter maxWidth et maxHeight
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Récupération de l'image compressée (format JPEG)
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
     /**************** Initialisation Firebase et Firestore ****************/
@@ -1114,18 +1136,11 @@
           return;
         }
       }
+      // Si une photo est sélectionnée, on la compresse avant d'enregistrer
       if(photoFile) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const photoData = e.target.result;
-          finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
-        };
-        reader.onerror = function (e) {
-          console.error("Erreur lors de la lecture de l'image : " + e.message);
-          alert("Erreur lors de la lecture de l'image. La vente sera ajoutée sans photo.");
-          finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
-        };
-        reader.readAsDataURL(photoFile);
+        compressImage(photoFile, 800, 800, 0.7, function(compressedData) {
+          finaliserVente(clientNom, clientNumero, vendeur, compressedData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+        });
       } else {
         finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
       }
@@ -1180,6 +1195,27 @@
           hideSaleLoader();
           alert("Erreur lors de l'ajout de la vente : " + error.message);
         });
+    }
+
+    /**************** Compression de l'image via canvas ****************/
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Conversion en JPEG avec la qualité spécifiée
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
     /**************** Affichage et Détails des Ventes ****************/
