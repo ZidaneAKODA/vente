@@ -497,6 +497,10 @@
       </header>
       <!-- Container for the multi-step form -->
       <div id="saleSteps">
+        <!-- Barre de progression ajoutée -->
+        <div id="saleProgressContainer" style="margin-bottom: 15px;">
+          <progress id="saleProgress" value="0" max="100" style="width: 100%; height: 20px;"></progress>
+        </div>
         <!-- Étape 1 : Sélection des articles -->
         <div class="sale-step active" id="step1">
           <h2>Étape 1 : Ajouter des Articles</h2>
@@ -779,6 +783,8 @@
       if(index === steps.length - 1) {
         generateRecap();
       }
+      // Mise à jour de la barre de progression
+      document.getElementById("saleProgress").value = ((index + 1) / steps.length) * 100;
     }
     function nextStep() {
       if(currentStep < steps.length - 1) {
