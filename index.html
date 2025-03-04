@@ -220,7 +220,7 @@
     }
     .input-with-icon input {
       width: 100%;
-      padding: 10px 10px 10px 40px; /* espace pour l'icône */
+      padding: 10px 10px 10px 40px;
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
       transition: border-color 0.3s ease, box-shadow 0.3s ease;
@@ -355,33 +355,38 @@
       color: var(--text-color);
       cursor: pointer;
     }
-    /* Bottom Navigation */
-    .bottom-nav {
+    /* Bottom Navigation Modernisée */
+    .bottom-nav-pro {
+      display: flex;
+      justify-content: space-around;
+      background: #fff;
+      border-top: 1px solid #ddd;
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: var(--white);
-      border-top: 1px solid #ddd;
+      z-index: 1000;
+      padding: 5px 0;
+    }
+    .nav-item {
       display: flex;
-      justify-content: space-around;
+      flex-direction: column;
       align-items: center;
-      height: 55px;
-      box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-      z-index: 1500;
-    }
-    .nav-btn {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: var(--text-color);
       flex: 1;
-      padding: 8px;
+      font-size: 12px;
+      color: #555;
+      transition: color 0.3s ease;
+      padding: 5px 0;
     }
-    .nav-btn.active {
+    .nav-item.active {
       color: var(--primary-color);
       font-weight: bold;
-      border-top: 2px solid var(--primary-color);
+      background: rgba(0, 96, 100, 0.1);
+      border-radius: 12px;
+    }
+    .nav-item .material-icons {
+      font-size: 24px;
+      margin-bottom: 2px;
     }
     /* Sales History Cards */
     .list-container {
@@ -508,7 +513,7 @@
             </button>
           </div>
         </div>
-        <!-- Étape 2 : Informations Client (Formulaire modernisé) -->
+        <!-- Étape 2 : Informations Client -->
         <div class="sale-step" id="step2">
           <h2>Étape 2 : Informations Client</h2>
           <form class="vente-form" onsubmit="event.preventDefault();">
@@ -557,7 +562,7 @@
             </button>
           </div>
         </div>
-        <!-- Étape 4 : Informations Livraison (optionnelle) -->
+        <!-- Étape 4 : Informations Livraison -->
         <div class="sale-step" id="step4">
           <h2>Étape 4 : Informations Livraison</h2>
           <form class="vente-form" onsubmit="event.preventDefault();">
@@ -671,7 +676,6 @@
       </div>
       <div class="form-section">
         <h2>Entrée de Stock</h2>
-        <!-- Formulaire modernisé pour l'entrée de stock -->
         <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
           <label for="categorieEntree">Catégorie</label>
           <select id="categorieEntree">
@@ -718,7 +722,6 @@
       </header>
       <div class="form-section">
         <h2>Ajouter un Article</h2>
-        <!-- Formulaire modernisé pour l'entrée de stock (idem que dans Paramètres) -->
         <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
           <label for="categorieEntree">Catégorie</label>
           <select id="categorieEntree">
@@ -768,23 +771,28 @@
     </div>
   </div>
   
-  <!-- Bottom Navigation using Material Icons -->
-  <nav class="bottom-nav">
-    <button id="navVendre" class="nav-btn active" onclick="showScreen('screen-vendre')">
+  <!-- Bottom Navigation Modernisée -->
+  <nav class="bottom-nav-pro">
+    <div class="nav-item active" id="navVendre" onclick="showScreen('screen-vendre')">
       <span class="material-icons">shopping_cart</span>
-    </button>
-    <button id="navStock" class="nav-btn" onclick="showScreen('screen-stock')">
+      <span>Vente</span>
+    </div>
+    <div class="nav-item" id="navStock" onclick="showScreen('screen-stock')">
       <span class="material-icons">inventory_2</span>
-    </button>
-    <button id="navLivraisons" class="nav-btn" onclick="showScreen('screen-livraisons'); afficherLivraisons();">
+      <span>Stock</span>
+    </div>
+    <div class="nav-item" id="navLivraisons" onclick="showScreen('screen-livraisons'); afficherLivraisons();">
       <span class="material-icons">local_shipping</span>
-    </button>
-    <button id="navHistorique" class="nav-btn" onclick="showScreen('screen-historique'); afficherVentes();">
+      <span>Livraisons</span>
+    </div>
+    <div class="nav-item" id="navHistorique" onclick="showScreen('screen-historique'); afficherVentes();">
       <span class="material-icons">history</span>
-    </button>
-    <button id="navParametres" class="nav-btn" onclick="showScreen('screen-parametres')">
+      <span>Historique</span>
+    </div>
+    <div class="nav-item" id="navParametres" onclick="showScreen('screen-parametres')">
       <span class="material-icons">settings</span>
-    </button>
+      <span>Paramètres</span>
+    </div>
   </nav>
   
   <script>
@@ -1044,7 +1052,8 @@
       }
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(screenId).classList.add('active');
-      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      // Mise à jour de la navigation avec la nouvelle classe "nav-item"
+      document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
       if(screenId === "screen-vendre") {
         document.getElementById("navVendre").classList.add("active");
       } else if(screenId === "screen-stock") {
@@ -1867,7 +1876,7 @@
             btn.style.border = "none";
             btn.style.borderRadius = "4px";
             btn.style.cursor = "pointer";
-            btn.onclick = function() { supprimerVendeur(v.id); };
+            btn.onclick = function () { supprimerVendeur(v.id); };
             div.appendChild(btn);
             liste.appendChild(div);
           });
