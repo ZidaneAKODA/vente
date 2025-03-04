@@ -93,13 +93,7 @@
       margin-top: 15px;
     }
     .step-navigation button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      background-color: var(--primary-color);
-      color: var(--white);
+      /* Ces boutons seront redéfinis dans la section "Modern Button Styles" ci-dessous */
     }
     /* CSS Variables */
     :root {
@@ -214,16 +208,6 @@
       box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
       outline: none;
     }
-    .vente-form button {
-      background-color: var(--primary-color);
-      color: var(--white);
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .vente-form button:hover {
-      background-color: var(--secondary-color);
-    }
     /* Quantity controls */
     .quantity-container {
       display: flex;
@@ -288,22 +272,6 @@
       padding: 12px;
       margin-bottom: 15px;
       background: #fafafa;
-    }
-    /* Buttons */
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      background-color: var(--accent-color);
-      color: var(--white);
-      border: none;
-      border-radius: var(--border-radius);
-      font-size: 18px;
-      cursor: pointer;
-      margin-bottom: 15px;
-    }
-    .btn:hover {
-      background-color: #e65c00;
     }
     /* Stock Section - Interface modifiée */
     .cards-container {
@@ -428,20 +396,8 @@
       margin-bottom: 6px;
     }
     .vente-card button {
-      width: auto;
-      padding: 10px 14px;
-      font-size: 16px;
-      background-color: var(--primary-color);
-      color: var(--white);
-      border: none;
-      border-radius: var(--border-radius);
-      cursor: pointer;
-      margin-right: 5px;
+      /* Les boutons de vente seront redéfinis ci-dessous dans les "Modern Button Styles" */
     }
-    .vente-card button:hover {
-      background-color: var(--secondary-color);
-    }
-    /* Bouton de suppression (croix) */
     .delete-btn {
       position: absolute;
       top: 8px;
@@ -452,11 +408,9 @@
       color: red;
       cursor: pointer;
     }
-    /* Pour les livraisons échouées */
     .echouee {
       border: 2px solid red;
     }
-    /* Panier Item Style */
     .panier-item {
       background: #fafafa;
       border: 1px solid #eee;
@@ -464,6 +418,30 @@
       padding: 12px;
       margin-bottom: 8px;
       font-size: 16px;
+    }
+    
+    /* --------------------------------------------- */
+    /* Modern Button Styles (inspirées de Facebook/Shopify) */
+    /* --------------------------------------------- */
+    button, .btn, .step-navigation button, .vente-form button {
+      background-color: #1877F2;  /* Couleur bleu Facebook */
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 12px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+    }
+    button:hover, .btn:hover, .step-navigation button:hover, .vente-form button:hover {
+      background-color: #165EAB;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    button:active, .btn:active, .step-navigation button:active, .vente-form button:active {
+      background-color: #144E9B;
     }
   </style>
 </head>
@@ -791,11 +769,9 @@
           step.classList.add("active");
         }
       });
-      // Si c'est l'étape de confirmation, générer le récapitulatif
       if(index === steps.length - 1) {
         generateRecap();
       }
-      // Mise à jour de la barre de progression
       document.getElementById("saleProgress").value = ((index + 1) / steps.length) * 100;
     }
     function nextStep() {
@@ -831,12 +807,10 @@
         img.onload = function() {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          // Calcul du ratio pour respecter maxWidth et maxHeight
           const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
           canvas.width = img.width * ratio;
           canvas.height = img.height * ratio;
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Récupération de l'image compressée (format JPEG)
           const dataUrl = canvas.toDataURL('image/jpeg', quality);
           callback(dataUrl);
         };
@@ -1154,7 +1128,6 @@
           return;
         }
       }
-      // Si une photo est sélectionnée, on la compresse avant d'enregistrer
       if(photoFile) {
         compressImage(photoFile, 800, 800, 0.7, function(compressedData) {
           finaliserVente(clientNom, clientNumero, vendeur, compressedData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
@@ -1227,7 +1200,6 @@
           canvas.width = img.width * ratio;
           canvas.height = img.height * ratio;
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Conversion en JPEG avec la qualité spécifiée
           const dataUrl = canvas.toDataURL('image/jpeg', quality);
           callback(dataUrl);
         };
