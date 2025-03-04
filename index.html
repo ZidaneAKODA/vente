@@ -29,8 +29,8 @@
       justify-content: center;
     }
     .spinner {
-      border: 8px solid #f3f3f3; /* Couleur de fond */
-      border-top: 8px solid var(--primary-color); /* Couleur de la barre */
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid var(--primary-color);
       border-radius: 50%;
       width: 60px;
       height: 60px;
@@ -92,15 +92,6 @@
       justify-content: space-between;
       margin-top: 15px;
     }
-    .step-navigation button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      background-color: var(--primary-color);
-      color: var(--white);
-    }
     /* CSS Variables */
     :root {
       --primary-color: #006064;
@@ -126,7 +117,7 @@
     }
     input, button, textarea, select {
       font-family: inherit;
-      font-size: 18px; /* Agrandissement pour mobile */
+      font-size: 18px;
     }
     /* App container and screens */
     #app {
@@ -214,16 +205,6 @@
       box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
       outline: none;
     }
-    .vente-form button {
-      background-color: var(--primary-color);
-      color: var(--white);
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .vente-form button:hover {
-      background-color: var(--secondary-color);
-    }
     /* Quantity controls */
     .quantity-container {
       display: flex;
@@ -289,23 +270,57 @@
       margin-bottom: 15px;
       background: #fafafa;
     }
-    /* Buttons */
-    .btn {
-      display: block;
+    /* Boutons Modernes Inspirés des Apps Mobiles */
+    .btn-modern {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
-      padding: 12px;
-      background-color: var(--accent-color);
-      color: var(--white);
-      border: none;
-      border-radius: var(--border-radius);
+      padding: 14px;
       font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(45deg, #1877F2, #0056b3);
+      color: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: transform 0.1s ease-in-out, box-shadow 0.2s ease;
       cursor: pointer;
-      margin-bottom: 15px;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      margin-bottom: 10px;
     }
-    .btn:hover {
-      background-color: #e65c00;
+    .btn-modern:active {
+      transform: scale(0.95);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    /* Stock Section - Interface modifiée */
+    .btn-modern .material-icons {
+      margin-right: 8px;
+      font-size: 24px;
+    }
+    .btn-modern.secondary {
+      background: #E4E6EB;
+      color: black;
+      box-shadow: none;
+    }
+    .btn-modern::after {
+      content: "";
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.3);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      border-radius: 50%;
+      transition: transform 0.4s ease-out;
+    }
+    .btn-modern:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    /* Stock Section */
     .cards-container {
       display: flex;
       flex-wrap: wrap;
@@ -321,7 +336,6 @@
       display: flex;
       align-items: center;
     }
-    /* For search view: full-width cards */
     #stock-category .product-card {
       width: 100% !important;
     }
@@ -333,7 +347,6 @@
       margin: 0 0 5px;
       font-size: 18px;
     }
-    /* Price item */
     .price-item {
       background: var(--white);
       border: 1px solid #ccc;
@@ -441,7 +454,6 @@
     .vente-card button:hover {
       background-color: var(--secondary-color);
     }
-    /* Bouton de suppression (croix) */
     .delete-btn {
       position: absolute;
       top: 8px;
@@ -452,11 +464,9 @@
       color: red;
       cursor: pointer;
     }
-    /* Pour les livraisons échouées */
     .echouee {
       border: 2px solid red;
     }
-    /* Panier Item Style */
     .panier-item {
       background: #fafafa;
       border: 1px solid #eee;
@@ -522,12 +532,22 @@
             </div>
             <label for="totalArticle">Montant Total</label>
             <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
-            <button type="button" onclick="ajouterArticle()">Ajouter Article</button>
+            <!-- Bouton modernisé pour Ajouter Article -->
+            <button type="button" class="btn-modern" onclick="ajouterArticle()">
+              <span class="material-icons">add_shopping_cart</span> Ajouter Article
+            </button>
           </form>
-          <button class="btn" onclick="ouvrirPanier()">Voir Panier</button>
+          <!-- Bouton modernisé pour Voir Panier -->
+          <button class="btn-modern secondary" onclick="ouvrirPanier()">
+            <span class="material-icons">shopping_bag</span> Voir Panier
+          </button>
           <div class="step-navigation">
-            <div></div>
-            <button type="button" onclick="nextStep()">Suivant &gt;</button>
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <span class="material-icons">arrow_back</span> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <span class="material-icons">arrow_forward</span>
+            </button>
           </div>
         </div>
         <!-- Étape 2 : Informations Client -->
@@ -540,8 +560,12 @@
             <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
           </form>
           <div class="step-navigation">
-            <button type="button" onclick="prevStep()">&lt; Retour</button>
-            <button type="button" onclick="nextStep()">Suivant &gt;</button>
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <span class="material-icons">arrow_back</span> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <span class="material-icons">arrow_forward</span>
+            </button>
           </div>
         </div>
         <!-- Étape 3 : Informations Vendeur -->
@@ -561,8 +585,12 @@
             </label>
           </form>
           <div class="step-navigation">
-            <button type="button" onclick="prevStep()">&lt; Retour</button>
-            <button type="button" onclick="nextStep()">Suivant &gt;</button>
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <span class="material-icons">arrow_back</span> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <span class="material-icons">arrow_forward</span>
+            </button>
           </div>
         </div>
         <!-- Étape 4 : Informations Livraison (optionnelle) -->
@@ -577,8 +605,12 @@
             <input type="text" id="lieuLivraison" placeholder="Lieu de livraison" />
           </form>
           <div class="step-navigation">
-            <button type="button" onclick="prevStep()">&lt; Retour</button>
-            <button type="button" onclick="nextStep()">Suivant &gt;</button>
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <span class="material-icons">arrow_back</span> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <span class="material-icons">arrow_forward</span>
+            </button>
           </div>
         </div>
         <!-- Étape 5 : Confirmation -->
@@ -588,8 +620,12 @@
             <!-- Récapitulatif dynamique de la vente -->
           </div>
           <div class="step-navigation">
-            <button type="button" onclick="prevStep()">&lt; Retour</button>
-            <button type="button" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">Confirmer la Vente</button>
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <span class="material-icons">arrow_back</span> Retour
+            </button>
+            <button class="btn-modern" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">
+              Confirmer la Vente
+            </button>
           </div>
         </div>
       </div>
@@ -625,20 +661,24 @@
           <span id="dateStock"></span>
         </div>
       </header>
-      <!-- Vue d'accueil du Stock -->
       <div id="stock-home">
         <div class="summary" style="padding: 15px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow); margin-bottom: 15px;">
           <p><strong>Total Téléphones :</strong> <span id="total-telephones">0</span></p>
           <p><strong>Total Accessoires :</strong> <span id="total-accessoires">0</span></p>
         </div>
         <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px;">
-          <button class="stock-card" style="padding: 15px; background: var(--primary-color); color: var(--white); border: none; border-radius: var(--border-radius); font-size: 16px; cursor: pointer;" onclick="showStockCategory('telephones')">📱 Téléphones</button>
-          <button class="stock-card" style="padding: 15px; background: var(--primary-color); color: var(--white); border: none; border-radius: var(--border-radius); font-size: 16px; cursor: pointer;" onclick="showStockCategory('accessoires')">🎧 Accessoires</button>
+          <button class="btn-modern" onclick="showStockCategory('telephones')">
+            <span class="material-icons">smartphone</span> Téléphones
+          </button>
+          <button class="btn-modern" onclick="showStockCategory('accessoires')">
+            <span class="material-icons">headset</span> Accessoires
+          </button>
         </div>
       </div>
-      <!-- Vue de recherche pour une catégorie -->
       <div id="stock-category" style="display: none;">
-        <button style="margin-bottom: 10px; padding: 8px 12px; background: var(--secondary-color); color: var(--white); border: none; border-radius: var(--border-radius); cursor: pointer;" onclick="backToStockHome()">← Retour</button>
+        <button class="btn-modern secondary" onclick="backToStockHome()">
+          <span class="material-icons">arrow_back</span> Retour
+        </button>
         <input type="text" id="search-category" placeholder="Rechercher..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: var(--border-radius);" oninput="filterStockCategory()">
         <div id="category-container" class="cards-container"></div>
       </div>
@@ -655,7 +695,6 @@
       <div class="list-container">
         <p>Paramètres de l'application...</p>
       </div>
-      <!-- Section d'import du Stock avec choix de catégorie -->
       <div class="form-section">
         <h2>Paramètres Stock</h2>
         <label for="importCategorie">Catégorie d'importation :</label>
@@ -663,21 +702,19 @@
           <option value="telephones">Téléphones</option>
           <option value="accessoires">Accessoires</option>
         </select>
-        <button class="btn" onclick="document.getElementById('importStockInput').click()">Importer Stock</button>
+        <button class="btn-modern" onclick="document.getElementById('importStockInput').click()">Importer Stock</button>
         <input type="file" id="importStockInput" accept=".txt" style="display:none" onchange="importStockFile(event)" />
       </div>
-      <!-- Section Entrée de Stock -->
       <div class="form-section">
         <h2>Entrée de Stock</h2>
-        <button class="btn" onclick="showScreen('screen-entree-stock')">Effectuer une Entrée de Stock</button>
+        <button class="btn-modern" onclick="showScreen('screen-entree-stock')">Effectuer une Entrée de Stock</button>
       </div>
-      <!-- Nouvelle section Gestion des Vendeurs -->
       <div class="form-section">
         <h2>Gestion des Vendeurs</h2>
         <form class="vente-form" onsubmit="event.preventDefault(); ajouterVendeur();">
           <label for="nomVendeur">Nom du Vendeur</label>
           <input type="text" id="nomVendeur" placeholder="Nom du vendeur" required />
-          <button type="submit">Ajouter Vendeur</button>
+          <button class="btn-modern" type="submit">Ajouter Vendeur</button>
         </form>
         <div id="listeVendeurs"></div>
       </div>
@@ -692,7 +729,6 @@
       <div class="form-section">
         <h2>Ajouter un Article</h2>
         <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
-          <!-- Nouveau champ pour choisir la catégorie -->
           <label for="categorieEntree">Catégorie</label>
           <select id="categorieEntree">
             <option value="telephones">Téléphones</option>
@@ -713,7 +749,7 @@
           </div>
           <label for="totalEntree">Montant Total</label>
           <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
-          <button type="submit">Ajouter Entrée</button>
+          <button class="btn-modern" type="submit">Ajouter Entrée</button>
         </form>
       </div>
     </section>
@@ -791,11 +827,9 @@
           step.classList.add("active");
         }
       });
-      // Si c'est l'étape de confirmation, générer le récapitulatif
       if(index === steps.length - 1) {
         generateRecap();
       }
-      // Mise à jour de la barre de progression
       document.getElementById("saleProgress").value = ((index + 1) / steps.length) * 100;
     }
     function nextStep() {
@@ -831,12 +865,10 @@
         img.onload = function() {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          // Calcul du ratio pour respecter maxWidth et maxHeight
           const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
           canvas.width = img.width * ratio;
           canvas.height = img.height * ratio;
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Récupération de l'image compressée (format JPEG)
           const dataUrl = canvas.toDataURL('image/jpeg', quality);
           callback(dataUrl);
         };
@@ -1154,7 +1186,6 @@
           return;
         }
       }
-      // Si une photo est sélectionnée, on la compresse avant d'enregistrer
       if(photoFile) {
         compressImage(photoFile, 800, 800, 0.7, function(compressedData) {
           finaliserVente(clientNom, clientNumero, vendeur, compressedData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
@@ -1227,7 +1258,6 @@
           canvas.width = img.width * ratio;
           canvas.height = img.height * ratio;
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Conversion en JPEG avec la qualité spécifiée
           const dataUrl = canvas.toDataURL('image/jpeg', quality);
           callback(dataUrl);
         };
