@@ -296,7 +296,6 @@
     .btn-modern i {
       margin-right: 8px;
       font-size: 24px;
-      transition: all 0.3s ease;
     }
     .btn-modern.secondary {
       background: #E4E6EB;
@@ -382,7 +381,6 @@
     .bottom-nav-pro {
       display: flex;
       justify-content: space-around;
-      align-items: center;
       background: #fff;
       border-top: 1px solid #ddd;
       position: fixed;
@@ -396,11 +394,10 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       flex: 1;
       font-size: 12px;
       color: #555;
-      transition: all 0.3s ease;
+      transition: color 0.3s ease;
       padding: 5px 0;
       position: relative;
       overflow: hidden;
@@ -408,26 +405,12 @@
     .nav-item.active {
       color: var(--primary-color);
       font-weight: bold;
-      transform: scale(1.2);
+      background: rgba(0, 96, 100, 0.1);
+      border-radius: 12px;
     }
-    .nav-item.active i {
-      color: var(--primary-color);
-    }
-    /* Style spécial pour l'icône de Vente */
-    .nav-item.vente-item {
-      flex: 1.5;
-      font-size: 14px;
-    }
-    .nav-item.vente-item i {
-      font-size: 32px;
-    }
-    /* Icône normale */
     .nav-item i {
       font-size: 24px;
-      transition: all 0.3s ease;
-    }
-    .nav-item.active i {
-      font-size: 28px;
+      margin-bottom: 2px;
     }
     /* Ripple effect for nav-item */
     .nav-item::after {
@@ -524,7 +507,7 @@
     <!-- Screen 1: Nouvelle Vente - Multi-steps -->
     <section id="screen-vendre" class="screen active">
       <header>
-        <!-- Entête retiré -->
+        <!-- Entête retiré selon la demande -->
       </header>
       <!-- Container for the multi-step form -->
       <div id="saleSteps">
@@ -828,7 +811,7 @@
   
   <!-- Bottom Navigation Modernisée -->
   <nav class="bottom-nav-pro">
-    <div class="nav-item vente-item active" id="navVendre" onclick="showScreen('screen-vendre')">
+    <div class="nav-item active" id="navVendre" onclick="showScreen('screen-vendre')">
       <i data-lucide="shopping-cart"></i>
       <span>Vente</span>
     </div>
@@ -851,13 +834,14 @@
   </nav>
   
   <script>
-    window.addEventListener('load', () => {
-      lucide.createIcons();
+    /**************** Préloader - Masquage après chargement ****************/
+    window.addEventListener('load', function() {
       const preloader = document.getElementById('preloader');
       preloader.style.opacity = '0';
       setTimeout(() => { preloader.style.display = 'none'; }, 500);
     });
 
+    /**************** Toast Notification ****************/
     function showToast(message) {
       const toast = document.getElementById("toast");
       toast.textContent = message;
@@ -865,6 +849,7 @@
       setTimeout(() => { toast.style.display = "none"; }, 3000);
     }
 
+    /**************** Sale Loader Functions ****************/
     function showSaleLoader() {
       document.getElementById("saleLoader").style.display = "flex";
     }
@@ -872,6 +857,7 @@
       document.getElementById("saleLoader").style.display = "none";
     }
 
+    /**************** Gestion des étapes de vente (Stepper) ****************/
     let currentStep = 0;
     const steps = document.querySelectorAll(".sale-step");
     function showStep(index) {
@@ -881,6 +867,7 @@
           step.classList.add("active");
         }
       });
+      // Mise à jour de la barre de progression fluide
       const progress = ((index + 1) / steps.length) * 100;
       document.getElementById("progressBar").style.width = progress + "%";
       document.getElementById("progressText").innerText = `Étape ${index + 1} / ${steps.length}`;
@@ -913,6 +900,7 @@
       recap.innerHTML = html;
     }
 
+    /**************** Compression de l'image ****************/
     function compressImage(file, maxWidth, maxHeight, quality, callback) {
       const reader = new FileReader();
       reader.onload = function(event) {
@@ -932,6 +920,7 @@
       reader.readAsDataURL(file);
     }
 
+    /**************** Initialisation Firebase et Firestore ****************/
     const firebaseConfig = {
       apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
       authDomain: "africaphone1-accfb.firebaseapp.com",
@@ -944,6 +933,7 @@
     firebase.initializeApp(firebaseConfig);
     const dbFirestore = firebase.firestore();
 
+    /**************** Fonctions Firestore CRUD pour les ventes ****************/
     function addSaleFirestore(vente) {
       return dbFirestore.collection("ventes").add(vente)
         .then(docRef => docRef.id)
@@ -985,6 +975,7 @@
         .catch(error => { throw new Error("Erreur lors de la suppression de la vente : " + error.message); });
     }
 
+    /**************** Fonctions Firestore CRUD pour le stock ****************/
     function getAllStockFirestore() {
       return dbFirestore.collection("stock").get()
         .then(querySnapshot => {
@@ -1044,6 +1035,7 @@
       return Promise.all(promises).then(() => updateStockSummary());
     }
 
+    /**************** Mise à jour de l'affichage du stock ****************/
     function updateStockSummary() {
       getAllStockFirestore().then(stocks => {
         const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
@@ -1053,6 +1045,7 @@
       }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
     }
 
+    /**************** Logique de l'annulation de vente avec restockage ****************/
     function demanderAnnulation(id) {
       const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
       if (motDePasse !== "zizou") {
@@ -1075,6 +1068,7 @@
       }
     }
 
+    /**************** Gestion des écrans et timestamp ****************/
     function updateTimestamp() {
       const now = new Date();
       const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
@@ -1099,6 +1093,7 @@
       }
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(screenId).classList.add('active');
+      // Mise à jour de la navigation avec la classe "nav-item"
       document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
       if(screenId === "screen-vendre") {
         document.getElementById("navVendre").classList.add("active");
@@ -1116,6 +1111,7 @@
       }
     }
 
+    /**************** Gestion du Panier (Vente) ****************/
     let currentItems = [];
     function updatePanier() {
       const panierContainer = document.getElementById("panierContent");
@@ -1139,6 +1135,7 @@
       document.getElementById("modalPanier").style.display = "none";
     }
 
+    /**************** Affichage des Articles du Panier (Vente) ****************/
     function ajouterArticle() {
       const produit = document.getElementById("produit").value.trim();
       const prix = parseFloat(document.getElementById("prix").value);
@@ -1184,6 +1181,7 @@
       calculerTotalArticle();
     }
 
+    /**************** Gestion de la Livraison dans la Vente ****************/
     function toggleDeliveryFields() {
       const isDelivery = document.getElementById("isDelivery").checked;
       const deliveryFields = document.getElementById("deliveryFields");
@@ -1200,6 +1198,7 @@
       return document.getElementById("isDelivery").checked ? "Valider la livraison ?" : "Valider la vente ?";
     }
 
+    /**************** Validation et Finalisation de la Vente ****************/
     function validerVente() {
       if(currentItems.length === 0) {
         alert("Veuillez ajouter au moins un article.");
@@ -1291,6 +1290,7 @@
         });
     }
 
+    /**************** Compression de l'image via canvas ****************/
     function compressImage(file, maxWidth, maxHeight, quality, callback) {
       const reader = new FileReader();
       reader.onload = function(event) {
@@ -1310,6 +1310,7 @@
       reader.readAsDataURL(file);
     }
 
+    /**************** Affichage et Détails des Ventes ****************/
     function afficherVentes() {
       getSalesForTodayFirestore()
         .then(sales => {
@@ -1338,6 +1339,7 @@
         .catch(error => console.error("Erreur lors de la récupération des ventes : " + error.message));
     }
     
+    /**************** Affichage des Livraisons ****************/
     function afficherLivraisons() {
       getSalesForTodayFirestore()
         .then(sales => {
@@ -1384,6 +1386,7 @@
         .catch(error => console.error("Erreur lors de la récupération des livraisons : " + error.message));
     }
     
+    /**************** Fonctions de Marquage des Livraisons ****************/
     function marquerCommeReussie(id) {
       if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
         getSaleByIdFirestore(id)
@@ -1417,6 +1420,7 @@
       }
     }
     
+    /**************** Détails d'une Vente ****************/
     function ouvrirDetails(id) {
       getSaleByIdFirestore(id)
         .then(sale => {
@@ -1471,6 +1475,7 @@
       }
     };
 
+    /**************** Export PDF (Format JSON) ****************/
     function exporterPDF() {
       const progressElem = document.getElementById("downloadProgress");
       progressElem.style.display = "block";
@@ -1511,6 +1516,7 @@
         });
     }
 
+    /**************** Export Factures PDF ****************/
     function exporterFacturesPDF() {
       getSalesForTodayFirestore()
         .then(sales => {
@@ -1561,6 +1567,7 @@
         });
     }
 
+    /**************** Auto-suggestion pour la Vente ****************/
     const produitInput = document.getElementById("produit");
     const suggestionList = document.getElementById("suggestionList");
     produitInput.addEventListener("input", function () {
@@ -1604,6 +1611,7 @@
       }
     });
 
+    /**************** Auto-suggestion pour l'Entrée de Stock ****************/
     const produitEntreeInput = document.getElementById("produitEntree");
     const suggestionListEntree = document.getElementById("suggestionListEntree");
     produitEntreeInput.addEventListener("input", function () {
@@ -1647,6 +1655,7 @@
       }
     });
 
+    /**************** Gestion des onglets dans la section Stock ****************/
     function filterStockItems(category) {
       let searchTerm = "";
       let containerId = "";
@@ -1765,6 +1774,7 @@
       }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
     }
 
+    /**************** Importation du stock depuis un fichier TXT ****************/
     function importStockFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1806,6 +1816,7 @@
         });
     }
 
+    /**************** Gestion de l'Entrée de Stock ****************/
     function calculerTotalEntree() {
       const prix = parseFloat(document.getElementById("prixEntree").value) || 0;
       const quantite = parseInt(document.getElementById("quantiteEntree").value) || 0;
@@ -1874,6 +1885,7 @@
         });
     }
 
+    /**************** Gestion des Vendeurs via Firestore ****************/
     function chargerVendeurs() {
       dbFirestore.collection("vendeurs").get()
         .then(querySnapshot => {
@@ -1940,6 +1952,7 @@
       chargerVendeurs();
     });
 
+    /**************** Ajout de la vibration sur clic pour les boutons ****************/
     document.querySelectorAll('.btn-modern').forEach(button => {
       button.addEventListener('click', () => {
         if(navigator.vibrate) {
@@ -1947,6 +1960,11 @@
         }
       });
     });
+
+    window.addEventListener('load', () => {
+  lucide.createIcons();
+});
   </script>
 </body>
 </html>
+
