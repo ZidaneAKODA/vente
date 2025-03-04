@@ -4,15 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>AFRICA PHONE - Gestion des Ventes</title>
-  <!-- Material Icons -->
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <!-- jsPDF and jsPDF-AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
-  <!-- Google Fonts -->
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
     /* Preloader Styles */
@@ -235,7 +234,7 @@
       align-items: center;
       margin-bottom: 16px;
     }
-    .input-with-icon .material-icons {
+    .input-with-icon i {
       position: absolute;
       left: 10px;
       font-size: 24px;
@@ -294,7 +293,7 @@
     .btn-modern:active::after {
       transform: translate(-50%, -50%) scale(1);
     }
-    .btn-modern .material-icons {
+    .btn-modern i {
       margin-right: 8px;
       font-size: 24px;
     }
@@ -409,7 +408,7 @@
       background: rgba(0, 96, 100, 0.1);
       border-radius: 12px;
     }
-    .nav-item .material-icons {
+    .nav-item i {
       font-size: 24px;
       margin-bottom: 2px;
     }
@@ -507,8 +506,8 @@
   <div id="app">
     <!-- Screen 1: Nouvelle Vente - Multi-steps -->
     <section id="screen-vendre" class="screen active">
-      <header style="display: none;">
-        <!-- Tout cet en-tête a été retiré -->
+      <header>
+        <!-- Entête retiré selon la demande -->
       </header>
       <!-- Container for the multi-step form -->
       <div id="saleSteps">
@@ -537,18 +536,18 @@
             <label for="totalArticle">Montant Total</label>
             <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
             <button type="button" class="btn-modern" onclick="ajouterArticle()">
-              <span class="material-icons">add_shopping_cart</span> Ajouter Article
+              <i data-lucide="shopping-cart"></i> Ajouter Article
             </button>
           </form>
           <button class="btn-modern secondary" onclick="ouvrirPanier()">
-            <span class="material-icons">shopping_bag</span> Voir Panier
+            <i data-lucide="shopping-bag"></i> Voir Panier
           </button>
           <div class="step-navigation">
             <button class="btn-modern secondary" onclick="prevStep()">
-              <span class="material-icons">arrow_back</span> Retour
+              <i data-lucide="arrow-left"></i> Retour
             </button>
             <button class="btn-modern" onclick="nextStep()">
-              Suivant <span class="material-icons">arrow_forward</span>
+              Suivant <i data-lucide="arrow-right"></i>
             </button>
           </div>
         </div>
@@ -558,21 +557,21 @@
           <form class="vente-form" onsubmit="event.preventDefault();">
             <label for="clientNom">Nom du Client</label>
             <div class="input-with-icon">
-              <span class="material-icons">person</span>
+              <i data-lucide="user"></i>
               <input type="text" id="clientNom" placeholder="Nom du client" required />
             </div>
             <label for="clientNumero">WhatsApp</label>
             <div class="input-with-icon">
-              <span class="material-icons">phone</span>
+              <i data-lucide="phone"></i>
               <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
             </div>
           </form>
           <div class="step-navigation">
             <button class="btn-modern secondary" onclick="prevStep()">
-              <span class="material-icons">arrow_back</span> Retour
+              <i data-lucide="arrow-left"></i> Retour
             </button>
             <button class="btn-modern" onclick="nextStep()">
-              Suivant <span class="material-icons">arrow_forward</span>
+              Suivant <i data-lucide="arrow-right"></i>
             </button>
           </div>
         </div>
@@ -594,10 +593,10 @@
           </form>
           <div class="step-navigation">
             <button class="btn-modern secondary" onclick="prevStep()">
-              <span class="material-icons">arrow_back</span> Retour
+              <i data-lucide="arrow-left"></i> Retour
             </button>
             <button class="btn-modern" onclick="nextStep()">
-              Suivant <span class="material-icons">arrow_forward</span>
+              Suivant <i data-lucide="arrow-right"></i>
             </button>
           </div>
         </div>
@@ -614,10 +613,10 @@
           </form>
           <div class="step-navigation">
             <button class="btn-modern secondary" onclick="prevStep()">
-              <span class="material-icons">arrow_back</span> Retour
+              <i data-lucide="arrow-left"></i> Retour
             </button>
             <button class="btn-modern" onclick="nextStep()">
-              Suivant <span class="material-icons">arrow_forward</span>
+              Suivant <i data-lucide="arrow-right"></i>
             </button>
           </div>
         </div>
@@ -629,7 +628,7 @@
           </div>
           <div class="step-navigation">
             <button class="btn-modern secondary" onclick="prevStep()">
-              <span class="material-icons">arrow_back</span> Retour
+              <i data-lucide="arrow-left"></i> Retour
             </button>
             <button class="btn-modern" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">
               Confirmer la Vente
@@ -676,16 +675,16 @@
         </div>
         <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px;">
           <button class="btn-modern" onclick="showStockCategory('telephones')">
-            <span class="material-icons">smartphone</span> Téléphones
+            <i data-lucide="package"></i> Téléphones
           </button>
           <button class="btn-modern" onclick="showStockCategory('accessoires')">
-            <span class="material-icons">headset</span> Accessoires
+            <i data-lucide="headphones"></i> Accessoires
           </button>
         </div>
       </div>
       <div id="stock-category" style="display: none;">
         <button class="btn-modern secondary" onclick="backToStockHome()">
-          <span class="material-icons">arrow_back</span> Retour
+          <i data-lucide="arrow-left"></i> Retour
         </button>
         <input type="text" id="search-category" placeholder="Rechercher..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: var(--border-radius);" oninput="filterStockCategory()">
         <div id="category-container" class="cards-container"></div>
@@ -723,20 +722,20 @@
           </select>
           <label for="produitEntree">Article</label>
           <div class="input-with-icon">
-            <span class="material-icons">inventory_2</span>
+            <i data-lucide="package"></i>
             <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
             <div id="suggestionListEntree" class="suggestion-list"></div>
           </div>
           <label for="prixEntree">Prix d'Achat Unitaire</label>
           <div class="input-with-icon">
-            <span class="material-icons">attach_money</span>
+            <i data-lucide="dollar-sign"></i>
             <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
           </div>
           <label for="quantiteEntree">Quantité</label>
           <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
           <label for="totalEntree">Montant Total</label>
           <div class="input-with-icon">
-            <span class="material-icons">calculate</span>
+            <i data-lucide="calculator"></i>
             <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
           </div>
           <button class="btn-modern" type="submit">Ajouter Entrée</button>
@@ -769,20 +768,20 @@
           </select>
           <label for="produitEntree">Article</label>
           <div class="input-with-icon">
-            <span class="material-icons">inventory_2</span>
+            <i data-lucide="package"></i>
             <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
             <div id="suggestionListEntree" class="suggestion-list"></div>
           </div>
           <label for="prixEntree">Prix d'Achat Unitaire</label>
           <div class="input-with-icon">
-            <span class="material-icons">attach_money</span>
+            <i data-lucide="dollar-sign"></i>
             <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
           </div>
           <label for="quantiteEntree">Quantité</label>
           <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
           <label for="totalEntree">Montant Total</label>
           <div class="input-with-icon">
-            <span class="material-icons">calculate</span>
+            <i data-lucide="calculator"></i>
             <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
           </div>
           <button class="btn-modern" type="submit">Ajouter Entrée</button>
@@ -813,23 +812,23 @@
   <!-- Bottom Navigation Modernisée -->
   <nav class="bottom-nav-pro">
     <div class="nav-item active" id="navVendre" onclick="showScreen('screen-vendre')">
-      <span class="material-icons">shopping_cart</span>
+      <i data-lucide="shopping-cart"></i>
       <span>Vente</span>
     </div>
     <div class="nav-item" id="navStock" onclick="showScreen('screen-stock')">
-      <span class="material-icons">inventory_2</span>
+      <i data-lucide="package"></i>
       <span>Stock</span>
     </div>
     <div class="nav-item" id="navLivraisons" onclick="showScreen('screen-livraisons'); afficherLivraisons();">
-      <span class="material-icons">local_shipping</span>
+      <i data-lucide="truck"></i>
       <span>Livraisons</span>
     </div>
     <div class="nav-item" id="navHistorique" onclick="showScreen('screen-historique'); afficherVentes();">
-      <span class="material-icons">history</span>
+      <i data-lucide="clock"></i>
       <span>Historique</span>
     </div>
     <div class="nav-item" id="navParametres" onclick="showScreen('screen-parametres')">
-      <span class="material-icons">settings</span>
+      <i data-lucide="settings"></i>
       <span>Paramètres</span>
     </div>
   </nav>
@@ -1961,6 +1960,11 @@
         }
       });
     });
+
+    window.addEventListener('load', () => {
+  lucide.createIcons();
+});
   </script>
 </body>
 </html>
+
