@@ -205,70 +205,30 @@
       box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
       outline: none;
     }
-    /* Quantity controls */
-    .quantity-container {
+    /* Modern Input Fields with Icons */
+    .input-with-icon {
+      position: relative;
       display: flex;
       align-items: center;
       margin-bottom: 16px;
     }
-    .quantity-container button {
-      flex: none;
-      width: 40px;
-      height: 40px;
-      font-size: 20px;
-      background-color: var(--primary-color);
-      color: var(--white);
-      border: none;
-      border-radius: var(--border-radius);
-      cursor: pointer;
-    }
-    .quantity-container input {
-      flex: 1;
-      text-align: center;
-      margin: 0 10px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: var(--border-radius);
-      font-size: 18px;
-    }
-    /* Input container for suggestions */
-    .input-container {
-      position: relative;
-    }
-    .suggestion-list {
+    .input-with-icon .material-icons {
       position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: var(--white);
-      border: 1px solid #ccc;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 100;
-      display: none;
+      left: 10px;
+      font-size: 24px;
+      color: var(--primary-color);
     }
-    .suggestion-item {
-      padding: 10px 14px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    .suggestion-item:hover {
-      background-color: var(--primary-color);
-      color: var(--white);
-    }
-    .suggestion-item.no-result {
-      cursor: default;
-      background-color: #f9f9f9;
-      color: #666;
-    }
-    /* Additional Delivery Fields */
-    #deliveryFields {
-      display: none;
+    .input-with-icon input {
+      width: 100%;
+      padding: 10px 10px 10px 40px; /* espace pour l'icône */
       border: 1px solid #ccc;
       border-radius: var(--border-radius);
-      padding: 12px;
-      margin-bottom: 15px;
-      background: #fafafa;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .input-with-icon input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
+      outline: none;
     }
     /* Boutons Modernes Inspirés des Apps Mobiles */
     .btn-modern {
@@ -532,12 +492,10 @@
             </div>
             <label for="totalArticle">Montant Total</label>
             <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
-            <!-- Bouton modernisé pour Ajouter Article -->
             <button type="button" class="btn-modern" onclick="ajouterArticle()">
               <span class="material-icons">add_shopping_cart</span> Ajouter Article
             </button>
           </form>
-          <!-- Bouton modernisé pour Voir Panier -->
           <button class="btn-modern secondary" onclick="ouvrirPanier()">
             <span class="material-icons">shopping_bag</span> Voir Panier
           </button>
@@ -550,14 +508,20 @@
             </button>
           </div>
         </div>
-        <!-- Étape 2 : Informations Client -->
+        <!-- Étape 2 : Informations Client (Formulaire modernisé) -->
         <div class="sale-step" id="step2">
           <h2>Étape 2 : Informations Client</h2>
           <form class="vente-form" onsubmit="event.preventDefault();">
             <label for="clientNom">Nom du Client</label>
-            <input type="text" id="clientNom" placeholder="Nom du client" required />
+            <div class="input-with-icon">
+              <span class="material-icons">person</span>
+              <input type="text" id="clientNom" placeholder="Nom du client" required />
+            </div>
             <label for="clientNumero">WhatsApp</label>
-            <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
+            <div class="input-with-icon">
+              <span class="material-icons">phone</span>
+              <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
+            </div>
           </form>
           <div class="step-navigation">
             <button class="btn-modern secondary" onclick="prevStep()">
@@ -707,7 +671,33 @@
       </div>
       <div class="form-section">
         <h2>Entrée de Stock</h2>
-        <button class="btn-modern" onclick="showScreen('screen-entree-stock')">Effectuer une Entrée de Stock</button>
+        <!-- Formulaire modernisé pour l'entrée de stock -->
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
+          <label for="categorieEntree">Catégorie</label>
+          <select id="categorieEntree">
+            <option value="telephones">Téléphones</option>
+            <option value="accessoires">Accessoires</option>
+          </select>
+          <label for="produitEntree">Article</label>
+          <div class="input-with-icon">
+            <span class="material-icons">inventory_2</span>
+            <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
+            <div id="suggestionListEntree" class="suggestion-list"></div>
+          </div>
+          <label for="prixEntree">Prix d'Achat Unitaire</label>
+          <div class="input-with-icon">
+            <span class="material-icons">attach_money</span>
+            <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
+          </div>
+          <label for="quantiteEntree">Quantité</label>
+          <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
+          <label for="totalEntree">Montant Total</label>
+          <div class="input-with-icon">
+            <span class="material-icons">calculate</span>
+            <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
+          </div>
+          <button class="btn-modern" type="submit">Ajouter Entrée</button>
+        </form>
       </div>
       <div class="form-section">
         <h2>Gestion des Vendeurs</h2>
@@ -728,6 +718,7 @@
       </header>
       <div class="form-section">
         <h2>Ajouter un Article</h2>
+        <!-- Formulaire modernisé pour l'entrée de stock (idem que dans Paramètres) -->
         <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
           <label for="categorieEntree">Catégorie</label>
           <select id="categorieEntree">
@@ -735,20 +726,23 @@
             <option value="accessoires">Accessoires</option>
           </select>
           <label for="produitEntree">Article</label>
-          <div class="input-container">
+          <div class="input-with-icon">
+            <span class="material-icons">inventory_2</span>
             <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
             <div id="suggestionListEntree" class="suggestion-list"></div>
           </div>
           <label for="prixEntree">Prix d'Achat Unitaire</label>
-          <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
-          <label for="quantiteEntree">Quantité</label>
-          <div class="quantity-container">
-            <button type="button" onclick="decrementQuantityEntree()">–</button>
-            <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
-            <button type="button" onclick="incrementQuantityEntree()">+</button>
+          <div class="input-with-icon">
+            <span class="material-icons">attach_money</span>
+            <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
           </div>
+          <label for="quantiteEntree">Quantité</label>
+          <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
           <label for="totalEntree">Montant Total</label>
-          <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
+          <div class="input-with-icon">
+            <span class="material-icons">calculate</span>
+            <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
+          </div>
           <button class="btn-modern" type="submit">Ajouter Entrée</button>
         </form>
       </div>
