@@ -10,6 +10,7 @@
   <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-auth-compat.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -750,6 +751,11 @@
         </form>
         <div id="listeVendeurs"></div>
       </div>
+      <!-- Section Déconnexion -->
+      <div class="form-section">
+        <h2>Déconnexion</h2>
+        <button class="btn-modern" onclick="deconnexion()">Se Déconnecter</button>
+      </div>
     </section>
     
     <!-- Screen 6: Entrée de Stock avec choix de catégorie -->
@@ -827,7 +833,8 @@
       <i data-lucide="clock"></i>
       <span>Historique</span>
     </div>
-    <div class="nav-item" id="navParametres" onclick="showScreen('screen-parametres')">
+    <!-- Le bouton Paramètres est affiché uniquement pour l'admin (géré via onAuthStateChanged) -->
+    <div class="nav-item" id="navParametres" style="display: none;" onclick="showScreen('screen-parametres')">
       <i data-lucide="settings"></i>
       <span>Paramètres</span>
     </div>
@@ -1083,14 +1090,8 @@
     }
     setInterval(updateTimestamp, 1000);
 
+    // Modification : suppression du prompt de mot de passe pour accéder aux paramètres.
     function showScreen(screenId) {
-      if(screenId === "screen-parametres") {
-        var pass = prompt("Veuillez saisir le mot de passe pour accéder aux paramètres :");
-        if(pass !== "zizou") {
-          alert("Mot de passe incorrect !");
-          return;
-        }
-      }
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(screenId).classList.add('active');
       // Mise à jour de la navigation avec la classe "nav-item"
@@ -1325,14 +1326,13 @@
           ventes.forEach(sale => {
             const card = document.createElement("div");
             card.className = "vente-card";
-            card.innerHTML = `
-              <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+            card.innerHTML = 
+              `<p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
               <p>Vendeur : ${sale.vendeur}</p>
               <p>Articles : ${sale.items ? sale.items.length : 0}</p>
               <p>Total : ${sale.overallTotal}</p>
               <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
-              <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>
-            `;
+              <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>`;
             container.appendChild(card);
           });
         })
@@ -1365,21 +1365,19 @@
             }
             let actionButtons = "";
             if(sale.deliveryStatus === "en cours") {
-              actionButtons = `
-                <button onclick="marquerCommeReussie('${sale.id}')">Marquer comme Réussie</button>
-                <button onclick="marquerCommeEchouee('${sale.id}')">Marquer comme Échouée</button>
-              `;
+              actionButtons = 
+                `<button onclick="marquerCommeReussie('${sale.id}')">Marquer comme Réussie</button>
+                <button onclick="marquerCommeEchouee('${sale.id}')">Marquer comme Échouée</button>`;
             }
-            card.innerHTML = `
-              <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+            card.innerHTML = 
+              `<p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
               <p>Vendeur : ${sale.vendeur}</p>
               <p>Livraison par : ${sale.livreurNom || ""} (${sale.livreurNumero || ""})</p>
               <p>Lieu : ${sale.lieuLivraison || ""}</p>
               <p>Statut : ${statusEmoji}</p>
               <p>Total : ${sale.overallTotal}</p>
               <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
-              ${actionButtons}
-            `;
+              ${actionButtons}`;
             container.appendChild(card);
           });
         })
@@ -1432,15 +1430,14 @@
           } else {
             articlesText = "Aucun article.";
           }
-          let detailHTML = `
-            <p><strong>Date :</strong> ${sale.dateVente}</p>
+          let detailHTML = 
+            `<p><strong>Date :</strong> ${sale.dateVente}</p>
             <p><strong>Heure :</strong> ${sale.heureVente}</p>
             <p><strong>Client :</strong> ${sale.clientNom} (${sale.clientNumero})</p>
             <p><strong>Vendeur :</strong> ${sale.vendeur}</p>
             <p><strong>Articles :</strong><br>${articlesText}</p>
             <p><strong>Total Général :</strong> ${sale.overallTotal}</p>
-            <p><strong>Observations :</strong> ${sale.observationsVendeur || "Aucune"}</p>
-          `;
+            <p><strong>Observations :</strong> ${sale.observationsVendeur || "Aucune"}</p>`;
           if(sale.isDelivery) {
             let statusEmoji = "🟠 En cours";
             if(sale.deliveryStatus === "réussie") {
@@ -1448,11 +1445,10 @@
             } else if(sale.deliveryStatus === "échouée") {
               statusEmoji = "🔴 Échouée";
             }
-            detailHTML += `
-              <p><strong>Livraison par :</strong> ${sale.livreurNom} (${sale.livreurNumero})</p>
+            detailHTML += 
+              `<p><strong>Livraison par :</strong> ${sale.livreurNom} (${sale.livreurNumero})</p>
               <p><strong>Lieu de Livraison :</strong> ${sale.lieuLivraison}</p>
-              <p><strong>Statut de Livraison :</strong> ${statusEmoji}</p>
-            `;
+              <p><strong>Statut de Livraison :</strong> ${statusEmoji}</p>`;
           }
           if(sale.photoFacture) {
             detailHTML += `<p><strong>Photo :</strong><br>
@@ -1703,14 +1699,13 @@
           filteredProducts.forEach(prod => {
             const card = document.createElement("div");
             card.className = "product-card";
-            card.innerHTML = `
-              <div class="product-icon">${prod.icon}</div>
+            card.innerHTML = 
+              `<div class="product-icon">${prod.icon}</div>
               <div class="product-details">
                 <h3>${prod.name}</h3>
                 <p>🔹 Stock : ${prod.stock} unités</p>
                 <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-              </div>
-            `;
+              </div>`;
             container.appendChild(card);
           });
         }
@@ -1761,14 +1756,13 @@
         filteredProducts.forEach(prod => {
           const card = document.createElement("div");
           card.className = "product-card";
-          card.innerHTML = `
-            <div class="product-icon">${prod.icon}</div>
+          card.innerHTML = 
+            `<div class="product-icon">${prod.icon}</div>
             <div class="product-details">
               <h3>${prod.name}</h3>
               <p>🔹 Stock : ${prod.stock} unités</p>
               <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-            </div>
-          `;
+            </div>`;
           container.appendChild(card);
         });
       }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
@@ -1962,9 +1956,32 @@
     });
 
     window.addEventListener('load', () => {
-  lucide.createIcons();
-});
+      lucide.createIcons();
+    });
+
+    /*********************** Vérification de l'authentification **************************/
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user) {
+        // Si l'utilisateur est connecté, afficher les paramètres uniquement pour l'admin
+        if (user.email === 'admin@africaphone.com') {
+          document.getElementById('navParametres').style.display = 'flex';
+        } else {
+          document.getElementById('navParametres').style.display = 'none';
+        }
+      } else {
+        // Si non connecté, rediriger vers la page de login
+        window.location.href = 'login.html';
+      }
+    });
+
+    /**************** Fonction de déconnexion ****************/
+    function deconnexion() {
+      firebase.auth().signOut().then(() => {
+        window.location.href = 'login.html';
+      }).catch(error => {
+        alert("Erreur lors de la déconnexion: " + error.message);
+      });
+    }
   </script>
 </body>
 </html>
-
