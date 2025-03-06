@@ -15,14 +15,13 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
-    /* Prévenir la sélection de texte sur tous les éléments (sauf input et textarea) */
+    /* Désactivation globale de la sélection de texte (sauf input et textarea) */
     body *:not(input):not(textarea) {
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
       -ms-user-select: none;
     }
-
     /* Preloader Styles */
     #preloader {
       position: fixed;
@@ -426,7 +425,6 @@
       font-size: 24px;
       margin-bottom: 2px;
     }
-    /* Ripple effect for nav-item */
     .nav-item::after {
       content: "";
       position: absolute;
@@ -495,62 +493,84 @@
       margin-bottom: 8px;
       font-size: 16px;
     }
-    
-    /* ================================
-       Menu Latéral (remplace Paramètres)
-       ================================ */
-    .side-menu {
-      position: fixed;
-      top: 0;
-      right: -100%;
-      width: 80%;
-      max-width: 320px;
-      height: 100%;
-      background: #fff;
-      box-shadow: -2px 0 10px rgba(0,0,0,0.2);
-      transition: right 0.3s ease;
-      z-index: 5000;
-      display: flex;
-      flex-direction: column;
+    /* ===============================
+       Interface Menu (Thème Clair)
+       =============================== */
+    #screen-menu {
+      background-color: #f9f9f9;
+      color: #333;
+      height: 100vh;
       overflow-y: auto;
+      font-family: Arial, sans-serif;
     }
-    .side-menu.active {
-      right: 0;
+    #screen-menu .menu {
+      padding: 15px;
     }
-    .side-menu-content {
-      padding: 20px;
-      flex: 1;
-    }
-    .side-menu h2 {
+    #screen-menu .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 15px;
-      font-size: 20px;
-      color: var(--primary-color);
     }
-    .side-menu ul {
-      list-style: none;
-      padding: 0;
+    #screen-menu .header-icons {
+      display: flex;
+      gap: 15px;
     }
-    .side-menu ul li {
+    #screen-menu .profile-section {
       display: flex;
       align-items: center;
-      padding: 12px 0;
-      font-size: 18px;
-      cursor: pointer;
-      border-bottom: 1px solid #f0f0f0;
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
     }
-    .side-menu ul li i {
+    #screen-menu .profile-pic {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: url('https://via.placeholder.com/40') center/cover;
       margin-right: 10px;
-      font-size: 22px;
     }
-    .close-menu {
-      background: var(--primary-color);
-      color: white;
-      border: none;
-      padding: 12px;
-      font-size: 16px;
-      cursor: pointer;
+    #screen-menu .profile-info div {
+      font-weight: bold;
+    }
+    #screen-menu .shortcuts {
+      display: flex;
+      overflow-x: auto;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    #screen-menu .shortcut {
+      width: 60px;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 12px;
+      color: #555;
+    }
+    #screen-menu .shortcut img {
       width: 100%;
-      margin-top: auto;
+      border-radius: 10px;
+      height: 60px;
+      object-fit: cover;
+    }
+    #screen-menu .sections {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    #screen-menu .section {
+      background-color: #fff;
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    #screen-menu .section svg {
+      color: #006064;
     }
   </style>
 </head>
@@ -580,14 +600,11 @@
       <header>
         <!-- Entête retiré selon la demande -->
       </header>
-      <!-- Container for the multi-step form -->
       <div id="saleSteps">
-        <!-- Barre de progression fluide -->
         <div class="progress-container">
           <div class="progress-bar" id="progressBar"></div>
         </div>
         <span id="progressText">Étape 1 / 5</span>
-        <!-- Étape 1 : Sélection des articles -->
         <div class="sale-step active" id="step1">
           <h2>Étape 1 : Ajouter des Articles</h2>
           <form class="vente-form" onsubmit="event.preventDefault();">
@@ -762,9 +779,7 @@
       </div>
     </section>
 
-    <!-- (Ancienne section "Paramètres" supprimée de l'interface principale) -->
-    
-    <!-- Screen 6: Entrée de Stock avec choix de catégorie -->
+    <!-- Screen 5: Entrée de Stock -->
     <section id="screen-entree-stock" class="screen">
       <header>
         <button class="back-btn" onclick="window.location.hash='parametres'">← Retour</button>
@@ -798,6 +813,80 @@
           </div>
           <button class="btn-modern" type="submit">Ajouter Entrée</button>
         </form>
+      </div>
+    </section>
+
+    <!-- Screen 6: Menu Principal (Thème Clair) -->
+    <section id="screen-menu" class="screen">
+      <div class="menu">
+        <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div id="current-time-menu" style="font-size: 16px; font-weight: bold; color: #006064;">9:40</div>
+          <div class="header-icons" style="display: flex; gap: 15px;">
+            <i data-lucide="camera"></i>
+            <i data-lucide="message-circle"></i>
+            <i data-lucide="bell"></i>
+            <i data-lucide="user-circle"></i>
+          </div>
+        </div>
+        <div class="profile-section" style="display: flex; align-items: center; background-color: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px;">
+          <div class="profile-pic" style="width: 40px; height: 40px; border-radius: 50%; background: url('https://via.placeholder.com/40') center/cover; margin-right: 10px;"></div>
+          <div class="profile-info">
+            <div>Zidane Akoda</div>
+          </div>
+          <i data-lucide="chevron-down"></i>
+        </div>
+        <div class="shortcuts" style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
+          <div class="shortcut">
+            <img src="https://via.placeholder.com/60" alt="">
+            <div>Ventes</div>
+          </div>
+          <div class="shortcut">
+            <img src="https://via.placeholder.com/60" alt="">
+            <div>Stock</div>
+          </div>
+          <div class="shortcut">
+            <img src="https://via.placeholder.com/60" alt="">
+            <div>Livraisons</div>
+          </div>
+          <div class="shortcut">
+            <img src="https://via.placeholder.com/60" alt="">
+            <div>Rapports</div>
+          </div>
+        </div>
+        <div class="sections">
+          <div class="section" onclick="window.location.hash='vendre'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="shopping-cart" style="color: #006064;"></i>
+            Nouvelle Vente
+          </div>
+          <div class="section" onclick="window.location.hash='stock'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="package" style="color: #006064;"></i>
+            Gestion Stock
+          </div>
+          <div class="section" onclick="window.location.hash='livraisons'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="truck" style="color: #006064;"></i>
+            Suivi Livraisons
+          </div>
+          <div class="section" onclick="window.location.hash='historique'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="clock" style="color: #006064;"></i>
+            Historique Ventes
+          </div>
+          <div class="section" onclick="window.location.hash='entree-stock'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="plus-square" style="color: #006064;"></i>
+            Entrée de Stock
+          </div>
+          <div class="section" onclick="ouvrirGestionVendeurs()" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="users" style="color: #006064;"></i>
+            Gestion Vendeurs
+          </div>
+          <div class="section" onclick="exporterPDF()" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="file-text" style="color: #006064;"></i>
+            Export PDF
+          </div>
+          <div class="section" onclick="deconnexion()" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <i data-lucide="log-out" style="color: #006064;"></i>
+            Déconnexion
+          </div>
+        </div>
       </div>
     </section>
     
@@ -839,36 +928,21 @@
       <i data-lucide="clock"></i>
       <span>Historique</span>
     </div>
-    <!-- Bouton Menu à la place de Paramètres -->
-    <div class="nav-item" id="nav-menu" onclick="toggleMenu()">
+    <div class="nav-item" id="nav-menu" onclick="window.location.hash='menu'">
       <i data-lucide="menu"></i>
       <span>Menu</span>
     </div>
   </nav>
   
-  <!-- Menu Latéral (Menu glissant) -->
-  <div id="sideMenu" class="side-menu">
-    <div class="side-menu-content">
-      <h2>Menu</h2>
-      <ul>
-        <li onclick="ouvrirProfil()"><i data-lucide="user"></i> Profil</li>
-        <li onclick="ouvrirGestionVendeurs()"><i data-lucide="users"></i> Gestion des Vendeurs</li>
-        <li onclick="window.location.hash='entree-stock'; toggleMenu()"><i data-lucide="package-plus"></i> Entrée de Stock</li>
-        <li onclick="deconnexion()"><i data-lucide="log-out"></i> Déconnexion</li>
-      </ul>
-      <button class="close-menu" onclick="toggleMenu()">Fermer</button>
-    </div>
-  </div>
-  
   <script>
-    /**************** Préloader - Masquage après chargement ****************/
+    // Préloader
     window.addEventListener('load', function() {
       const preloader = document.getElementById('preloader');
       preloader.style.opacity = '0';
       setTimeout(() => { preloader.style.display = 'none'; }, 500);
     });
 
-    /**************** Toast Notification ****************/
+    // Toast Notification
     function showToast(message) {
       const toast = document.getElementById("toast");
       toast.textContent = message;
@@ -876,7 +950,7 @@
       setTimeout(() => { toast.style.display = "none"; }, 3000);
     }
 
-    /**************** Sale Loader Functions ****************/
+    // Sale Loader Functions
     function showSaleLoader() {
       document.getElementById("saleLoader").style.display = "flex";
     }
@@ -884,7 +958,7 @@
       document.getElementById("saleLoader").style.display = "none";
     }
 
-    /**************** Gestion des étapes de vente (Stepper) ****************/
+    // Gestion des étapes de vente (Stepper)
     let currentStep = 0;
     const steps = document.querySelectorAll(".sale-step");
     function showStep(index) {
@@ -894,7 +968,6 @@
           step.classList.add("active");
         }
       });
-      // Mise à jour de la barre de progression fluide
       const progress = ((index + 1) / steps.length) * 100;
       document.getElementById("progressBar").style.width = progress + "%";
       document.getElementById("progressText").innerText = `Étape ${index + 1} / ${steps.length}`;
@@ -927,7 +1000,7 @@
       recap.innerHTML = html;
     }
 
-    /**************** Compression de l'image ****************/
+    // Compression d'image
     function compressImage(file, maxWidth, maxHeight, quality, callback) {
       const reader = new FileReader();
       reader.onload = function(event) {
@@ -947,7 +1020,7 @@
       reader.readAsDataURL(file);
     }
 
-    /**************** Initialisation Firebase et Firestore ****************/
+    // Initialisation Firebase et Firestore
     const firebaseConfig = {
       apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
       authDomain: "africaphone1-accfb.firebaseapp.com",
@@ -960,7 +1033,7 @@
     firebase.initializeApp(firebaseConfig);
     const dbFirestore = firebase.firestore();
 
-    /**************** Fonctions Firestore CRUD pour les ventes ****************/
+    // Fonctions Firestore pour les ventes
     function addSaleFirestore(vente) {
       return dbFirestore.collection("ventes").add(vente)
         .then(docRef => docRef.id)
@@ -1002,7 +1075,7 @@
         .catch(error => { throw new Error("Erreur lors de la suppression de la vente : " + error.message); });
     }
 
-    /**************** Fonctions Firestore CRUD pour le stock ****************/
+    // Fonctions Firestore pour le stock
     function getAllStockFirestore() {
       return dbFirestore.collection("stock").get()
         .then(querySnapshot => {
@@ -1062,7 +1135,7 @@
       return Promise.all(promises).then(() => updateStockSummary());
     }
 
-    /**************** Mise à jour de l'affichage du stock ****************/
+    // Mise à jour de l'affichage du stock
     function updateStockSummary() {
       getAllStockFirestore().then(stocks => {
         const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
@@ -1072,7 +1145,7 @@
       }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
     }
 
-    /**************** Logique de l'annulation de vente avec restockage ****************/
+    // Annulation de vente avec restockage
     function demanderAnnulation(id) {
       const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
       if (motDePasse !== "zizou") {
@@ -1095,51 +1168,28 @@
       }
     }
 
-    /**************** Gestion des onglets et du timestamp ****************/
-    function updateTimestamp() {
-      const now = new Date();
-      const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
-      let dateStr = now.toLocaleDateString("fr-FR", options);
-      dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-      document.getElementById("dateAffiche").innerText = dateStr;
-      document.getElementById("heureAffiche").innerText = now.toLocaleTimeString("fr-FR");
-      document.getElementById("dateAfficheHist").innerText = now.toLocaleDateString("fr-FR");
-      document.getElementById("dateLivraison").innerText = now.toLocaleDateString("fr-FR");
-      document.getElementById("dateStock").innerText = now.toLocaleDateString("fr-FR");
-      document.getElementById("dateParametres").innerText = now.toLocaleDateString("fr-FR");
-    }
-    setInterval(updateTimestamp, 1000);
-
-    /**************** NEW: Hash Router pour la Navigation ****************/
+    // Hash Router pour la navigation
     function handleHashChange() {
-      const hash = window.location.hash.substring(1); // Supprime le #
+      const hash = window.location.hash.substring(1);
       showScreenByHash(hash);
     }
-
     function showScreenByHash(hash) {
       const allScreens = document.querySelectorAll('.screen');
       allScreens.forEach(screen => screen.classList.remove('active'));
-
       const targetScreen = document.getElementById(`screen-${hash}`);
       if (targetScreen) {
         targetScreen.classList.add('active');
       } else {
-        // Si le hash est inconnu, revenir à la page par défaut (vente)
         document.getElementById('screen-vendre').classList.add('active');
         window.location.hash = 'vendre';
       }
-
-      // Mise à jour de la navigation active
       document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
       const activeNav = document.getElementById(`nav-${hash}`);
       if (activeNav) {
         activeNav.classList.add('active');
       }
-
-      // Actions spécifiques par écran
       switch (hash) {
         case 'vendre':
-          // Actions spécifiques pour la vente si besoin
           break;
         case 'stock':
           updateStockSummary();
@@ -1152,17 +1202,16 @@
           break;
       }
     }
-
     window.addEventListener('load', () => {
       if (!window.location.hash) {
-        window.location.hash = 'vendre';  // Page par défaut
+        window.location.hash = 'vendre';
       }
       handleHashChange();
       window.addEventListener('hashchange', handleHashChange);
       lucide.createIcons();
     });
 
-    /**************** Gestion du Panier (Vente) ****************/
+    // Gestion du Panier (Vente)
     let currentItems = [];
     function updatePanier() {
       const panierContainer = document.getElementById("panierContent");
@@ -1186,7 +1235,7 @@
       document.getElementById("modalPanier").style.display = "none";
     }
 
-    /**************** Affichage des Articles du Panier (Vente) ****************/
+    // Ajout d'un article au panier
     function ajouterArticle() {
       const produit = document.getElementById("produit").value.trim();
       const prix = parseFloat(document.getElementById("prix").value);
@@ -1232,7 +1281,7 @@
       calculerTotalArticle();
     }
 
-    /**************** Gestion de la Livraison dans la Vente ****************/
+    // Gestion de la livraison dans la vente
     function toggleDeliveryFields() {
       const isDelivery = document.getElementById("isDelivery").checked;
       const deliveryFields = document.getElementById("deliveryFields");
@@ -1249,7 +1298,7 @@
       return document.getElementById("isDelivery").checked ? "Valider la livraison ?" : "Valider la vente ?";
     }
 
-    /**************** Validation et Finalisation de la Vente ****************/
+    // Validation et finalisation de la vente
     function validerVente() {
       if(currentItems.length === 0) {
         alert("Veuillez ajouter au moins un article.");
@@ -1341,7 +1390,7 @@
         });
     }
 
-    /**************** Compression de l'image via canvas ****************/
+    // Compression de l'image via canvas
     function compressImage(file, maxWidth, maxHeight, quality, callback) {
       const reader = new FileReader();
       reader.onload = function(event) {
@@ -1361,7 +1410,7 @@
       reader.readAsDataURL(file);
     }
 
-    /**************** Affichage et Détails des Ventes ****************/
+    // Affichage et détails des ventes
     function afficherVentes() {
       getSalesForTodayFirestore()
         .then(sales => {
@@ -1389,7 +1438,7 @@
         .catch(error => console.error("Erreur lors de la récupération des ventes : " + error.message));
     }
     
-    /**************** Affichage des Livraisons ****************/
+    // Affichage des livraisons
     function afficherLivraisons() {
       getSalesForTodayFirestore()
         .then(sales => {
@@ -1434,7 +1483,7 @@
         .catch(error => console.error("Erreur lors de la récupération des livraisons : " + error.message));
     }
     
-    /**************** Fonctions de Marquage des Livraisons ****************/
+    // Fonctions de marquage des livraisons
     function marquerCommeReussie(id) {
       if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
         getSaleByIdFirestore(id)
@@ -1468,14 +1517,14 @@
       }
     }
     
-    /**************** Détails d'une Vente ****************/
+    // Détails d'une vente
     function ouvrirDetails(id) {
       getSaleByIdFirestore(id)
         .then(sale => {
           let articlesText = "";
           if (Array.isArray(sale.items)) {
             sale.items.forEach(item => {
-              articlesText += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Montant : " + item.total + ")<br>";
+              articlesText += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
             });
           } else {
             articlesText = "Aucun article.";
@@ -1521,7 +1570,7 @@
       }
     };
 
-    /**************** Export PDF (Format JSON) ****************/
+    // Export PDF (Format JSON)
     function exporterPDF() {
       const progressElem = document.getElementById("downloadProgress");
       progressElem.style.display = "block";
@@ -1562,7 +1611,7 @@
         });
     }
 
-    /**************** Export Factures PDF ****************/
+    // Export Factures PDF
     function exporterFacturesPDF() {
       getSalesForTodayFirestore()
         .then(sales => {
@@ -1613,7 +1662,7 @@
         });
     }
 
-    /**************** Auto-suggestion pour la Vente ****************/
+    // Auto-suggestion pour la Vente
     const produitInput = document.getElementById("produit");
     const suggestionList = document.getElementById("suggestionList");
     produitInput.addEventListener("input", function () {
@@ -1657,7 +1706,7 @@
       }
     });
 
-    /**************** Auto-suggestion pour l'Entrée de Stock ****************/
+    // Auto-suggestion pour l'Entrée de Stock
     const produitEntreeInput = document.getElementById("produitEntree");
     const suggestionListEntree = document.getElementById("suggestionListEntree");
     produitEntreeInput.addEventListener("input", function () {
@@ -1701,7 +1750,7 @@
       }
     });
 
-    /**************** Gestion des onglets dans la section Stock ****************/
+    // Gestion des onglets dans la section Stock
     function filterStockItems(category) {
       let searchTerm = "";
       let containerId = "";
@@ -1818,7 +1867,7 @@
       }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
     }
 
-    /**************** Importation du stock depuis un fichier TXT ****************/
+    // Importation du stock depuis un fichier TXT
     function importStockFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1860,7 +1909,7 @@
         });
     }
 
-    /**************** Gestion de l'Entrée de Stock ****************/
+    // Gestion de l'Entrée de Stock
     function calculerTotalEntree() {
       const prix = parseFloat(document.getElementById("prixEntree").value) || 0;
       const quantite = parseInt(document.getElementById("quantiteEntree").value) || 0;
@@ -1929,7 +1978,7 @@
         });
     }
 
-    /**************** Gestion des Vendeurs via Firestore ****************/
+    // Gestion des Vendeurs via Firestore
     function chargerVendeurs() {
       dbFirestore.collection("vendeurs").get()
         .then(querySnapshot => {
@@ -1996,7 +2045,7 @@
       chargerVendeurs();
     });
 
-    /**************** Ajout de la vibration sur clic pour les boutons ****************/
+    // Vibration sur clic
     document.querySelectorAll('.btn-modern').forEach(button => {
       button.addEventListener('click', () => {
         if(navigator.vibrate) {
@@ -2004,21 +2053,18 @@
         }
       });
     });
-
     window.addEventListener('load', () => {
       lucide.createIcons();
     });
 
-    /*********************** Vérification de l'authentification **************************/
+    // Vérification de l'authentification
     firebase.auth().onAuthStateChanged(function(user) {
       if (user) {
-        // Le menu est désormais accessible à tous via le bouton "Menu"
+        // Le menu est accessible via le bouton "Menu"
       } else {
         window.location.href = 'login.html';
       }
     });
-
-    /**************** Fonction de déconnexion ****************/
     function deconnexion() {
       firebase.auth().signOut().then(() => {
         window.location.href = 'login.html';
@@ -2027,23 +2073,21 @@
       });
     }
 
-    /* ================================
-       Fonctions du Menu Latéral
-       ================================ */
-    function toggleMenu() {
-      const menu = document.getElementById('sideMenu');
-      menu.classList.toggle('active');
-    }
-
-    function ouvrirProfil() {
-      alert('Page Profil (à implémenter)');
-      toggleMenu();
-    }
-
+    // Fonctions du Menu Principal
     function ouvrirGestionVendeurs() {
-      alert('Page Gestion des Vendeurs (à implémenter)');
-      toggleMenu();
+      alert('Ouvrir la page de gestion des vendeurs.');
     }
+
+    // Actualisation de l'heure dans le menu
+    function updateTimeMenu() {
+      const menuTime = document.getElementById("current-time-menu");
+      if(menuTime) {
+        const now = new Date();
+        menuTime.textContent = now.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+    setInterval(updateTimeMenu, 1000);
+
   </script>
 </body>
 </html>
