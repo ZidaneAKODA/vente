@@ -402,6 +402,7 @@
       padding: 5px 0;
       position: relative;
       overflow: hidden;
+      cursor: pointer;
     }
     .nav-item.active {
       color: var(--primary-color);
@@ -761,7 +762,7 @@
     <!-- Screen 6: Entrée de Stock avec choix de catégorie -->
     <section id="screen-entree-stock" class="screen">
       <header>
-        <button class="back-btn" onclick="showScreen('screen-parametres')">← Retour</button>
+        <button class="back-btn" onclick="window.location.hash='parametres'">← Retour</button>
         <h1>Nouvelle Entrée de Stock</h1>
       </header>
       <div class="form-section">
@@ -815,26 +816,26 @@
     </div>
   </div>
   
-  <!-- Bottom Navigation Modernisée -->
+  <!-- Bottom Navigation Modernisée (Navigation par hash) -->
   <nav class="bottom-nav-pro">
-    <div class="nav-item active" id="navVendre" onclick="showScreen('screen-vendre')">
+    <div class="nav-item" id="nav-vendre" onclick="window.location.hash='vendre'">
       <i data-lucide="shopping-cart"></i>
       <span>Vente</span>
     </div>
-    <div class="nav-item" id="navStock" onclick="showScreen('screen-stock')">
+    <div class="nav-item" id="nav-stock" onclick="window.location.hash='stock'">
       <i data-lucide="package"></i>
       <span>Stock</span>
     </div>
-    <div class="nav-item" id="navLivraisons" onclick="showScreen('screen-livraisons'); afficherLivraisons();">
+    <div class="nav-item" id="nav-livraisons" onclick="window.location.hash='livraisons'">
       <i data-lucide="truck"></i>
       <span>Livraisons</span>
     </div>
-    <div class="nav-item" id="navHistorique" onclick="showScreen('screen-historique'); afficherVentes();">
+    <div class="nav-item" id="nav-historique" onclick="window.location.hash='historique'">
       <i data-lucide="clock"></i>
       <span>Historique</span>
     </div>
     <!-- Le bouton Paramètres est affiché uniquement pour l'admin (géré via onAuthStateChanged) -->
-    <div class="nav-item" id="navParametres" style="display: none;" onclick="showScreen('screen-parametres')">
+    <div class="nav-item" id="nav-parametres" style="display: none;" onclick="window.location.hash='parametres'">
       <i data-lucide="settings"></i>
       <span>Paramètres</span>
     </div>
@@ -1075,7 +1076,7 @@
       }
     }
 
-    /**************** Gestion des écrans et timestamp ****************/
+    /**************** Gestion des onglets et du timestamp ****************/
     function updateTimestamp() {
       const now = new Date();
       const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
@@ -1090,27 +1091,60 @@
     }
     setInterval(updateTimestamp, 1000);
 
-    // Modification : suppression du prompt de mot de passe pour accéder aux paramètres.
-    function showScreen(screenId) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(screenId).classList.add('active');
-      // Mise à jour de la navigation avec la classe "nav-item"
-      document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-      if(screenId === "screen-vendre") {
-        document.getElementById("navVendre").classList.add("active");
-      } else if(screenId === "screen-stock") {
-        document.getElementById("navStock").classList.add("active");
-        document.getElementById("stock-home").style.display = "block";
-        document.getElementById("stock-category").style.display = "none";
-        updateStockSummary();
-      } else if(screenId === "screen-livraisons") {
-        document.getElementById("navLivraisons").classList.add("active");
-      } else if(screenId === "screen-historique") {
-        document.getElementById("navHistorique").classList.add("active");
-      } else if(screenId === "screen-parametres") {
-        document.getElementById("navParametres").classList.add("active");
+    /**************** NEW: Hash Router pour la Navigation ****************/
+    function handleHashChange() {
+      const hash = window.location.hash.substring(1); // Supprime le #
+      showScreenByHash(hash);
+    }
+
+    function showScreenByHash(hash) {
+      const allScreens = document.querySelectorAll('.screen');
+      allScreens.forEach(screen => screen.classList.remove('active'));
+
+      const targetScreen = document.getElementById(`screen-${hash}`);
+      if (targetScreen) {
+        targetScreen.classList.add('active');
+      } else {
+        // Si le hash est inconnu, revenir à la page par défaut (vente)
+        document.getElementById('screen-vendre').classList.add('active');
+        window.location.hash = 'vendre';
+      }
+
+      // Mise à jour de la navigation active
+      document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+      const activeNav = document.getElementById(`nav-${hash}`);
+      if (activeNav) {
+        activeNav.classList.add('active');
+      }
+
+      // Actions spécifiques par écran
+      switch (hash) {
+        case 'vendre':
+          // Vous pouvez ajouter ici des actions spécifiques pour la vente
+          break;
+        case 'stock':
+          updateStockSummary();
+          break;
+        case 'livraisons':
+          afficherLivraisons();
+          break;
+        case 'historique':
+          afficherVentes();
+          break;
+        case 'parametres':
+          // Actions spécifiques pour les paramètres
+          break;
       }
     }
+
+    window.addEventListener('load', () => {
+      if (!window.location.hash) {
+        window.location.hash = 'vendre';  // Page par défaut
+      }
+      handleHashChange();
+      window.addEventListener('hashchange', handleHashChange);
+      lucide.createIcons();
+    });
 
     /**************** Gestion du Panier (Vente) ****************/
     let currentItems = [];
@@ -1620,7 +1654,7 @@
       getAllStockFirestore().then(stocks => {
         const produits = stocks.map(s => s.name);
         const filtered = produits.filter(name => name.toLowerCase().includes(query));
-        if(filtered.length === 0) {
+        if(filtered.length === 0){
           const noResult = document.createElement("div");
           noResult.className = "suggestion-item no-result";
           noResult.textContent = "Aucun produit trouvé";
@@ -1911,7 +1945,7 @@
             btn.style.border = "none";
             btn.style.borderRadius = "4px";
             btn.style.cursor = "pointer";
-            btn.onclick = function() { supprimerVendeur(v.id); };
+            btn.onclick = function () { supprimerVendeur(v.id); };
             div.appendChild(btn);
             liste.appendChild(div);
           });
@@ -1964,9 +1998,9 @@
       if (user) {
         // Si l'utilisateur est connecté, afficher les paramètres uniquement pour l'admin
         if (user.email === 'admin@africaphone.com') {
-          document.getElementById('navParametres').style.display = 'flex';
+          document.getElementById('nav-parametres').style.display = 'flex';
         } else {
-          document.getElementById('navParametres').style.display = 'none';
+          document.getElementById('nav-parametres').style.display = 'none';
         }
       } else {
         // Si non connecté, rediriger vers la page de login
