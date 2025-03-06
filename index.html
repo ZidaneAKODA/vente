@@ -403,6 +403,11 @@
       position: relative;
       overflow: hidden;
       cursor: pointer;
+      /* Désactivation de la sélection de texte */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     }
     .nav-item.active {
       color: var(--primary-color);
