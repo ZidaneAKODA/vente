@@ -578,6 +578,14 @@
     #screen-menu .section svg {
       color: #006064;
     }
+    /* CSS pour l'écran de recherche d'article */
+    #searchProduitInput {
+      width: 100%;
+      padding: 10px;
+      border-radius: var(--border-radius);
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
   </style>
 </head>
 <body>
@@ -889,6 +897,19 @@
       </div>
     </section>
     
+    <!-- Nouvel écran dédié à la recherche d'article -->
+    <section id="screen-search-article" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='vendre'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Rechercher un Article</h1>
+      </header>
+      <div style="padding:15px;">
+        <input type="text" id="searchProduitInput" placeholder="Rechercher un article..." />
+        <div id="searchResults" class="cards-container"></div>
+      </div>
+    </section>
   </div>
   
   <!-- Modal: Détails d'une vente -->
@@ -2086,6 +2107,72 @@
       }
     }
     setInterval(updateTimeMenu, 1000);
+
+    // *************** MODIFICATIONS POUR L'ÉCRAN DE RECHERCHE D'ARTICLE ***************
+
+    // Fonction pour ouvrir la page dédiée à la recherche
+    produitInput.addEventListener('focus', function() {
+      window.location.hash = 'search-article';
+    });
+
+    // Initialisation recherche dynamique
+    window.addEventListener('hashchange', function() {
+      if(window.location.hash === '#search-article') {
+        document.getElementById("searchProduitInput").value = "";
+        document.getElementById("searchProduitInput").focus();
+        loadProductsList();
+      }
+    });
+
+    // Charger les produits et afficher la liste filtrée
+    function loadProducts(query="") {
+      const searchQuery = query.toLowerCase();
+      getAllStockFirestore().then(stocks => {
+        let filtered = stocks.filter(p => p.name.toLowerCase().includes(document.getElementById("searchProduitInput").value.toLowerCase()));
+        const container = document.getElementById("searchProduitInput").parentNode.querySelector('.cards-container');
+        container.innerHTML = "";
+        if(filtered.length === 0) {
+          container.innerHTML = "<p>Aucun produit trouvé.</p>";
+          return;
+        }
+        filtered.forEach(prod => {
+          const card = document.createElement("div");
+          card.className = "product-card";
+          card.innerHTML = `
+            <div class="product-icon">${prod.icon}</div>
+            <div class="product-details">
+              <h3>${prod.name}</h3>
+              <p>🔹 Stock : ${prod.stock} unités</p>
+              <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+            </div>`;
+          card.onclick = function() {
+            selectProduct(prod);
+          };
+          container.appendChild(card);
+        });
+      });
+    }
+
+    function loadProductsList() {
+      loadProducts();
+    }
+
+    // Sélection du produit
+    function selectProduct(prod) {
+      document.getElementById("produit").value = prod.name;
+      document.getElementById("prix").value = prod.price;
+      document.getElementById("quantite").value = 1;
+      calculerTotalArticle();
+      window.location.hash = 'vendre';
+    }
+
+    // Écoute dynamique des changements dans la barre de recherche
+    document.addEventListener("input", function(e) {
+      if(e.target.id === "searchProduitInput") {
+        loadProducts();
+      }
+    });
+    // **********************************************************************************
   </script>
 </body>
 </html>
