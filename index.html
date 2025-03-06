@@ -15,6 +15,14 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
+    /* Prévenir la sélection de texte sur tous les éléments (sauf input et textarea) */
+    body *:not(input):not(textarea) {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+
     /* Preloader Styles */
     #preloader {
       position: fixed;
@@ -403,7 +411,7 @@
       position: relative;
       overflow: hidden;
       cursor: pointer;
-      /* Désactivation de la sélection de texte */
+      /* Désactivation de la sélection de texte déjà ici */
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
@@ -1125,7 +1133,7 @@
       // Actions spécifiques par écran
       switch (hash) {
         case 'vendre':
-          // Vous pouvez ajouter ici des actions spécifiques pour la vente
+          // Actions spécifiques pour la vente si besoin
           break;
         case 'stock':
           updateStockSummary();
