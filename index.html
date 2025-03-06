@@ -22,6 +22,12 @@
       -moz-user-select: none;
       -ms-user-select: none;
     }
+    /* Désactivation de l'effet de sélection (outline) sur boutons, liens et éléments cliquables */
+    button, a, div.section, div.nav-item, div.shortcut {
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
     /* Preloader Styles */
     #preloader {
       position: fixed;
@@ -572,12 +578,6 @@
     #screen-menu .section svg {
       color: #006064;
     }
-    /* Désactive l'effet de sélection (outline) sur les boutons et liens */
-    button, a, div.section, div.nav-item, div.shortcut {
-    outline: none;
-    -webkit-tap-highlight-color: transparent; /* Enlève le flash bleu/gris sur mobile */
-    user-select: none; /* Empêche aussi la sélection de texte si besoin */}
-
   </style>
 </head>
 <body>
@@ -825,6 +825,7 @@
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
       <div class="menu">
+        <!-- En-tête -->
         <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
           <div id="current-time-menu" style="font-size: 16px; font-weight: bold; color: #006064;">9:40</div>
           <div class="header-icons" style="display: flex; gap: 15px;">
@@ -834,6 +835,7 @@
             <i data-lucide="user-circle"></i>
           </div>
         </div>
+        <!-- Section Profil -->
         <div class="profile-section" style="display: flex; align-items: center; background-color: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px;">
           <div class="profile-pic" style="width: 40px; height: 40px; border-radius: 50%; background: url('https://via.placeholder.com/40') center/cover; margin-right: 10px;"></div>
           <div class="profile-info">
@@ -841,55 +843,46 @@
           </div>
           <i data-lucide="chevron-down"></i>
         </div>
-        <div class="shortcuts" style="display: flex; overflow-x: auto; gap: 10px; margin-bottom: 15px;">
-          <div class="shortcut">
-            <img src="https://via.placeholder.com/60" alt="">
-            <div>Ventes</div>
-          </div>
-          <div class="shortcut">
-            <img src="https://via.placeholder.com/60" alt="">
-            <div>Stock</div>
-          </div>
-          <div class="shortcut">
-            <img src="https://via.placeholder.com/60" alt="">
-            <div>Livraisons</div>
-          </div>
-          <div class="shortcut">
-            <img src="https://via.placeholder.com/60" alt="">
-            <div>Rapports</div>
-          </div>
-        </div>
+        <!-- Sections du menu adaptés pour une gestion complète -->
         <div class="sections">
-          <div class="section" onclick="window.location.hash='vendre'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="shopping-cart" style="color: #006064;"></i>
-            Nouvelle Vente
+          <div class="section" onclick="window.location.hash='vendre'" style="cursor:pointer;">
+            <i data-lucide="shopping-cart"></i>
+            Ventes du Jour
           </div>
-          <div class="section" onclick="window.location.hash='stock'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="package" style="color: #006064;"></i>
-            Gestion Stock
+          <div class="section" onclick="window.location.hash='stock'" style="cursor:pointer;">
+            <i data-lucide="package"></i>
+            Gestion du Stock
           </div>
-          <div class="section" onclick="window.location.hash='livraisons'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="truck" style="color: #006064;"></i>
-            Suivi Livraisons
+          <div class="section" onclick="window.location.hash='historique'" style="cursor:pointer;">
+            <i data-lucide="clipboard-list"></i>
+            Historique des Ventes
           </div>
-          <div class="section" onclick="window.location.hash='historique'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="clock" style="color: #006064;"></i>
-            Historique Ventes
+          <div class="section" onclick="window.location.hash='livraisons'" style="cursor:pointer;">
+            <i data-lucide="truck"></i>
+            Suivi des Livraisons
           </div>
-          <div class="section" onclick="window.location.hash='entree-stock'" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="plus-square" style="color: #006064;"></i>
-            Entrée de Stock
+          <div class="section" onclick="window.location.hash='tresorerie'" style="cursor:pointer;">
+            <i data-lucide="dollar-sign"></i>
+            Trésorerie
           </div>
-          <div class="section" onclick="ouvrirGestionVendeurs()" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="users" style="color: #006064;"></i>
-            Gestion Vendeurs
+          <div class="section" onclick="window.location.hash='statistiques'" style="cursor:pointer;">
+            <i data-lucide="bar-chart-3"></i>
+            Statistiques &amp; Performances
           </div>
-          <div class="section" onclick="exporterPDF()" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="file-text" style="color: #006064;"></i>
-            Export PDF
+          <div class="section" onclick="window.location.hash='vendeurs'" style="cursor:pointer;">
+            <i data-lucide="users"></i>
+            Gestion des Vendeurs
           </div>
-          <div class="section" onclick="deconnexion()" style="background-color: #fff; padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <i data-lucide="log-out" style="color: #006064;"></i>
+          <div class="section" onclick="window.location.hash='prix'" style="cursor:pointer;">
+            <i data-lucide="tag"></i>
+            Prix &amp; Tarifs
+          </div>
+          <div class="section" onclick="window.location.hash='parametres'" style="cursor:pointer;">
+            <i data-lucide="settings"></i>
+            Paramètres
+          </div>
+          <div class="section" onclick="deconnexion()" style="cursor:pointer;">
+            <i data-lucide="log-out"></i>
             Déconnexion
           </div>
         </div>
@@ -2093,7 +2086,6 @@
       }
     }
     setInterval(updateTimeMenu, 1000);
-
   </script>
 </body>
 </html>
