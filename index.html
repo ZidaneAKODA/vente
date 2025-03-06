@@ -572,6 +572,12 @@
     #screen-menu .section svg {
       color: #006064;
     }
+    /* Désactive l'effet de sélection (outline) sur les boutons et liens */
+    button, a, div.section, div.nav-item, div.shortcut {
+    outline: none;
+    -webkit-tap-highlight-color: transparent; /* Enlève le flash bleu/gris sur mobile */
+    user-select: none; /* Empêche aussi la sélection de texte si besoin */}
+
   </style>
 </head>
 <body>
