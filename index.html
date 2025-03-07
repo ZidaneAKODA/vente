@@ -603,41 +603,9 @@
     .suggestion-item:hover {
       background: #f0f0f0;
     }
-    /* ===============================
-       Styles pour la Trésorerie
-       =============================== */
-    .summary-tresorerie .tresorerie-card {
-      background: var(--white);
-      padding: 15px;
-      border-radius: var(--border-radius);
-      box-shadow: var(--shadow);
-      margin-bottom: 15px;
-      text-align: center;
-      font-size: 16px;
-    }
-    .summary-tresorerie .tresorerie-card p {
-      margin-bottom: 8px;
-      font-size: 16px;
-    }
-    .operation-entry {
-      color: #388E3C; /* Vert pour entrée */
-    }
-    .operation-sortie {
-      color: #D32F2F; /* Rouge pour sortie */
-    }
-    .list-container .operation-item {
-      background: var(--white);
-      padding: 10px;
-      margin-bottom: 8px;
-      border-radius: var(--border-radius);
-      box-shadow: var(--shadow);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
   </style>
+  <!-- Styles spécifiques aux suggestions déjà existants -->
   <style>
-    /* Styles spécifiques aux suggestions déjà existants */
     .suggestion-list {
       position: absolute;
       background: var(--white);
@@ -942,6 +910,10 @@
             <i data-lucide="dollar-sign"></i>
             Trésorerie
           </div>
+          <div class="section" onclick="window.location.hash='depenses'">
+            <i data-lucide="file-minus"></i>
+            Dépenses
+          </div>
           <div class="section" onclick="window.location.hash='faq'">
             <i data-lucide="help-circle"></i>
             FAQ
@@ -972,139 +944,414 @@
       </div>
     </section>
 
-    <!-- Nouvel écran : Trésorerie -->
+    <!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
     <section id="screen-tresorerie" class="screen">
+      <!-- Remplacement de l'interface de la page trésorerie par le code fourni -->
       <style>
-        /* Styles spécifiques pour la page de Trésorerie */
-        #screen-tresorerie .container {
-            width: 100%;
-            padding: 20px;
+        :root {
+            --primary-color: #6D5DFD;
+            --background-color: #F5F5FA;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-radius: 12px;
         }
-        #screen-tresorerie .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        #screen-tresorerie h1 {
-            font-size: 22px;
+
+        body {
             margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
         }
-        #screen-tresorerie .date {
-            font-size: 14px;
-            color: #888;
-        }
-        #screen-tresorerie .card {
-            background: #fff;
-            border-radius: 8px;
+
+        .container {
             padding: 15px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
         }
-        #screen-tresorerie .card h2 {
-            font-size: 18px;
-            margin: 0 0 10px;
+
+        .balance-card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            text-align: center;
         }
-        #screen-tresorerie .total {
-            font-size: 32px;
-            font-weight: bold;
-            margin: 10px 0;
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
         }
-        #screen-tresorerie .comparison {
-            color: #888;
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            border-radius: var(--border-radius);
             font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
-        #screen-tresorerie .transactions {
-            margin-top: 20px;
+
+        .btn.secondary {
+            background-color: #FF6F61;
         }
-        #screen-tresorerie .transaction-item {
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
+
+        .btn.positive {
+            background-color: #28a745;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 15px 0 10px;
+        }
+
+        .history-list {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .history-item {
+            padding: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid #EEE;
         }
-        #screen-tresorerie .transaction-item:last-child {
-            border-bottom: none;
-        }
-        #screen-tresorerie .transaction-date {
-            font-size: 14px;
-            color: #666;
-        }
-        #screen-tresorerie .transaction-amount {
+
+        .amount {
             font-weight: bold;
         }
-        #screen-tresorerie .in {
-            color: #4CAF50;
+
+        .in { color: #28a745; }
+        .out { color: #dc3545; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
         }
-        #screen-tresorerie .out {
-            color: #F44336;
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            width: 90%; max-width: 400px;
         }
-        #screen-tresorerie button {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            color: #fff;
-            background-color: #007bff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-bottom: 20px;
-        }
-        #screen-tresorerie button:hover {
-            background-color: #0056b3;
+
+        input, textarea {
+            width: 100%; padding: 10px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
         }
       </style>
+
       <div class="container">
-          <div class="header">
-              <h1>Trésorerie</h1>
-              <div class="date" id="dateToday"></div>
+
+          <div class="balance-card">
+              <h1>XOF 750,000</h1>
+              <p>Solde actuel</p>
+              <p style="color:#666;">Comparé à hier : <strong style="color:#28a745">+10%</strong></p>
           </div>
 
-          <div class="card">
-              <h2>Solde Actuel</h2>
-              <div class="total" id="soldeActuelDisplay">XOF 50,000</div>
-              <div class="comparison" id="comparisonDisplay">Comparé à hier : +10%</div>
+      
+          <div class="chart-container">
+              <div class="section-title">Répartition des dépenses</div>
+              <div class="chart-placeholder">Graphique circulaire ici</div>
           </div>
 
-          <button onclick="alert('Ajouter une nouvelle opération')">Ajouter une opération</button>
-
-          <div class="transactions">
-              <h2>Dernières Opérations</h2>
-
-              <div class="transaction-item">
-                  <div>
-                      <div>Vente iPhone 15</div>
-                      <div class="transaction-date">07 Mars 2025, 09:00</div>
-                  </div>
-                  <div class="transaction-amount in">+ XOF 500,000</div>
+          <div class="section-title">Dernières entrées</div>
+          <div class="history-list">
+              <div class="history-item">
+                  <div>Vente iPhone 15<br><small style="color:#888;">07 mars, 10:45</small></div>
+                  <div class="amount in">+XOF 500,000</div>
               </div>
+          </div>
 
-              <div class="transaction-item">
-                  <div>
-                      <div>Achat accessoires</div>
-                      <div class="transaction-date">06 Mars 2025, 14:30</div>
+          <div class="section-title">Dernières dépenses</div>
+          <div class="history-list">
+              <div class="history-item">
+                  <div class="info">
+                      <i data-lucide="credit-card"></i> Achat accessoires
                   </div>
-                  <div class="transaction-amount out">- XOF 150,000</div>
-              </div>
-
-              <div class="transaction-item">
-                  <div>
-                      <div>Vente Samsung A52</div>
-                      <div class="transaction-date">06 Mars 2025, 11:45</div>
-                  </div>
-                  <div class="transaction-amount in">+ XOF 220,000</div>
+                  <div class="amount out">-XOF 120,000</div>
               </div>
           </div>
       </div>
 
+      <!-- Modal Dépenses -->
+      <div id="modalAjoutDepense" class="modal">
+          <div style="background:#fff;padding:20px;border-radius:var(--border-radius);width:90%;max-width:400px;">
+              <h2 id="titreDepense">Ajouter Dépense</h2>
+              <input type="number" id="montantOperation" placeholder="Montant (XOF)" required>
+              <textarea id="descriptionOperation" placeholder="Description (facultatif)"></textarea>
+              <button class="btn" onclick="ajouterDepense()">Enregistrer</button>
+              <button class="btn secondary" onclick="fermerModalDepense()">Annuler</button>
+          </div>
+      </div>
+
       <script>
-          document.getElementById('dateToday').textContent = new Date().toLocaleDateString('fr-FR', {
-              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-          });
+          lucide.createIcons();
+          let typeDepense = "";
+
+          function ouvrirModalDepense(type) {
+              const titreDepense = document.getElementById("titreDepense");
+              if(type === "fonctionnelle"){
+                  titreDepense.textContent = "Ajouter Dépense Fonctionnelle";
+              } else if(type === "papa"){
+                  titreDepense.textContent = "Ajouter Dépense Papa (Dette)";
+              } else if(type === "remboursement-papa"){
+                  titreDepense.textContent = "Ajouter Remboursement Papa";
+              }
+              window.currentTypeDepense = type;
+              document.querySelector(".modal").style.display = "flex";
+          }
+
+          function fermerModalDepense(){
+              document.querySelector(".modal").style.display = "none";
+              document.getElementById("montantOperation").value = "";
+              document.getElementById("descriptionOperation").value = "";
+          }
+
+          function ajouterDepense(){
+              const montant = document.getElementById("montantOperation").value;
+              const description = document.getElementById("descriptionOperation").value;
+              const type = document.getElementById("titreDepense").textContent;
+              
+              // Ici tu intégreras Firestore plus tard.
+              alert(`${type} : ${montant} FCFA - ${description || "Aucune description"}`);
+              fermerModalDepense();
+          }
+
+          // Écoute du bouton enregistrer
+          document.querySelector(".modal .btn").addEventListener("click", ajouterDepense);
       </script>
     </section>
+    
+    <!-- Nouvel écran : Dépenses -->
+    <section id="screen-depenses" class="screen">
+      <style>
+        .depenses-container {
+          padding: 15px;
+        }
+
+        .depenses-summary {
+          background: var(--white);
+          box-shadow: var(--shadow);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          text-align: center;
+        }
+
+        .summary-item h2 {
+          margin-bottom: 5px;
+          color: var(--primary-color);
+        }
+
+        .summary-item p {
+          color: #666;
+          font-size: 14px;
+        }
+
+        .actions {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 15px;
+        }
+
+        .btn-modern.secondary {
+          background-color: #E4E6EB;
+          color: black;
+          box-shadow: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .btn-modern.secondary i {
+          font-size: 20px;
+        }
+
+        .section-title {
+          font-weight: bold;
+          margin-bottom: 10px;
+          font-size: 18px;
+          color: var(--text-color);
+        }
+
+        .history-list .history-item {
+          padding: 12px;
+          border-bottom: 1px solid #eee;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .history-item:last-child {
+          border-bottom: none;
+        }
+
+        .history-icon {
+          margin-right: 8px;
+        }
+
+        /* Bouton Retour style Facebook */
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
+
+      <header>
+        <button class="back-btn-fb" onclick="window.location.hash='menu'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Dépenses</h1>
+      </header>
+
+      <div class="depenses-container">
+        <div class="depenses-summary">
+          <div class="summary-item">
+            <h2 id="depenses-today">75,000 FCFA</h2>
+            <p>Dépenses aujourd'hui</p>
+          </div>
+          <div class="summary-item">
+            <h2 id="depenses-month">2,550,000 FCFA</h2>
+            <p>Ce mois-ci (▲5%)</p>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn-modern secondary" onclick="ouvrirModalDepense('fonctionnelle')">
+            <i data-lucide="file-minus"></i> Dépense Fonctionnelle
+          </button>
+          <button class="btn-modern secondary" onclick="ouvrirModalDepense('papa')">
+            <i data-lucide="user-minus"></i> Dépense Papa
+          </button>
+          <button class="btn-modern secondary" onclick="ouvrirModalDepense('remboursement-papa')">
+            <i data-lucide="user-check"></i> Remboursement Papa
+          </button>
+        </div>
+
+        <div class="section-title">Historique récent</div>
+        <div id="recent-depenses" class="history-list">
+          <p style="text-align:center;">Chargement en cours...</p>
+        </div>
+
+        <button class="btn-modern secondary" onclick="exporterDepenses()">
+          <i data-lucide="download"></i> Exporter PDF
+        </button>
+      </div>
+
+      <script>
+        function chargerHistoriqueDepenses() {
+          const historique = [
+            {icon: 'file-minus', desc: 'Achat Chargeurs', montant: 20000, date: '07 mars, 12:45'},
+            {icon: 'user-minus', desc: 'Envoi à Papa', montant: 250000, date: '06 mars 11:30'},
+            {icon: 'user-check', desc: 'Remboursement Papa', montant: 150000, date: '06 mars 17:20'}
+          ];
+          const container = document.getElementById('recent-depenses');
+          container.innerHTML = "";
+          historique.forEach(dep => {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `
+          <div><i class="history-icon" data-lucide="${dep.icon}"></i>${dep.desc}</div>
+          <div>${dep.montant.toLocaleString()} FCFA<br><small style="color:#888">${dep.date}</small></div>`;
+            container.appendChild(item);
+          });
+          lucide.createIcons();
+        }
+
+        function exporterDepenses() {
+          alert("Export PDF à intégrer avec Firestore prochainement !");
+        }
+
+        window.addEventListener('hashchange', function(){
+          if(window.location.hash === '#depenses') {
+            chargerHistoriqueDepenses();
+          }
+        });
+
+        if(window.location.hash === '#depenses') {
+          chargerHistoriqueDepenses();
+        }
+      </script>
+    </section>
+    
+    <!-- Bottom Navigation Modernisée (Navigation par hash) -->
+    <nav class="bottom-nav-pro">
+      <div class="nav-item" id="nav-vendre" onclick="window.location.hash='vendre'">
+        <i data-lucide="shopping-cart"></i>
+        <span>Vente</span>
+      </div>
+      <div class="nav-item" id="nav-stock" onclick="window.location.hash='stock'">
+        <i data-lucide="package"></i>
+        <span>Stock</span>
+      </div>
+      <div class="nav-item" id="nav-livraisons" onclick="window.location.hash='livraisons'">
+        <i data-lucide="truck"></i>
+        <span>Livraisons</span>
+      </div>
+      <div class="nav-item" id="nav-historique" onclick="window.location.hash='historique'">
+        <i data-lucide="clock"></i>
+        <span>Historique</span>
+      </div>
+      <div class="nav-item" id="nav-menu" onclick="window.location.hash='menu'">
+        <i data-lucide="menu"></i>
+        <span>Menu</span>
+      </div>
+    </nav>
   </div>
   
   <!-- Modal: Détails d'une vente -->
@@ -1147,30 +1394,6 @@
       </form>
     </div>
   </div>
-  
-  <!-- Bottom Navigation Modernisée (Navigation par hash) -->
-  <nav class="bottom-nav-pro">
-    <div class="nav-item" id="nav-vendre" onclick="window.location.hash='vendre'">
-      <i data-lucide="shopping-cart"></i>
-      <span>Vente</span>
-    </div>
-    <div class="nav-item" id="nav-stock" onclick="window.location.hash='stock'">
-      <i data-lucide="package"></i>
-      <span>Stock</span>
-    </div>
-    <div class="nav-item" id="nav-livraisons" onclick="window.location.hash='livraisons'">
-      <i data-lucide="truck"></i>
-      <span>Livraisons</span>
-    </div>
-    <div class="nav-item" id="nav-historique" onclick="window.location.hash='historique'">
-      <i data-lucide="clock"></i>
-      <span>Historique</span>
-    </div>
-    <div class="nav-item" id="nav-menu" onclick="window.location.hash='menu'">
-      <i data-lucide="menu"></i>
-      <span>Menu</span>
-    </div>
-  </nav>
   
   <script>
     // Préloader
@@ -2329,13 +2552,9 @@
     setInterval(updateTimeMenu, 1000);
 
     // *************** MODIFICATIONS POUR L'ÉCRAN DE RECHERCHE D'ARTICLE ***************
-
-    // Fonction pour ouvrir la page dédiée à la recherche
     produitInput.addEventListener('focus', function() {
       window.location.hash = 'search-article';
     });
-
-    // Initialisation recherche dynamique
     window.addEventListener('hashchange', function() {
       if(window.location.hash === '#search-article') {
         document.getElementById("searchProduitInput").value = "";
@@ -2343,8 +2562,6 @@
         loadProductsList();
       }
     });
-
-    // Charger les produits et afficher la liste filtrée
     function loadProducts(query="") {
       const searchQuery = query.toLowerCase();
       getAllStockFirestore().then(stocks => {
@@ -2372,12 +2589,9 @@
         });
       });
     }
-
     function loadProductsList() {
       loadProducts();
     }
-
-    // Sélection du produit
     function selectProduct(prod) {
       document.getElementById("produit").value = prod.name;
       document.getElementById("prix").value = prod.price;
@@ -2385,8 +2599,6 @@
       calculerTotalArticle();
       window.location.hash = 'vendre';
     }
-
-    // Écoute dynamique des changements dans la barre de recherche
     document.addEventListener("input", function(e) {
       if(e.target.id === "searchProduitInput") {
         loadProducts();
@@ -2395,20 +2607,16 @@
     // **********************************************************************************
 
     /* Fonctions pour la Trésorerie */
-
     function ouvrirFormOperationTresorerie() {
       document.getElementById("modalAjoutOperation").style.display = "flex";
     }
-
     function fermerModalTresorerie() {
       document.getElementById("modalAjoutOperation").style.display = "none";
     }
-
     function ajouterOperationTresorerie() {
       const type = document.getElementById("typeOperation").value;
       const montant = document.getElementById("montantOperation").value;
       const description = document.getElementById("descriptionOperation").value;
-      // Ici, vous pouvez ajouter le code pour enregistrer l'opération dans Firestore
       alert("Opération ajoutée : " + type + " de " + montant + " FCFA");
       fermerModalTresorerie();
     }
