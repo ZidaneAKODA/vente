@@ -1003,10 +1003,6 @@
             background-color: #FF6F61;
         }
 
-        .btn.positive {
-            background-color: #28a745;
-        }
-
         .section-title {
             font-size: 18px;
             font-weight: bold;
@@ -1142,7 +1138,7 @@
       </script>
     </section>
     
-    <!-- Nouvel écran : Dépenses -->
+    <!-- Screen 7: Dépenses -->
     <section id="screen-depenses" class="screen">
       <style>
         .depenses-container {
@@ -1272,7 +1268,7 @@
         </div>
 
         <div class="actions">
-          <button class="btn-modern secondary" onclick="ouvrirModalDepense('fonctionnelle')">
+          <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
             <i data-lucide="file-minus"></i> Dépense Fonctionnelle
           </button>
           <button class="btn-modern secondary" onclick="ouvrirModalDepense('papa')">
@@ -1326,6 +1322,140 @@
         if(window.location.hash === '#depenses') {
           chargerHistoriqueDepenses();
         }
+      </script>
+    </section>
+    
+    <!-- Nouvel écran : Ajouter Dépense Fonctionnelle -->
+    <section id="screen-depense-fonctionnelle" class="screen">
+      <style>
+        .form-container {
+          padding: 15px;
+        }
+
+        .form-section {
+          background: var(--white);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: var(--shadow);
+        }
+
+        .form-section h2 {
+          text-align: center;
+          color: var(--primary-color);
+        }
+
+        .btn-modern.primary {
+          background: var(--primary-color);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .btn-modern.primary i {
+          font-size: 20px;
+        }
+
+        /* Bouton Retour style Facebook */
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
+
+      <header>
+        <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Nouvelle Dépense Fonctionnelle</h1>
+      </header>
+
+      <div class="form-container">
+        <div class="form-section">
+          <h2>Ajouter une Dépense</h2>
+          <form id="formDepenseFonctionnelle">
+            <label for="montantDepense">Montant (FCFA)</label>
+            <input type="number" id="montantDepense" placeholder="Montant" required>
+
+            <label for="descriptionDepense">Description</label>
+            <textarea id="descriptionDepense" placeholder="Ex: Achat matériel de bureau" required></textarea>
+
+            <button type="submit" class="btn-modern primary">
+              <i data-lucide="plus"></i> Enregistrer Dépense
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById("formDepenseFonctionnelle").addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const montant = document.getElementById("montantDepense").value.trim();
+          const description = document.getElementById("descriptionDepense").value.trim();
+
+          if (!montant || montant <= 0) {
+            alert("Veuillez entrer un montant valide.");
+            return;
+          }
+
+          if (!description) {
+            alert("Veuillez entrer une description.");
+            return;
+          }
+
+          // Simulation d'ajout à Firestore (à remplacer par Firestore)
+          alert("Dépense Fonctionnelle enregistrée avec succès !");
+
+          // Réinitialisation du formulaire
+          document.getElementById("montantDepense").value = "";
+          document.getElementById("descriptionDepense").value = "";
+
+          // Redirection vers la page des dépenses
+          window.location.hash = "depenses";
+        });
+
+        window.addEventListener('hashchange', function () {
+          if (window.location.hash === '#depense-fonctionnelle') {
+            document.getElementById("montantDepense").value = "";
+            document.getElementById("descriptionDepense").value = "";
+          }
+        });
       </script>
     </section>
     
