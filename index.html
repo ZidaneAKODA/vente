@@ -586,6 +586,74 @@
       border: 1px solid #ccc;
       margin-bottom: 15px;
     }
+    /* Styles ajoutés pour la liste de suggestions */
+    .suggestion-list {
+      position: absolute;
+      background: var(--white);
+      border: 1px solid #ccc;
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .suggestion-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background: #f0f0f0;
+    }
+    /* ===============================
+       Styles pour la Trésorerie
+       =============================== */
+    .summary-tresorerie .tresorerie-card {
+      background: var(--white);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 15px;
+      text-align: center;
+      font-size: 16px;
+    }
+    .summary-tresorerie .tresorerie-card p {
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    .operation-entry {
+      color: #388E3C; /* Vert pour entrée */
+    }
+    .operation-sortie {
+      color: #D32F2F; /* Rouge pour sortie */
+    }
+    .list-container .operation-item {
+      background: var(--white);
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+  <style>
+    /* Styles spécifiques aux suggestions déjà existants */
+    .suggestion-list {
+      position: absolute;
+      background: var(--white);
+      border: 1px solid #ccc;
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .suggestion-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background: #f0f0f0;
+    }
   </style>
 </head>
 <body>
@@ -833,7 +901,7 @@
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
       <div class="menu">
-        <!-- En-tête -->
+        <!-- En-tête inchangé -->
         <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
           <div id="current-time-menu" style="font-size: 16px; font-weight: bold; color: #006064;">9:40</div>
           <div class="header-icons" style="display: flex; gap: 15px;">
@@ -843,53 +911,46 @@
             <i data-lucide="user-circle"></i>
           </div>
         </div>
-        <!-- Section Profil -->
-        <div class="profile-section" style="display: flex; align-items: center; background-color: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px;">
-          <div class="profile-pic" style="width: 40px; height: 40px; border-radius: 50%; background: url('https://via.placeholder.com/40') center/cover; margin-right: 10px;"></div>
+        <!-- Section Profil inchangée -->
+        <div class="profile-section">
+          <div class="profile-pic" style="background: url('https://via.placeholder.com/40') center/cover;"></div>
           <div class="profile-info">
             <div>Zidane Akoda</div>
           </div>
           <i data-lucide="chevron-down"></i>
         </div>
-        <!-- Sections du menu adaptés pour une gestion complète -->
+        <!-- Sections du menu adaptées avec nouvelles fonctionnalités -->
         <div class="sections">
-          <div class="section" onclick="window.location.hash='vendre'" style="cursor:pointer;">
-            <i data-lucide="shopping-cart"></i>
-            Ventes du Jour
+          <div class="section" onclick="window.location.hash='clients'">
+            <i data-lucide="users"></i>
+            Clients
           </div>
-          <div class="section" onclick="window.location.hash='stock'" style="cursor:pointer;">
-            <i data-lucide="package"></i>
-            Gestion du Stock
-          </div>
-          <div class="section" onclick="window.location.hash='historique'" style="cursor:pointer;">
-            <i data-lucide="clipboard-list"></i>
-            Historique des Ventes
-          </div>
-          <div class="section" onclick="window.location.hash='livraisons'" style="cursor:pointer;">
-            <i data-lucide="truck"></i>
-            Suivi des Livraisons
-          </div>
-          <div class="section" onclick="window.location.hash='tresorerie'" style="cursor:pointer;">
-            <i data-lucide="dollar-sign"></i>
-            Trésorerie
-          </div>
-          <div class="section" onclick="window.location.hash='statistiques'" style="cursor:pointer;">
-            <i data-lucide="bar-chart-3"></i>
-            Statistiques &amp; Performances
-          </div>
-          <div class="section" onclick="window.location.hash='vendeurs'" style="cursor:pointer;">
+          <div class="section" onclick="window.location.hash='vendeurs'">
             <i data-lucide="users"></i>
             Gestion des Vendeurs
           </div>
-          <div class="section" onclick="window.location.hash='prix'" style="cursor:pointer;">
-            <i data-lucide="tag"></i>
-            Prix &amp; Tarifs
+          <div class="section" onclick="window.location.hash='rapports'">
+            <i data-lucide="file-text"></i>
+            Rapports & Statistiques
           </div>
-          <div class="section" onclick="window.location.hash='parametres'" style="cursor:pointer;">
+          <!-- "Base Clients" section supprimée -->
+          <div class="section" onclick="window.location.hash='notifications'">
+            <i data-lucide="bell-ring"></i>
+            Notifications
+          </div>
+          <div class="section" onclick="window.location.hash='tresorerie'">
+            <i data-lucide="dollar-sign"></i>
+            Trésorerie
+          </div>
+          <div class="section" onclick="window.location.hash='faq'">
+            <i data-lucide="help-circle"></i>
+            FAQ
+          </div>
+          <div class="section" onclick="window.location.hash='parametres'">
             <i data-lucide="settings"></i>
             Paramètres
           </div>
-          <div class="section" onclick="deconnexion()" style="cursor:pointer;">
+          <div class="section" onclick="deconnexion()">
             <i data-lucide="log-out"></i>
             Déconnexion
           </div>
@@ -910,6 +971,140 @@
         <div id="searchResults" class="cards-container"></div>
       </div>
     </section>
+
+    <!-- Nouvel écran : Trésorerie -->
+    <section id="screen-tresorerie" class="screen">
+      <style>
+        /* Styles spécifiques pour la page de Trésorerie */
+        #screen-tresorerie .container {
+            width: 100%;
+            padding: 20px;
+        }
+        #screen-tresorerie .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        #screen-tresorerie h1 {
+            font-size: 22px;
+            margin: 0;
+        }
+        #screen-tresorerie .date {
+            font-size: 14px;
+            color: #888;
+        }
+        #screen-tresorerie .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #screen-tresorerie .card h2 {
+            font-size: 18px;
+            margin: 0 0 10px;
+        }
+        #screen-tresorerie .total {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        #screen-tresorerie .comparison {
+            color: #888;
+            font-size: 14px;
+        }
+        #screen-tresorerie .transactions {
+            margin-top: 20px;
+        }
+        #screen-tresorerie .transaction-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #screen-tresorerie .transaction-item:last-child {
+            border-bottom: none;
+        }
+        #screen-tresorerie .transaction-date {
+            font-size: 14px;
+            color: #666;
+        }
+        #screen-tresorerie .transaction-amount {
+            font-weight: bold;
+        }
+        #screen-tresorerie .in {
+            color: #4CAF50;
+        }
+        #screen-tresorerie .out {
+            color: #F44336;
+        }
+        #screen-tresorerie button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-bottom: 20px;
+        }
+        #screen-tresorerie button:hover {
+            background-color: #0056b3;
+        }
+      </style>
+      <div class="container">
+          <div class="header">
+              <h1>Trésorerie</h1>
+              <div class="date" id="dateToday"></div>
+          </div>
+
+          <div class="card">
+              <h2>Solde Actuel</h2>
+              <div class="total" id="soldeActuelDisplay">XOF 50,000</div>
+              <div class="comparison" id="comparisonDisplay">Comparé à hier : +10%</div>
+          </div>
+
+          <button onclick="alert('Ajouter une nouvelle opération')">Ajouter une opération</button>
+
+          <div class="transactions">
+              <h2>Dernières Opérations</h2>
+
+              <div class="transaction-item">
+                  <div>
+                      <div>Vente iPhone 15</div>
+                      <div class="transaction-date">07 Mars 2025, 09:00</div>
+                  </div>
+                  <div class="transaction-amount in">+ XOF 500,000</div>
+              </div>
+
+              <div class="transaction-item">
+                  <div>
+                      <div>Achat accessoires</div>
+                      <div class="transaction-date">06 Mars 2025, 14:30</div>
+                  </div>
+                  <div class="transaction-amount out">- XOF 150,000</div>
+              </div>
+
+              <div class="transaction-item">
+                  <div>
+                      <div>Vente Samsung A52</div>
+                      <div class="transaction-date">06 Mars 2025, 11:45</div>
+                  </div>
+                  <div class="transaction-amount in">+ XOF 220,000</div>
+              </div>
+          </div>
+      </div>
+
+      <script>
+          document.getElementById('dateToday').textContent = new Date().toLocaleDateString('fr-FR', {
+              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          });
+      </script>
+    </section>
   </div>
   
   <!-- Modal: Détails d'une vente -->
@@ -927,6 +1122,29 @@
       <span class="close" onclick="fermerPanier()">&times;</span>
       <h2>Panier d'Articles</h2>
       <div id="panierContent"></div>
+    </div>
+  </div>
+  
+  <!-- Modal pour ajouter une opération -->
+  <div id="modalAjoutOperation" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerModalTresorerie()">&times;</span>
+      <h2>Ajouter une Opération</h2>
+      <form class="vente-form">
+        <label for="typeOperation">Type d'opération</label>
+        <select id="typeOperation">
+          <option value="entree">Entrée (Vente)</option>
+          <option value="sortie">Dépense</option>
+        </select>
+
+        <label for="montantOperation">Montant</label>
+        <input type="number" id="montantOperation" placeholder="Montant en FCFA" required>
+
+        <label for="descriptionOperation">Observations</label>
+        <textarea id="descriptionOperation" placeholder="Observations (facultatif)"></textarea>
+
+        <button type="button" class="btn-modern" onclick="ajouterOperationTresorerie()">Ajouter</button>
+      </form>
     </div>
   </div>
   
@@ -1009,8 +1227,7 @@
     }
     function generateRecap() {
       const recap = document.getElementById("saleRecap");
-      let html = "<h3>Récapitulatif de la Vente</h3>";
-      html += "<strong>Articles :</strong><br>";
+      let html = "<h3>Récapitulatif de la Vente</h3><strong>Articles :</strong><br>";
       currentItems.forEach(item => {
         html += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
       });
@@ -1587,6 +1804,9 @@
       }
       if (event.target === document.getElementById("modalPanier")) {
         fermerPanier();
+      }
+      if (event.target === document.getElementById("modalAjoutOperation")) {
+        fermerModalTresorerie();
       }
     };
 
@@ -2173,6 +2393,25 @@
       }
     });
     // **********************************************************************************
+
+    /* Fonctions pour la Trésorerie */
+
+    function ouvrirFormOperationTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "flex";
+    }
+
+    function fermerModalTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "none";
+    }
+
+    function ajouterOperationTresorerie() {
+      const type = document.getElementById("typeOperation").value;
+      const montant = document.getElementById("montantOperation").value;
+      const description = document.getElementById("descriptionOperation").value;
+      // Ici, vous pouvez ajouter le code pour enregistrer l'opération dans Firestore
+      alert("Opération ajoutée : " + type + " de " + montant + " FCFA");
+      fermerModalTresorerie();
+    }
   </script>
 </body>
 </html>
