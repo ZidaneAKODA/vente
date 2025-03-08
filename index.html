@@ -945,451 +945,384 @@
     </section>
 
     <!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
-    <section id="screen-tresorerie" class="screen">
-      <!-- Remplacement de l'interface de la page trésorerie par le code fourni -->
-      <style>
-        :root {
-            --primary-color: #6D5DFD;
-            --background-color: #F5F5FA;
-            --card-bg: #ffffff;
-            --text-color: #333;
-            --border-radius: 12px;
-        }
+<!-- Screen: Trésorerie -->
+<!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
+<section id="screen-tresorerie" class="screen">
+  <style>
+    :root {
+      --primary-color: #6D5DFD;
+      --background-color: #F5F5FA;
+      --card-bg: #ffffff;
+      --text-color: #333;
+      --border-radius: 12px;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+    }
+    .container {
+      padding: 15px;
+    }
+    .balance-card {
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .balance-card h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 15px 0 10px;
+    }
+    .history-list {
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+    .history-item {
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #EEE;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .amount {
+      font-weight: bold;
+    }
+    .in { color: #28a745; }
+    .out { color: #dc3545; }
+    .btn {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 12px;
+      text-align: center;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      margin-top: 10px;
+    }
+  </style>
 
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Arial', sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
-        }
+  <div class="container">
+    <!-- Carte de solde -->
+    <div class="balance-card">
+      <h1 id="balance-sold">XOF 0</h1>
+      <p>Solde actuel</p>
+      <p style="color:#666;">Comparé à hier : <strong id="balance-change" style="color:#28a745">+0%</strong></p>
+    </div>
 
-        .container {
-            padding: 15px;
-        }
-
-        .balance-card {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .btn {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 12px;
-            text-align: center;
-            border-radius: var(--border-radius);
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn.secondary {
-            background-color: #FF6F61;
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 15px 0 10px;
-        }
-
-        .history-list {
-            background-color: var(--card-bg);
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            margin-bottom: 15px;
-        }
-
-        .history-item {
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #EEE;
-        }
-
-        .amount {
-            font-weight: bold;
-        }
-
-        .in { color: #28a745; }
-        .out { color: #dc3545; }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 999;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            align-items: center; justify-content: center;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 20px;
-            border-radius: var(--border-radius);
-            width: 90%; max-width: 400px;
-        }
-      </style>
-
-      <div class="container">
-          <div class="balance-card">
-              <h1>XOF 750,000</h1>
-              <p>Solde actuel</p>
-              <p style="color:#666;">Comparé à hier : <strong style="color:#28a745">+10%</strong></p>
-          </div>
-
-          <div class="chart-container">
-              <div class="section-title">Répartition des dépenses</div>
-              <div class="chart-placeholder">Graphique circulaire ici</div>
-          </div>
-
-          <!-- Ajout de la liste dynamique des opérations Firestore -->
-          <div class="section-title">Historique des opérations (Firestore)</div>
-          <div id="transactionsTresorerie" class="history-list"></div>
-
-          <div class="section-title">Dernières dépenses</div>
-          <div class="history-list">
-              <div class="history-item">
-                  <div class="info">
-                      <i data-lucide="credit-card"></i> Achat accessoires
-                  </div>
-                  <div class="amount out">-XOF 120,000</div>
-              </div>
-          </div>
+    <!-- Total des entrées d'aujourd'hui -->
+    <div class="section-title">Entrées d'aujourd'hui</div>
+    <div class="history-list" id="entrees-list">
+      <div class="history-item">
+        <div class="info">Total Entrées</div>
+        <div class="amount in" id="entrees-today">+XOF 0</div>
+        <button class="btn" onclick="window.location.hash='historique'">Voir plus</button>
       </div>
+    </div>
 
-      <!-- Modal Dépenses -->
-      <div id="modalAjoutDepense" class="modal">
-          <div style="background:#fff;padding:20px;border-radius:var(--border-radius);width:90%;max-width:400px;">
-              <h2 id="titreDepense">Ajouter Dépense</h2>
-              <input type="number" id="montantOperation" placeholder="Montant (XOF)" required>
-              <textarea id="descriptionOperation" placeholder="Description (facultatif)"></textarea>
-              <button class="btn" onclick="ajouterOperationTresorerie()">Enregistrer</button>
-              <button class="btn secondary" onclick="fermerModalDepense()">Annuler</button>
-          </div>
+    <!-- Total des dépenses d'aujourd'hui -->
+    <div class="section-title">Dépenses d'aujourd'hui</div>
+    <div class="history-list" id="depenses-list">
+      <div class="history-item">
+        <div class="info">Total Dépenses</div>
+        <div class="amount out" id="depenses-today">-XOF 0</div>
+        <button class="btn" onclick="window.location.hash='depenses'">Voir plus</button>
       </div>
+    </div>
+  </div>
 
-      <script>
-          lucide.createIcons();
+  <script>
+    // Appel initial pour mettre à jour l'affichage des totaux et du solde
+    updateBalanceDisplay();
+  </script>
+</section>
 
-          // ------------------- FIRESTORE FUNCTIONS -------------------
-          // Utilisation de dbFirestore déjà initialisé via Firebase
-          // Récupérer les transactions de la collection "tresorerie"
-          function chargerTransactionsTresorerie() {
-            dbFirestore.collection("tresorerie")
-              .orderBy("timestamp", "desc")
-              .get()
-              .then(snapshot => {
-                const transactionsContainer = document.getElementById("transactionsTresorerie");
-                transactionsContainer.innerHTML = "";
-                snapshot.forEach(doc => {
-                  const transaction = doc.data();
-                  const typeClass = transaction.type === "entree" ? "in" : "out";
-                  transactionsContainer.innerHTML += `
-                    <div class="history-item">
-                      <div>
-                        ${transaction.description}<br>
-                        <small style="color:#888;">${new Date(transaction.timestamp).toLocaleString()}</small>
-                      </div>
-                      <div class="amount ${typeClass}">${transaction.type === "entree" ? "+" : "-"}XOF ${transaction.montant.toLocaleString()}</div>
-                    </div>
-                  `;
-                });
-              })
-              .catch(error => console.error("Erreur lors du chargement des transactions :", error));
-          }
+    <!-- Screen: Dépenses -->
+<!-- Screen: Dépenses -->
+<section id="screen-depenses" class="screen">
+  <style>
+    .depenses-container {
+      padding: 15px;
+    }
+    .depenses-summary {
+      background: var(--white);
+      box-shadow: var(--shadow);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .summary-item h2 {
+      margin-bottom: 5px;
+      color: var(--primary-color);
+    }
+    .summary-item p {
+      color: #666;
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .btn-modern.secondary {
+      background-color: #E4E6EB;
+      color: black;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-modern.secondary i {
+      font-size: 20px;
+    }
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: var(--text-color);
+    }
+    .history-list .history-item {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .history-icon {
+      margin-right: 8px;
+    }
+    /* Bouton Retour style Facebook */
+    .back-btn-fb {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 50%;
+      cursor: pointer;
+      overflow: hidden;
+      outline: none;
+    }
+    .back-btn-fb i {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .back-btn-fb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.3s ease-out;
+      pointer-events: none;
+    }
+    .back-btn-fb:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
 
-          // Modifier la fonction ajouterOperationTresorerie() pour enregistrer dans Firestore
-          function ajouterOperationTresorerie() {
-            const type = document.getElementById("typeOperation").value;
-            const montant = parseFloat(document.getElementById("montantOperation").value);
-            const description = document.getElementById("descriptionOperation").value.trim();
+  <header>
+    <button class="back-btn-fb" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Dépenses</h1>
+  </header>
 
-            if (!montant || montant <= 0) {
-              alert("Veuillez entrer un montant valide.");
-              return;
+  <div class="depenses-container">
+    <div class="depenses-summary">
+      <div class="summary-item">
+        <!-- Ici, on affiche exclusivement la somme des dépenses du jour -->
+        <h2 id="depenses-today-dep">0 FCFA</h2>
+        <p>Dépenses aujourd'hui</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
+        <i data-lucide="file-minus"></i> Dépense Fonctionnelle
+      </button>
+      <button class="btn-modern secondary" onclick="window.location.hash='depense-papa'">
+        <i data-lucide="user-minus"></i> Dépense Papa
+      </button>          
+      <button class="btn-modern secondary" onclick="window.location.hash='remboursement-papa'">
+        <i data-lucide="user-check"></i> Remboursement
+      </button>
+    </div>
+
+    <div class="section-title">Historique récent</div>
+    <div id="recent-depenses" class="history-list">
+      <p style="text-align:center;">Chargement en cours...</p>
+    </div>
+
+    <button class="btn-modern secondary" onclick="exporterDepenses()">
+      <i data-lucide="download"></i> Exporter PDF
+    </button>
+  </div>
+
+  <script>
+    /**
+     * Récupère et affiche la somme de toutes les dépenses (type "depense" ou "papa")
+     * pour la journée en cours, puis met à jour le champ #depenses-today.
+     */
+    function afficherDepensesAujourdhui() {
+      const today = new Date();
+      // On définit le début et la fin du jour en millisecondes
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      dbFirestore.collection("depenses")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalDepenses = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // On somme uniquement les dépenses de type "depense" ou "papa"
+            // (si vous n'avez pas de type, retirez simplement le if)
+            if (data.type === "depense" || data.type === "papa" || !data.type) {
+              totalDepenses += parseFloat(data.montant) || 0;
             }
+          });
+          // Mise à jour de l'affichage
+          document.getElementById("depenses-today-dep").textContent = `${totalDepenses.toLocaleString()} FCFA`;
+        })
+        .catch(error => {
+          console.error("Erreur lors de la récupération des dépenses du jour : " + error.message);
+        });
+    }
 
-            const transaction = {
-              type,
-              montant,
-              description: description || "Aucune description",
-              date: new Date().toISOString(),
-              auteur: "Zidane Akoda",
-              timestamp: Date.now()
-            };
-
-            dbFirestore.collection("tresorerie").add(transaction)
-              .then(() => {
-                alert("Opération ajoutée !");
-                fermerModalTresorerie();
-                chargerTransactionsTresorerie();
-              })
-              .catch(error => {
-                console.error("Erreur lors de l'ajout de l'opération :", error);
-              });
-          }
-
-          // Fermer la modal de trésorerie
-          function fermerModalTresorerie() {
-            document.getElementById("modalAjoutOperation").style.display = "none";
-          }
-
-          // Modifier la fonction ajouterDepense() pour enregistrer dans Firestore
-          function ajouterDepense() {
-            const montant = parseFloat(document.getElementById("montantOperation").value);
-            const description = document.getElementById("descriptionOperation").value.trim();
-
-            if (!montant || montant <= 0) {
-              alert("Veuillez entrer un montant valide.");
-              return;
-            }
-
-            const depense = {
-              montant,
-              description: description || "Aucune description",
-              date: new Date().toISOString(),
-              auteur: "Zidane Akoda",
-              timestamp: Date.now()
-            };
-
-            dbFirestore.collection("depenses").add(depense)
-              .then(() => {
-                alert("Dépense enregistrée !");
-                fermerModalDepense();
-                chargerHistoriqueDepenses();
-              })
-              .catch(error => {
-                console.error("Erreur lors de l'ajout de la dépense :", error);
-              });
-          }
-
-          function fermerModalDepense(){
-              document.querySelector(".modal").style.display = "none";
-              document.getElementById("montantOperation").value = "";
-              document.getElementById("descriptionOperation").value = "";
-          }
-          // ------------------- FIN FIRESTORE FUNCTIONS -------------------
-      </script>
-    </section>
-    
-    <!-- Screen 7: Dépenses -->
-    <section id="screen-depenses" class="screen">
-      <style>
-        .depenses-container {
-          padding: 15px;
-        }
-
-        .depenses-summary {
-          background: var(--white);
-          box-shadow: var(--shadow);
-          border-radius: var(--border-radius);
-          padding: 20px;
-          margin-bottom: 15px;
-          text-align: center;
-        }
-
-        .summary-item h2 {
-          margin-bottom: 5px;
-          color: var(--primary-color);
-        }
-
-        .summary-item p {
-          color: #666;
-          font-size: 14px;
-        }
-
-        .actions {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          margin-bottom: 15px;
-        }
-
-        .btn-modern.secondary {
-          background-color: #E4E6EB;
-          color: black;
-          box-shadow: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-
-        .btn-modern.secondary i {
-          font-size: 20px;
-        }
-
-        .section-title {
-          font-weight: bold;
-          margin-bottom: 10px;
-          font-size: 18px;
-          color: var(--text-color);
-        }
-
-        .history-list .history-item {
-          padding: 12px;
-          border-bottom: 1px solid #eee;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .history-item:last-child {
-          border-bottom: none;
-        }
-
-        .history-icon {
-          margin-right: 8px;
-        }
-
-        /* Bouton Retour style Facebook */
-        .back-btn-fb {
-          width: 40px;
-          height: 40px;
-          border: none;
-          background: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          border-radius: 50%;
-          cursor: pointer;
-          overflow: hidden;
-          outline: none;
-        }
-
-        .back-btn-fb i {
-          font-size: 24px;
-          color: var(--primary-color);
-        }
-
-        .back-btn-fb::after {
-          content: '';
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 200%;
-          height: 200%;
-          background: rgba(0, 0, 0, 0.1);
-          border-radius: 50%;
-          transform: translate(-50%, -50%) scale(0);
-          transition: transform 0.3s ease-out;
-          pointer-events: none;
-        }
-
-        .back-btn-fb:active::after {
-          transform: translate(-50%, -50%) scale(1);
-        }
-      </style>
-
-      <header>
-        <button class="back-btn-fb" onclick="window.location.hash='menu'">
-          <i data-lucide="arrow-left"></i>
-        </button>
-        <h1>Dépenses</h1>
-      </header>
-
-      <div class="depenses-container">
-        <div class="depenses-summary">
-          <div class="summary-item">
-            <h2 id="depenses-today">75,000 FCFA</h2>
-            <p>Dépenses aujourd'hui</p>
-          </div>
-          <div class="summary-item">
-            <h2 id="depenses-month">2,550,000 FCFA</h2>
-            <p>Ce mois-ci (▲5%)</p>
-          </div>
-        </div>
-
-        <div class="actions">
-          <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
-            <i data-lucide="file-minus"></i> Dépense Fonctionnelle
-          </button>
-          <button class="btn-modern secondary" onclick="ouvrirModalDepense('papa')">
-            <i data-lucide="user-minus"></i> Dépense Papa
-          </button>
-          <button class="btn-modern secondary" onclick="ouvrirModalDepense('remboursement-papa')">
-            <i data-lucide="user-check"></i> Remboursement Papa
-          </button>
-        </div>
-
-        <div class="section-title">Historique récent</div>
-        <div id="recent-depenses" class="history-list">
-          <p style="text-align:center;">Chargement en cours...</p>
-        </div>
-
-        <button class="btn-modern secondary" onclick="exporterDepenses()">
-          <i data-lucide="download"></i> Exporter PDF
-        </button>
-      </div>
-
-      <script>
-        // Remplacement de la fonction statique chargerHistoriqueDepenses() par la version Firestore
-        function chargerHistoriqueDepenses() {
-          dbFirestore.collection("depenses")
-            .orderBy("timestamp", "desc")
-            .get()
-            .then(snapshot => {
-              const historiqueContainer = document.getElementById("recent-depenses");
-              historiqueContainer.innerHTML = "";
-              snapshot.forEach(doc => {
-                const depense = doc.data();
-                historiqueContainer.innerHTML += `
-                  <div class="history-item">
-                    <div>
-                      ${depense.description}<br>
-                      <small style="color:#888;">${new Date(depense.timestamp).toLocaleString()}</small>
-                    </div>
-                    <div class="amount out">-XOF ${depense.montant.toLocaleString()}</div>
-                  </div>
-                `;
-              });
-            })
-            .catch(error => console.error("Erreur lors du chargement des dépenses :", error));
-        }
-
-        function exporterDepenses() {
-          alert("Export PDF à intégrer avec Firestore prochainement !");
-        }
-
-        window.addEventListener('hashchange', function(){
-          if(window.location.hash === '#depenses') {
-            chargerHistoriqueDepenses();
-          }
+    /**
+     * Récupère l'ensemble des documents de "depenses" et "remboursements",
+     * les fusionne, puis affiche un historique récent.
+     */
+    function chargerHistoriqueDepenses() {
+      const depensesPromise = dbFirestore.collection("depenses")
+        .orderBy("timestamp", "desc")
+        .get()
+        .then(snapshot => {
+          let depensesArray = [];
+          snapshot.forEach(doc => {
+            let d = doc.data();
+            // Par défaut, si le champ type n'existe pas, on le considère comme "depense"
+            d.type = d.type || "depense";
+            depensesArray.push(d);
+          });
+          return depensesArray;
         });
 
-        if(window.location.hash === '#depenses') {
-          chargerHistoriqueDepenses();
-        }
-      </script>
-    </section>
-    
-    <!-- Nouvel écran : Ajouter Dépense Fonctionnelle -->
+      const remboursementsPromise = dbFirestore.collection("remboursements")
+        .orderBy("timestamp", "desc")
+        .get()
+        .then(snapshot => {
+          let remboursementsArray = [];
+          snapshot.forEach(doc => {
+            let r = doc.data();
+            r.type = "remboursement";
+            remboursementsArray.push(r);
+          });
+          return remboursementsArray;
+        });
+
+      Promise.all([depensesPromise, remboursementsPromise])
+        .then(([depenses, remboursements]) => {
+          let combined = depenses.concat(remboursements);
+          // On trie par timestamp décroissant
+          combined.sort((a, b) => b.timestamp - a.timestamp);
+
+          const container = document.getElementById("recent-depenses");
+          container.innerHTML = "";
+
+          combined.forEach(item => {
+            let iconHtml = "";
+            let montantDisplay = "";
+            
+            if (item.type === "depense" || item.type === "papa") {
+              // Icône si c'est une "dépense papa"
+              iconHtml = item.type === "papa" 
+                ? `<i data-lucide="user-minus"></i>` 
+                : `<i data-lucide="file-minus"></i>`;
+              montantDisplay = `<div class="amount out">-XOF ${item.montant.toLocaleString()}</div>`;
+            } 
+            else if (item.type === "remboursement") {
+              // Icône pour un "remboursement"
+              iconHtml = `<i data-lucide="user-check"></i>`;
+              montantDisplay = `<div class="amount in">+XOF ${item.montant.toLocaleString()}</div>`;
+            }
+
+            container.innerHTML += `
+              <div class="history-item" style="display: flex; align-items: center;">
+                <div class="depense-icon" style="margin-right: 10px;">
+                  ${iconHtml}
+                </div>
+                <div class="depense-info" style="flex-grow: 1;">
+                  ${item.description || "Aucune description"}<br>
+                  <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
+                </div>
+                ${montantDisplay}
+              </div>
+            `;
+          });
+
+          // Recharge les icônes Lucide
+          lucide.createIcons();
+        })
+        .catch(error => console.error("Erreur lors du chargement des dépenses et remboursements :", error));
+    }
+
+    /**
+     * On met à jour le total des dépenses du jour + l'historique
+     * dès que l'écran "#depenses" est affiché.
+     */
+    window.addEventListener('hashchange', function(){
+      if(window.location.hash === '#depenses') {
+        afficherDepensesAujourdhui();    // ← pour afficher la somme des dépenses du jour
+        chargerHistoriqueDepenses();     // ← pour lister toutes les dépenses/remboursements
+      }
+    });
+    // Si on arrive directement sur "#depenses" après chargement...
+    if(window.location.hash === '#depenses') {
+      afficherDepensesAujourdhui();
+      chargerHistoriqueDepenses();
+    }
+  </script>
+</section>
+
+    <!--Dépense Fonctionnelle -->
     <section id="screen-depense-fonctionnelle" class="screen">
       <style>
         .form-container {
           padding: 15px;
         }
-
         .form-section {
           background: var(--white);
           border-radius: var(--border-radius);
@@ -1397,24 +1330,23 @@
           margin-bottom: 15px;
           box-shadow: var(--shadow);
         }
-
         .form-section h2 {
           text-align: center;
           color: var(--primary-color);
         }
-      #formDepenseFonctionnelle input,
-      #formDepenseFonctionnelle textarea {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        border: none;              /* Supprime le cadre par défaut */
-        border-radius: 50px;         /* Même forme arrondie que les boutons */
-        background: #E4E6EB;         /* Fond similaire aux boutons secondaires */
-        color: #333;
-        margin-bottom: 10px;
-        box-sizing: border-box;
-        outline: none;
-      }
+        #formDepenseFonctionnelle input,
+        #formDepenseFonctionnelle textarea {
+          width: 100%;
+          padding: 12px;
+          font-size: 16px;
+          border: none;
+          border-radius: 50px;
+          background: #E4E6EB;
+          color: #333;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          outline: none;
+        }
         .btn-modern.primary {
           background: var(--primary-color);
           color: white;
@@ -1423,12 +1355,9 @@
           justify-content: center;
           gap: 8px;
         }
-
         .btn-modern.primary i {
           font-size: 20px;
         }
-
-        /* Bouton Retour style Facebook */
         .back-btn-fb {
           width: 40px;
           height: 40px;
@@ -1443,12 +1372,10 @@
           overflow: hidden;
           outline: none;
         }
-
         .back-btn-fb i {
           font-size: 24px;
           color: var(--primary-color);
         }
-
         .back-btn-fb::after {
           content: '';
           position: absolute;
@@ -1462,7 +1389,6 @@
           transition: transform 0.3s ease-out;
           pointer-events: none;
         }
-
         .back-btn-fb:active::after {
           transform: translate(-50%, -50%) scale(1);
         }
@@ -1510,24 +1436,24 @@
           }
 
           const depense = {
-          montant: parseFloat(montant),
-          description: description,
-          date: new Date().toISOString(),
-          auteur: "VotreNomOuUtilisateur", // Adaptez ce champ selon votre logique d'authentification
-          timestamp: Date.now()
-        };
+            montant: parseFloat(montant),
+            description: description,
+            date: new Date().toISOString(),
+            auteur: "VotreNomOuUtilisateur",
+            timestamp: Date.now()
+          };
 
-        dbFirestore.collection("depenses").add(depense)
-          .then(() => {
-            alert("Dépense Fonctionnelle enregistrée avec succès !");
-            document.getElementById("montantDepense").value = "";
-            document.getElementById("descriptionDepense").value = "";
-            window.location.hash = "depenses";
-          })
-          .catch(err => {
-            alert("Erreur lors de l'ajout de la dépense : " + err.message);
-          });
-                });
+          dbFirestore.collection("depenses").add(depense)
+            .then(() => {
+              alert("Dépense Fonctionnelle enregistrée avec succès !");
+              document.getElementById("montantDepense").value = "";
+              document.getElementById("descriptionDepense").value = "";
+              window.location.hash = "depenses";
+            })
+            .catch(err => {
+              alert("Erreur lors de l'ajout de la dépense : " + err.message);
+            });
+        });
 
         window.addEventListener('hashchange', function () {
           if (window.location.hash === '#depense-fonctionnelle') {
@@ -1539,117 +1465,266 @@
     </section>
     <!-- Screen: Dépense Papa -->
     <section id="screen-depense-papa" class="screen">
+      <style>
+        .form-container {
+          padding: 15px;
+        }
+        .form-section {
+          background: var(--white);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: var(--shadow);
+        }
+        .form-section h2 {
+          text-align: center;
+          color: var(--primary-color);
+        }
+        /* Même style pour les inputs que pour l'écran Dépense Fonctionnelle */
+        #formDepensePapa input,
+        #formDepensePapa textarea {
+          width: 100%;
+          padding: 12px;
+          font-size: 16px;
+          border: none;
+          border-radius: 50px;
+          background: #E4E6EB;
+          color: #333;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          outline: none;
+        }
+        .btn-modern.primary {
+          background: var(--primary-color);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-modern.primary i {
+          font-size: 20px;
+        }
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
+
       <header>
-        <button class="back-btn" onclick="window.location.hash='depenses'">
-          <i data-lucide="arrow-left"></i> Retour
+        <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+          <i data-lucide="arrow-left"></i>
         </button>
-        <h1>Dépense Papa</h1>
+        <h1>Nouvelle Dépense Papa</h1>
       </header>
+
       <div class="form-container">
         <div class="form-section">
-          <h2>Ajouter Dépense Papa</h2>
+          <h2>Ajouter une Dépense Papa</h2>
           <form id="formDepensePapa">
             <label for="montantDepensePapa">Montant (FCFA)</label>
             <input type="number" id="montantDepensePapa" placeholder="Montant" required>
-
             <label for="descriptionDepensePapa">Description</label>
-            <textarea id="descriptionDepensePapa" placeholder="Ex : Achat pour papa" required></textarea>
-
+            <textarea id="descriptionDepensePapa" placeholder="Ex: Description de la dépense" required></textarea>
             <button type="submit" class="btn-modern primary">
               <i data-lucide="plus"></i> Enregistrer Dépense Papa
             </button>
           </form>
         </div>
       </div>
+
+      <script>
+        document.getElementById("formDepensePapa").addEventListener("submit", function(e) {
+          e.preventDefault();
+          const montant = document.getElementById("montantDepensePapa").value.trim();
+          const description = document.getElementById("descriptionDepensePapa").value.trim();
+          if (!montant || montant <= 0) {
+            alert("Veuillez entrer un montant valide.");
+            return;
+          }
+          if (!description) {
+            alert("Veuillez entrer une description.");
+            return;
+          }
+          const depensePapa = {
+            montant: parseFloat(montant),
+            description: description,
+            type: "papa",  // Pour identifier ce type de dépense
+            date: new Date().toISOString(),
+            auteur: "VotreNomOuUtilisateur",  // À adapter selon votre logique d'authentification
+            timestamp: Date.now()
+          };
+          dbFirestore.collection("depenses").add(depensePapa)
+            .then(() => {
+              alert("Dépense Papa enregistrée avec succès !");
+              document.getElementById("montantDepensePapa").value = "";
+              document.getElementById("descriptionDepensePapa").value = "";
+              // Retour à l'écran historique des dépenses
+              window.location.hash = "depenses";
+            })
+            .catch(err => {
+              alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
+            });
+        });
+      </script>
     </section>
+    <!-- Screen: Remboursements -->
+<!-- Screen: Remboursement Papa -->
+<section id="screen-remboursement-papa" class="screen">
+  <style>
+    .form-container {
+      padding: 15px;
+    }
+    .form-section {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: var(--shadow);
+    }
+    .form-section h2 {
+      text-align: center;
+      color: var(--primary-color);
+    }
+    /* Styles pour les inputs */
+    #formRemboursementPapa input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 50px;
+      background: #E4E6EB;
+      color: #333;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .btn-modern.primary {
+      background: var(--primary-color);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-modern.primary i {
+      font-size: 20px;
+    }
+    .back-btn-fb {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 50%;
+      cursor: pointer;
+      overflow: hidden;
+      outline: none;
+    }
+    .back-btn-fb i {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .back-btn-fb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.3s ease-out;
+      pointer-events: none;
+    }
+    .back-btn-fb:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
 
-    <!-- Styles spécifiques pour le screen Dépense Papa -->
-    <style>
-      .form-container {
-        padding: 15px;
-      }
-      .form-section {
-        background: var(--white);
-        border-radius: var(--border-radius);
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: var(--shadow);
-      }
-      .form-section h2 {
-        text-align: center;
-        color: var(--primary-color);
-      }
-      #formDepensePapa input,
-      #formDepensePapa textarea {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        border: none; /* Supprime le cadre par défaut */
-        border-radius: 50px; /* Même forme arrondie que les boutons */
-        background: #E4E6EB; /* Fond similaire aux boutons secondaires */
-        color: #333;
-        margin-bottom: 10px;
-        box-sizing: border-box;
-        outline: none;
-      }
-      .btn-modern.primary {
-        background: var(--primary-color);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-      }
-      .btn-modern.primary i {
-        font-size: 20px;
-      }
-    </style>
+  <header>
+    <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Nouveau Remboursement Papa</h1>
+  </header>
 
-    <!-- Script pour gérer la soumission du formulaire Dépense Papa -->
-    <script>
-      document.getElementById("formDepensePapa").addEventListener("submit", function (e) {
-        e.preventDefault();
-        
-        const montantValue = document.getElementById("montantDepensePapa").value.trim();
-        const descriptionValue = document.getElementById("descriptionDepensePapa").value.trim();
-        
-        const montant = parseFloat(montantValue);
-        
-        if (!montant || montant <= 0) {
-          alert("Veuillez entrer un montant valide.");
-          return;
-        }
-        
-        if (!descriptionValue) {
-          alert("Veuillez entrer une description.");
-          return;
-        }
-        
-        // Création de l'objet dépense papa
-        const depensePapa = {
-          montant: montant,
-          description: descriptionValue,
-          type: "papa",  // Pour distinguer ce type de dépense
-          date: new Date().toISOString(),
-          auteur: "VotreNomOuUtilisateur", // Adaptez ce champ selon votre logique d'authentification
-          timestamp: Date.now()
-        };
-        
-        // Ajout à Firestore dans la collection "depenses"
-        dbFirestore.collection("depenses").add(depensePapa)
-          .then(() => {
-            alert("Dépense Papa enregistrée avec succès !");
-            document.getElementById("montantDepensePapa").value = "";
-            document.getElementById("descriptionDepensePapa").value = "";
-            window.location.hash = "depenses"; // Redirection vers le screen des dépenses
-          })
-          .catch(err => {
-            alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
-          });
-      });
-    </script>
+  <div class="form-container">
+    <div class="form-section">
+      <h2>Ajouter un Remboursement Papa</h2>
+      <form id="formRemboursementPapa">
+         <label for="montantRemboursementPapa">Montant (FCFA)</label>
+         <input type="number" id="montantRemboursementPapa" placeholder="Montant" required>
+         <button type="submit" class="btn-modern primary">
+           <i data-lucide="plus"></i> Enregistrer Remboursement Papa
+         </button>
+      </form>
+    </div>
+  </div>
 
-        
+  <script>
+    document.getElementById("formRemboursementPapa").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const montant = document.getElementById("montantRemboursementPapa").value.trim();
+      if (!montant || montant <= 0) {
+         alert("Veuillez entrer un montant valide.");
+         return;
+      }
+      const remboursement = {
+         montant: parseFloat(montant),
+         description: "Remboursement", // Description fixe
+         type: "remboursement", // Pour identifier cet enregistrement
+         date: new Date().toISOString(),
+         auteur: "VotreNomOuUtilisateur", // Adaptez selon votre logique d'authentification
+         timestamp: Date.now()
+      };
+      dbFirestore.collection("remboursements").add(remboursement)
+         .then(() => {
+            alert("Remboursement Papa enregistré avec succès !");
+            document.getElementById("montantRemboursementPapa").value = "";
+            window.location.hash = "depenses"; // Retour à l'écran Dépenses (historique)
+         })
+         .catch(err => {
+            alert("Erreur lors de l'ajout du remboursement papa : " + err.message);
+         });
+    });
+  </script>
+</section>
+
     <!-- Bottom Navigation Modernisée (Navigation par hash) -->
     <nav class="bottom-nav-pro">
       <div class="nav-item" id="nav-vendre" onclick="window.location.hash='vendre'">
@@ -1813,49 +1888,278 @@
     };
     firebase.initializeApp(firebaseConfig);
     const dbFirestore = firebase.firestore();
+    /* === Fonctions centralisées pour le calcul des entrées, dépenses et solde === */
+    function calculateEntreesToday() {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
 
-    // (Les fonctions Firestore pour ventes, stock, etc. sont déjà définies plus haut dans le code)
+      // Total des ventes de la journée
+      const ventesPromise = dbFirestore.collection("ventes")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalVentes = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            totalVentes += parseFloat(data.overallTotal) || 0;
+          });
+          return totalVentes;
+        });
+
+      // Total des remboursements de la journée
+      const remboursementsPromise = dbFirestore.collection("remboursements")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalRemboursements = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            totalRemboursements += parseFloat(data.montant) || 0;
+          });
+          return totalRemboursements;
+        });
+
+      return Promise.all([ventesPromise, remboursementsPromise])
+        .then(([totalVentes, totalRemboursements]) => {
+          return totalVentes + totalRemboursements;
+        })
+        .catch(error => {
+          console.error("Erreur dans calculateEntreesToday : " + error.message);
+          return 0;
+        });
+    }
+
+    function calculateDepensesToday() {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      return dbFirestore.collection("depenses")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalDepenses = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // On somme les dépenses de type "depense", "papa" ou non défini
+            if (data.type === "depense" || data.type === "papa" || !data.type) {
+              totalDepenses += parseFloat(data.montant) || 0;
+            }
+          });
+          return totalDepenses;
+        })
+        .catch(error => {
+          console.error("Erreur dans calculateDepensesToday : " + error.message);
+          return 0;
+        });
+    }
+
+    function updateBalanceDisplay() {
+      Promise.all([calculateEntreesToday(), calculateDepensesToday()])
+        .then(([totalEntrees, totalDepenses]) => {
+          const balance = totalEntrees - totalDepenses;
+          // Mettez à jour les éléments du DOM concernés (vérifiez qu'ils existent sur la page active)
+          const balanceElem = document.getElementById("balance-sold");
+          const entreesElem = document.getElementById("entrees-today");
+          const depensesElem = document.getElementById("depenses-today");
+
+          if (entreesElem) {
+            entreesElem.innerText = "+XOF " + totalEntrees.toLocaleString();
+          }
+          if (depensesElem) {
+            depensesElem.innerText = "-XOF " + totalDepenses.toLocaleString();
+          }
+          if (balanceElem) {
+            balanceElem.innerText = "XOF " + balance.toLocaleString();
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors de la mise à jour du solde : " + error.message);
+        });
+    }
+
+
+    // Fonctions Firestore pour les ventes
+    function addSaleFirestore(vente) {
+      return dbFirestore.collection("ventes").add(vente)
+        .then(docRef => docRef.id)
+        .catch(error => { throw new Error("Erreur lors de l'ajout de la vente : " + error.message); });
+    }
+    function updateSaleFirestore(venteId, vente) {
+      return dbFirestore.collection("ventes").doc(venteId).set(vente, { merge: true })
+        .then(() => venteId)
+        .catch(error => { throw new Error("Erreur lors de la mise à jour de la vente : " + error.message); });
+    }
+    function getSalesForTodayFirestore() {
+      const today = new Date().toLocaleDateString("fr-FR");
+      return dbFirestore.collection("ventes")
+        .where("dateVente", "==", today)
+        .get()
+        .then(querySnapshot => {
+          const ventes = [];
+          querySnapshot.forEach(doc => {
+            ventes.push({ id: doc.id, ...doc.data() });
+          });
+          return ventes;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération des ventes : " + error.message); });
+    }
+    function getSaleByIdFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).get()
+        .then(doc => {
+          if (doc.exists) {
+            return { id: doc.id, ...doc.data() };
+          } else {
+            throw new Error("Vente non trouvée.");
+          }
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération de la vente : " + error.message); });
+    }
+    function deleteSaleFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).delete()
+        .then(() => true)
+        .catch(error => { throw new Error("Erreur lors de la suppression de la vente : " + error.message); });
+    }
+
+    // Fonctions Firestore pour le stock
+    function getAllStockFirestore() {
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          const stocks = [];
+          querySnapshot.forEach(doc => {
+            stocks.push({ id: doc.id, ...doc.data() });
+          });
+          return stocks;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération du stock : " + error.message); });
+    }
+    function importStockToFirestore(stocks) {
+      const batch = dbFirestore.batch();
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          stocks.forEach(stockItem => {
+            const docRef = dbFirestore.collection("stock").doc();
+            batch.set(docRef, stockItem);
+          });
+          return batch.commit();
+        })
+        .catch(error => { throw new Error("Erreur lors de l'importation du stock : " + error.message); });
+    }
+    function updateStockAfterSaleFirestore(items) {
+      const promises = items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = Math.max(0, stockData.stock - item.quantite);
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
+            }
+          });
+      });
+      return Promise.all(promises).then(() => updateStockSummary());
+    }
+    function restockAfterCancellationFirestore(sale) {
+      const promises = sale.items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = stockData.stock + item.quantite;
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
+            }
+          });
+      });
+      return Promise.all(promises).then(() => updateStockSummary());
+    }
+
+    // Mise à jour de l'affichage du stock
+    function updateStockSummary() {
+      getAllStockFirestore().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
+    }
+
+    // Annulation de vente avec restockage
+    function demanderAnnulation(id) {
+      const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
+      if (motDePasse !== "zizou") {
+        alert("Mot de passe incorrect !");
+        return;
+      }
+      if (confirm("Voulez-vous vraiment annuler cette vente ? Cela réintégrera les articles dans le stock.")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            return restockAfterCancellationFirestore(sale).then(() => sale);
+          })
+          .then(sale => {
+            return deleteSaleFirestore(sale.id);
+          })
+          .then(() => {
+            alert("Vente annulée et stock mis à jour !");
+            afficherVentes();
+          })
+          .catch(err => alert("Erreur lors de l'annulation : " + err.message));
+      }
+    }
 
     // Hash Router pour la navigation
     function handleHashChange() {
-      const hash = window.location.hash.substring(1);
-      showScreenByHash(hash);
+    const hash = window.location.hash.substring(1);
+    showScreenByHash(hash);
     }
     function showScreenByHash(hash) {
-      const allScreens = document.querySelectorAll('.screen');
-      allScreens.forEach(screen => screen.classList.remove('active'));
-      const targetScreen = document.getElementById(`screen-${hash}`);
-      if (targetScreen) {
-        targetScreen.classList.add('active');
-      } else {
-        document.getElementById('screen-vendre').classList.add('active');
-        window.location.hash = 'vendre';
-      }
-      document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-      const activeNav = document.getElementById(`nav-${hash}`);
-      if (activeNav) {
-        activeNav.classList.add('active');
-      }
-      switch (hash) {
-        case 'vendre':
-          break;
-        case 'stock':
-          updateStockSummary();
-          break;
-        case 'livraisons':
-          afficherLivraisons();
-          break;
-        case 'historique':
-          afficherVentes();
-          break;
-        case 'tresorerie':
-          chargerTransactionsTresorerie();
-          break;
-        case 'depenses':
-          chargerHistoriqueDepenses();
-          break;
-      }
-    }
+  const allScreens = document.querySelectorAll('.screen');
+  allScreens.forEach(screen => screen.classList.remove('active'));
+  const targetScreen = document.getElementById(`screen-${hash}`);
+  if (targetScreen) {
+    targetScreen.classList.add('active');
+  } else {
+    document.getElementById('screen-vendre').classList.add('active');
+    window.location.hash = 'vendre';
+  }
+  document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+  const activeNav = document.getElementById(`nav-${hash}`);
+  if (activeNav) {
+    activeNav.classList.add('active');
+  }
+  switch (hash) {
+  case 'vendre':
+    break;
+  case 'stock':
+    updateStockSummary();
+    break;
+  case 'livraisons':
+    afficherLivraisons();
+    break;
+  case 'historique':
+    afficherVentes();
+    break;
+  case 'depenses':
+    chargerHistoriqueDepenses();
+    updateBalanceDisplay();  // Remplacez updateDepensesToday() ou updateBalance()
+    break;
+  case 'tresorerie':
+    updateBalanceDisplay();  // Même chose ici
+    break;
+  // Ajoutez d'autres cas si nécessaire
+}   }
+
     window.addEventListener('load', () => {
       if (!window.location.hash) {
         window.location.hash = 'vendre';
@@ -2008,7 +2312,8 @@
         overallTotal, 
         photoFacture: photoData, 
         observationsVendeur,
-        isDelivery: isDelivery 
+        isDelivery: isDelivery, 
+        timestamp: Date.now()
       };
       if(isDelivery) {
         vente.livreurNom = livreurNom;
@@ -2744,7 +3049,7 @@
       }
     }
     setInterval(updateTimeMenu, 1000);
-    
+
     // *************** MODIFICATIONS POUR L'ÉCRAN DE RECHERCHE D'ARTICLE ***************
     produitInput.addEventListener('focus', function() {
       window.location.hash = 'search-article';
@@ -2799,18 +3104,20 @@
       }
     });
     // **********************************************************************************
-  </script>
-  
-  <!-- Nouvelle fonction ajoutée sans changer le reste du code -->
-  <script>
-    function ouvrirModalDepense(type) {
-      if (type === 'papa') {
-        window.location.hash = 'depense-papa';
-      } else if (type === 'remboursement-papa') {
-        window.location.hash = 'remboursement-papa';
-      } else if (type === 'fonctionnelle') {
-        window.location.hash = 'depense-fonctionnelle';
-      }
+
+    /* Fonctions pour la Trésorerie */
+    function ouvrirFormOperationTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "flex";
+    }
+    function fermerModalTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "none";
+    }
+    function ajouterOperationTresorerie() {
+      const type = document.getElementById("typeOperation").value;
+      const montant = document.getElementById("montantOperation").value;
+      const description = document.getElementById("descriptionOperation").value;
+      alert("Opération ajoutée : " + type + " de " + montant + " FCFA");
+      fermerModalTresorerie();
     }
   </script>
 </body>
