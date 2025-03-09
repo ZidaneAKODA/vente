@@ -1171,7 +1171,7 @@
       <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
         <i data-lucide="file-minus"></i> Dépense Fonctionnelle
       </button>
-      <button class="btn-modern secondary" onclick="window.location.hash='depense-papa'">
+      <button id="btnDepensePapa" class="btn-modern secondary" onclick="window.location.hash='depense-papa'">
         <i data-lucide="user-minus"></i> Dépense Papa
       </button>          
       <button class="btn-modern secondary" onclick="window.location.hash='remboursement-papa'">
@@ -1574,50 +1574,56 @@
       </div>
 
       <script>
-        document.getElementById("formDepensePapa").addEventListener("submit", function(e) {
-  e.preventDefault();
-  
-  const montant = parseFloat(document.getElementById("montantDepensePapa").value.trim());
-  const description = document.getElementById("descriptionDepensePapa").value.trim();
-  
-  if (!montant || montant <= 0) {
-    alert("Veuillez entrer un montant valide.");
-    return;
-  }
-  if (!description) {
-    alert("Veuillez entrer une description.");
-    return;
-  }
-  
-  const depensePapa = {
-    montant: montant,
-    description: description,
-    type: "papa",  // Pour identifier ce type de dépense
-    date: new Date().toISOString(),
-    timestamp: Date.now()
-  };
-  
-  dbFirestore.collection("depenses").add(depensePapa)
-    .then(() => {
-      return getRunningBalance();
-    })
-    .then(soldeActuel => {
-      const nouveauSolde = soldeActuel - montant;
-      return setRunningBalance(nouveauSolde);
-    })
-    .then(() => {
-      alert("Dépense Papa enregistrée avec succès !");
-      document.getElementById("montantDepensePapa").value = "";
-      document.getElementById("descriptionDepensePapa").value = "";
-      updateBalanceDisplay();
-    })
-    .catch(err => {
-      alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
-    });
-});
+       document.getElementById("formDepensePapa").addEventListener("submit", function(e) {e.preventDefault();
+        const montant = parseFloat(document.getElementById("montantDepensePapa").value.trim());
+        const description = document.getElementById("descriptionDepensePapa").value.trim();
+        
+        if (!montant || montant <= 0) {
+          alert("Veuillez entrer un montant valide.");
+          return;
+        }
+        if (!description) {
+          alert("Veuillez entrer une description.");
+          return;
+        }
+        
+        const depensePapa = {
+          montant: montant,
+          description: description,
+          type: "papa",  // Pour identifier ce type de dépense
+          date: new Date().toISOString(),
+          timestamp: Date.now()
+        };
+        
+        dbFirestore.collection("depenses").add(depensePapa)
+          .then(() => {
+            // Lancer en parallèle la mise à jour du solde des dépenses papa
+            // ET la mise à jour du solde global.
+            return Promise.all([
+              updateDepensePapaBalance(), // Met à jour le document "depensePapa/balance"
+              (function() {
+                return getRunningBalance().then(currentGlobal => {
+                  const nouveauGlobal = currentGlobal - montant;
+                  return setRunningBalance(nouveauGlobal);
+                });
+              })()
+            ]);
+          })
+          .then(() => {
+            // On peut ensuite rafraîchir l'affichage (les deux soldes)
+            updateBalanceDisplay();       // Pour le solde global
+            updateDepensePapaButton();    // Pour le bouton "Dépense Papa"
+            alert("Dépense Papa enregistrée avec succès !");
+            document.getElementById("montantDepensePapa").value = "";
+            document.getElementById("descriptionDepensePapa").value = "";
+          })
+          .catch(err => {
+            alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
+          });
+      });
 
-      </script>
-    </section>
+            </script>
+          </section>
     <!-- Screen: Remboursements -->
 <!-- Screen: Remboursement Papa -->
 <section id="screen-remboursement-papa" class="screen">
@@ -1920,6 +1926,83 @@
     };
     firebase.initializeApp(firebaseConfig);
     const dbFirestore = firebase.firestore();
+
+    // --- Début de la gestion du solde "dépense papa" ---
+
+  // Fonction pour récupérer le solde actuel de dépense papa
+  function getDepensePapaBalance() {
+    return dbFirestore.collection("depensePapa").doc("balance")
+      .get()
+      .then(doc => {
+        if (doc.exists) {
+          return doc.data().montant || 0;
+        } else {
+          // Si le document n'existe pas, retourner 0
+          return 0;
+        }
+      })
+      .catch(error => {
+        console.error("Erreur lors de la récupération du solde de dépense papa :", error);
+        return 0;
+      });
+  }
+
+  // Fonction pour mettre à jour le solde de dépense papa
+  function setDepensePapaBalance(newBalance) {
+    return dbFirestore.collection("depensePapa").doc("balance").set({ montant: newBalance })
+      .catch(error => {
+        console.error("Erreur lors de la mise à jour du solde de dépense papa :", error);
+      });
+  }
+
+  // Fonction pour mettre à jour le texte du bouton "Dépense Papa" avec le solde actuel
+  function updateDepensePapaButton() {
+    getDepensePapaBalance().then(balance => {
+      const btn = document.getElementById("btnDepensePapa");
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="user-minus"></i> Dépense Papa : ${balance.toLocaleString()} FCFA`;
+        // Recharge les icônes Lucide
+        lucide.createIcons();
+      }
+    }).catch(error => {
+      console.error("Erreur lors de la mise à jour du bouton Dépense Papa :", error);
+    });
+  }
+
+  // Fonction qui interroge la base pour récupérer la somme de toutes les dépenses de papa,
+// met à jour le document "depensePapa/balance" et rafraîchit l'affichage sur le bouton.
+function updateDepensePapaBalance() {
+  console.log("Mise à jour du solde des dépenses Papa...");
+  return dbFirestore.collection("depenses")
+    .where("type", "==", "papa")
+    .get()
+    .then(snapshot => {
+      let totalDepenses = 0;
+      snapshot.forEach(doc => {
+        totalDepenses += parseFloat(doc.data().montant) || 0;
+      });
+      // On retourne la somme pour la chaînage
+      return totalDepenses;
+    })
+    .then(totalDepenses => {
+      // Mise à jour du document "depensePapa/balance" avec la somme calculée
+      return dbFirestore.collection("depensePapa").doc("balance").set({ montant: totalDepenses })
+        .then(() => totalDepenses);
+    })
+    .then(totalDepenses => {
+      console.log("Solde des dépenses Papa mis à jour :", totalDepenses);
+      updateDepensePapaButton(); // Rafraîchit l'affichage du bouton
+      return totalDepenses;
+    })
+    .catch(error => {
+      console.error("Erreur dans updateDepensePapaBalance() :", error);
+    });
+}
+
+
+
+  // --- Fin de la gestion du solde "dépense papa"
+
     /* === Fonctions centralisées pour le calcul des entrées, dépenses et solde === */
     function calculateEntreesToday() {
       const today = new Date();
@@ -1991,18 +2074,18 @@
     }
 
     function updateBalanceDisplay() {
-  Promise.all([
-    calculateEntreesToday(),
-    calculateDepensesToday(),
-    getRunningBalance()   // Récupère le solde cumulatif à jour
-  ])
-  .then(([totalEntreesToday, totalDepensesToday, soldeCumulatif]) => {
-    document.getElementById("entrees-today").textContent  = "+XOF " + totalEntreesToday.toLocaleString();
-    document.getElementById("depenses-today").textContent = "-XOF " + totalDepensesToday.toLocaleString();
-    document.getElementById("balance-sold").textContent   = "XOF " + soldeCumulatif.toLocaleString();
-  })
-  .catch(error => console.error("Erreur updateBalanceDisplay:", error));
-}
+      Promise.all([
+        calculateEntreesToday(),
+        calculateDepensesToday(),
+        getRunningBalance()   // Récupère le solde cumulatif à jour
+      ])
+      .then(([totalEntreesToday, totalDepensesToday, soldeCumulatif]) => {
+        document.getElementById("entrees-today").textContent  = "+XOF " + totalEntreesToday.toLocaleString();
+        document.getElementById("depenses-today").textContent = "-XOF " + totalDepensesToday.toLocaleString();
+        document.getElementById("balance-sold").textContent   = "XOF " + soldeCumulatif.toLocaleString();
+      })
+      .catch(error => console.error("Erreur updateBalanceDisplay:", error));
+    }
 
         /**
      * Récupère le solde cumulatif depuis le document "tresorerie/balance".
@@ -2225,6 +2308,8 @@
       handleHashChange();
       window.addEventListener('hashchange', handleHashChange);
       lucide.createIcons();
+
+      updateDepensePapaBalance();
     });
 
     // Gestion du Panier (Vente)
@@ -2440,8 +2525,17 @@
           ventes.sort((a, b) => b.id.localeCompare(a.id));
           const container = document.getElementById("ventesContainer");
           container.innerHTML = "";
-          if(ventes.length === 0) {
-            container.innerHTML = "<p>Aucune vente enregistrée aujourd'hui.</p>";
+          if (ventes.length === 0) {
+            container.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
+                <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+                <p style="font-size: 18px; color: #888; margin-top: 20px;">
+                  Aucune vente aujourd'hui…<br>
+                </p>
+              </div>
+            `;
+            // Recharge les icônes Lucide pour afficher l'icône
+            lucide.createIcons();
             return;
           }
           ventes.forEach(sale => {
