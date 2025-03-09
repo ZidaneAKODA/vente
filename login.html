@@ -1,219 +1,3337 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connexion - AFRICA PHONE</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AFRICA PHONE - Gestion des Ventes</title>
+  <!-- jsPDF and jsPDF-AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-auth-compat.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
-    /* ======= Reset & Base ======= */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: 'Roboto', sans-serif; }
-    body {
-      background: #ffffff;
+    /* Désactivation globale de la sélection de texte (sauf input et textarea) */
+    body *:not(input):not(textarea) {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+    /* Désactivation de l'effet de sélection (outline) sur boutons, liens et éléments cliquables */
+    button, a, div.section, div.nav-item, div.shortcut {
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    /* Preloader Styles */
+    #preloader {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5000;
+      background-color: var(--white);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #333;
     }
-    
-    /* ======= Conteneur de Login ======= */
-    .login-container {
-      background: #ffffff;
-      padding: 40px 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      width: 90%;
-      max-width: 400px;
+    .spinner {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid var(--primary-color);
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* Sale Loader Popup Styles */
+    #saleLoader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 6000;
+      background: rgba(255,255,255,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #saleLoader .loader-content {
       text-align: center;
-      animation: slideIn 0.8s ease-out;
+    }
+    #saleLoader .loader-content p {
+      font-size: 16px;
+      color: var(--primary-color);
+      margin-top: 10px;
+    }
+    /* Toast Notification */
+    #toast {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #007BFF;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 5px;
+      z-index: 3000;
+      font-size: 16px;
+    }
+    /* Sale Stepper Styles */
+    .sale-step {
+      display: none;
+      animation: slideIn 0.3s ease-in-out;
+    }
+    .sale-step.active {
+      display: block;
     }
     @keyframes slideIn {
-      from { opacity: 0; transform: translateY(30px); }
+      from { opacity: 0; transform: translateX(100%); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .step-navigation {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    /* Barre de progression fluide */
+    .progress-container {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--primary-color);
+      transition: width 0.4s ease;
+    }
+    #progressText {
+      margin-top: 5px;
+      font-size: 14px;
+      color: var(--text-color);
+      text-align: center;
+      display: block;
+    }
+    /* CSS Variables */
+    :root {
+      --primary-color: #006064;
+      --secondary-color: #004d40;
+      --accent-color: #ff6f00;
+      --bg-color: #f5f7fa;
+      --white: #ffffff;
+      --text-color: #333;
+      --border-radius: 8px;
+      --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    /* Global Reset & Mobile Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+    }
+    input, button, textarea, select {
+      font-family: inherit;
+      font-size: 18px;
+    }
+    /* App container and screens */
+    #app {
+      padding-bottom: 60px;
+    }
+    .screen {
+      display: none;
+      padding: 15px;
+    }
+    .screen.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    
-    /* ======= Titres & Texte ======= */
-    .login-container h1 { font-size: 28px; color: #333; margin-bottom: 10px; }
-    .login-container p { font-size: 16px; color: #666; margin-bottom: 30px; }
-    
-    /* ======= Groupes d'Input ======= */
-    .input-group {
+    header {
+      text-align: center;
+      margin-bottom: 15px;
       position: relative;
-      margin-bottom: 20px;
     }
-    .input-group input {
-      width: 100%;
-      padding: 14px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-      outline: none;
-      transition: border 0.3s ease;
-      background: #ffffff;
-      color: #333;
+    header h1 {
+      font-size: 22px;
+      color: var(--primary-color);
     }
-    .input-group input:focus { border: 2px solid #00bcd4; }
-    .input-group .icon {
+    .back-btn {
       position: absolute;
-      right: 14px;
+      left: 10px;
       top: 50%;
       transform: translateY(-50%);
+      background: none;
+      border: none;
       font-size: 20px;
-      color: #ccc;
-      transition: color 0.3s ease;
+      cursor: pointer;
+      color: var(--primary-color);
     }
-    .input-group input:focus + .icon { color: #00bcd4; }
-    
-    /* ======= Bouton de Connexion avec Spinner ======= */
-    .btn-login {
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin-bottom: 5px;
+    }
+    .timestamp {
+      font-size: 14px;
+      color: var(--secondary-color);
+      margin-top: 5px;
+    }
+    /* Form sections */
+    .form-section {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .form-section h2 {
+      margin-bottom: 15px;
+      color: var(--primary-color);
+      font-size: 20px;
+      text-align: center;
+    }
+    .vente-form label {
+      font-weight: 500;
+      margin-bottom: 8px;
+      display: block;
+      font-size: 16px;
+    }
+    .vente-form input,
+    .vente-form textarea,
+    .vente-form button,
+    .vente-form select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      font-size: 16px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .vente-form input:focus,
+    .vente-form textarea:focus,
+    .vente-form select:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
+      outline: none;
+    }
+    /* Modern Input Fields with Icons */
+    .input-with-icon {
       position: relative;
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .input-with-icon i {
+      position: absolute;
+      left: 10px;
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .input-with-icon input {
+      width: 100%;
+      padding: 10px 10px 10px 40px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .input-with-icon input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
+      outline: none;
+    }
+    /* Boutons Modernes Inspirés des Apps Mobiles */
+    .btn-modern {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
       padding: 14px;
       font-size: 18px;
       font-weight: bold;
-      background: #ffffff;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      text-align: center;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(45deg, #1877F2, #0056b3);
+      color: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: transform 0.1s ease-in-out, box-shadow 0.2s ease;
       cursor: pointer;
-      transition: transform 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      margin-bottom: 10px;
     }
-    .btn-login:hover { transform: translateY(-2px); }
-    .btn-login:active { transform: scale(0.98); }
-    .btn-login.shake { animation: shake 0.5s ease-in-out; }
-    @keyframes shake {
-      0% { transform: translateX(0); }
-      20% { transform: translateX(-5px); }
-      40% { transform: translateX(5px); }
-      60% { transform: translateX(-5px); }
-      80% { transform: translateX(5px); }
-      100% { transform: translateX(0); }
+    .btn-modern:active {
+      transform: scale(0.96);
     }
-    .btn-login .button-text {
-      display: inline-block;
-      transition: opacity 0.3s ease;
-      color: #333;
-    }
-    .btn-login .button-spinner {
-      display: none;
+    .btn-modern::after {
+      content: "";
       position: absolute;
-      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.3);
       top: 50%;
-      transform: translate(-50%, -50%);
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(0,0,0,0.3);
-      border-top: 3px solid rgba(0,0,0,0.7);
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
       border-radius: 50%;
-      animation: spin 2s linear infinite;
+      transition: transform 0.4s ease-out;
+      pointer-events: none;
     }
-    @keyframes spin {
-      0% { transform: translate(-50%, -50%) rotate(0deg); }
-      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    .btn-modern:active::after {
+      transform: translate(-50%, -50%) scale(1);
     }
-    
-    /* ======= Message d'Erreur ======= */
-    .error-message {
-      font-size: 14px;
-      margin-top: 15px;
-      color: #ff3b30;
-      animation: bounceIn 0.6s ease-out forwards;
-      opacity: 0;
+    .btn-modern i {
+      margin-right: 8px;
+      font-size: 24px;
     }
-    @keyframes bounceIn {
-      0% { transform: translateY(20px); opacity: 0; }
-      60% { transform: translateY(-5px); opacity: 1; }
-      100% { transform: translateY(0); }
+    .btn-modern.secondary {
+      background: #E4E6EB;
+      color: black;
+      box-shadow: none;
     }
-    
-    /* ======= Améliorations UX Mobile ======= */
-    input { font-size: 18px; padding: 14px; }
+    /* Stock Section */
+    .cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .product-card {
+      background: var(--white);
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      width: calc(50% - 10px);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+    }
+    #stock-category .product-card {
+      width: 100% !important;
+    }
+    .product-icon {
+      font-size: 36px;
+      margin-right: 10px;
+    }
+    .product-details h3 {
+      margin: 0 0 5px;
+      font-size: 18px;
+    }
+    .price-item {
+      background: var(--white);
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+    .modal-content {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90%;
+      overflow-y: auto;
+      padding: 15px;
+      position: relative;
+      box-shadow: var(--shadow);
+    }
+    .modal-content h2 {
+      margin-bottom: 10px;
+      text-align: center;
+      font-size: 20px;
+      color: var(--primary-color);
+    }
+    .modal .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 26px;
+      font-weight: bold;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+    /* Bottom Navigation Modernisée */
+    .bottom-nav-pro {
+      display: flex;
+      justify-content: space-around;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 5px 0;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      font-size: 12px;
+      color: #555;
+      transition: color 0.3s ease;
+      padding: 5px 0;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+    .nav-item.active {
+      color: var(--primary-color);
+      font-weight: bold;
+      background: rgba(0, 96, 100, 0.1);
+      border-radius: 12px;
+    }
+    .nav-item i {
+      font-size: 24px;
+      margin-bottom: 2px;
+    }
+    .nav-item::after {
+      content: "";
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.3);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      border-radius: 50%;
+      transition: transform 0.4s ease-out;
+      pointer-events: none;
+    }
+    .nav-item:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    /* Sales History Cards */
+    .list-container {
+      padding: 5px;
+    }
+    .vente-card {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      position: relative;
+      width: 100%;
+    }
+    .vente-card p {
+      margin-bottom: 6px;
+    }
+    .vente-card button {
+      width: auto;
+      padding: 10px 14px;
+      font-size: 16px;
+      background-color: var(--primary-color);
+      color: var(--white);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .vente-card button:hover {
+      background-color: var(--secondary-color);
+    }
+    .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: red;
+      cursor: pointer;
+    }
+    .echouee {
+      border: 2px solid red;
+    }
+    .panier-item {
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    /* ===============================
+       Interface Menu (Thème Clair)
+       =============================== */
+       #screen-menu {
+        margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color); }
+
+
+    #screen-menu .menu {
+      padding: 15px;
+    }
+    #screen-menu .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    #screen-menu .header-icons {
+      display: flex;
+      gap: 15px;
+    }
+    #screen-menu .profile-section {
+      display: flex;
+      align-items: center;
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+    }
+    #screen-menu .profile-pic {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: url('https://via.placeholder.com/40') center/cover;
+      margin-right: 10px;
+    }
+    #screen-menu .profile-info div {
+      font-weight: bold;
+    }
+    #screen-menu .shortcuts {
+      display: flex;
+      overflow-x: auto;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    #screen-menu .shortcut {
+      width: 60px;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 12px;
+      color: #555;
+    }
+    #screen-menu .shortcut img {
+      width: 100%;
+      border-radius: 10px;
+      height: 60px;
+      object-fit: cover;
+    }
+    #screen-menu .sections {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    #screen-menu .section {
+      background-color: #fff;
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    #screen-menu .section svg {
+      color: #006064;
+    }
+    /* CSS pour l'écran de recherche d'article */
+    #searchProduitInput {
+      width: 100%;
+      padding: 10px;
+      border-radius: var(--border-radius);
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+    /* Styles ajoutés pour la liste de suggestions */
+    .suggestion-list {
+      position: absolute;
+      background: var(--white);
+      border: 1px solid #ccc;
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .suggestion-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background: #f0f0f0;
+    }
   </style>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-auth-compat.js"></script>
+  <!-- Styles spécifiques aux suggestions déjà existants -->
+  <style>
+    .suggestion-list {
+      position: absolute;
+      background: var(--white);
+      border: 1px solid #ccc;
+      z-index: 1000;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .suggestion-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background: #f0f0f0;
+    }
+  </style>
 </head>
 <body>
-
-<div class="login-container">
-  <h1>🔐 AFRICA PHONE</h1>
-  <p>Accès réservé aux employés autorisés</p>
+  <!-- Preloader -->
+  <div id="preloader">
+    <div class="spinner"></div>
+  </div>
   
-  <form id="loginForm">
-    <!-- Ici, on demande uniquement le mot de passe, l'email sera défini via la base de Custom Claims côté backend -->
-    <div class="input-group">
-      <input type="email" id="email" placeholder="Adresse email" required>
-      <span class="icon"><i data-lucide="mail"></i></span>
+  <!-- Sale Loader Popup -->
+  <div id="saleLoader">
+    <div class="loader-content">
+      <div class="spinner" style="width:40px; height:40px; border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-color);"></div>
+      <p>Enregistrement de la vente...</p>
     </div>
-    <div class="input-group">
-      <input type="password" id="password" placeholder="Mot de passe" required>
-      <span class="icon"><i data-lucide="lock"></i></span>
-    </div>
-    <button type="submit" class="btn-login" id="loginButton">
-      <span class="button-text">Se Connecter</span>
-      <span class="button-spinner" id="buttonSpinner"></span>
-    </button>
-    <p class="error-message" id="errorMessage">Mot de passe ou email incorrect !</p>
-  </form>
-</div>
+  </div>
 
-<script>
-  // --- Configuration Firebase ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
-    authDomain: "africaphone1-accfb.firebaseapp.com",
-    projectId: "africaphone1-accfb",
-    storageBucket: "africaphone1-accfb.firebasestorage.app",
-    messagingSenderId: "747416222232",
-    appId: "1:747416222232:web:36cb8a93f3c8342ad3e16d",
-    measurementId: "G-LFT6C3Q9D9"
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <!-- Message de progression pour les téléchargements -->
+  <div id="downloadProgress" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:var(--white); padding:10px 20px; border-radius:5px; z-index:3000;"></div>
+  
+  <div id="app" style="display: none;">
+    <!-- Screen 1: Nouvelle Vente - Multi-steps -->
+    <section id="screen-vendre" class="screen active">
+      <header>
+        <!-- Entête retiré selon la demande -->
+      </header>
+      <div id="saleSteps">
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <span id="progressText">Étape 1 / 5</span>
+        <div class="sale-step active" id="step1">
+          <h2>Étape 1 : Ajouter des Articles</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="produit">Article</label>
+            <div class="input-container">
+              <input type="text" id="produit" placeholder="Rechercher un article" autocomplete="off" />
+              <div id="suggestionList" class="suggestion-list"></div>
+            </div>
+            <label for="prix">Prix Unitaire</label>
+            <input type="number" id="prix" placeholder="Prix unitaire" oninput="calculerTotalArticle()" />
+            <label for="quantite">Quantité</label>
+            <div class="quantity-container">
+              <button type="button" onclick="decrementQuantity()">–</button>
+              <input type="number" id="quantite" min="1" value="1" oninput="calculerTotalArticle()" />
+              <button type="button" onclick="incrementQuantity()">+</button>
+            </div>
+            <label for="totalArticle">Montant Total</label>
+            <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
+            <button type="button" class="btn-modern" onclick="ajouterArticle()">
+              <i data-lucide="shopping-cart"></i> Ajouter Article
+            </button>
+          </form>
+          <button class="btn-modern secondary" onclick="ouvrirPanier()">
+            <i data-lucide="shopping-bag"></i> Voir Panier
+          </button>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 2 : Informations Client -->
+        <div class="sale-step" id="step2">
+          <h2>Étape 2 : Informations Client</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="clientNom">Nom du Client</label>
+            <div class="input-with-icon">
+              <i data-lucide="user"></i>
+              <input type="text" id="clientNom" placeholder="Nom du client" required />
+            </div>
+            <label for="clientNumero">WhatsApp</label>
+            <div class="input-with-icon">
+              <i data-lucide="phone"></i>
+              <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
+            </div>
+          </form>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 3 : Informations Vendeur -->
+        <div class="sale-step" id="step3">
+          <h2>Étape 3 : Informations Vendeur</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="vendeurSelect">Vendeur</label>
+            <select id="vendeurSelect">
+              <!-- Options générées via Firestore -->
+            </select>
+            <label for="photoFacture">Photo de la facture</label>
+            <input type="file" accept="image/*" capture="camera" id="photoFacture" />
+            <label for="observationsVendeur">Observations</label>
+            <textarea id="observationsVendeur" placeholder="Observations (facultatif)"></textarea>
+            <label for="isDelivery">
+              <input type="checkbox" id="isDelivery" onchange="toggleDeliveryFields()" /> Vente avec Livraison
+            </label>
+          </form>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 4 : Informations Livraison -->
+        <div class="sale-step" id="step4">
+          <h2>Étape 4 : Informations Livraison</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="livreurNom">Nom du Livreur</label>
+            <input type="text" id="livreurNom" placeholder="Nom du livreur" />
+            <label for="livreurNumero">Numéro du Livreur</label>
+            <input type="text" id="livreurNumero" placeholder="Numéro du livreur" />
+            <label for="lieuLivraison">Lieu de Livraison</label>
+            <input type="text" id="lieuLivraison" placeholder="Lieu de livraison" />
+          </form>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 5 : Confirmation -->
+        <div class="sale-step" id="step5">
+          <h2>Étape 5 : Confirmation</h2>
+          <div id="saleRecap">
+            <!-- Récapitulatif dynamique de la vente -->
+          </div>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">
+              Confirmer la Vente
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Screen 2: Livraisons -->
+    <section id="screen-livraisons" class="screen">
+      <header>
+        <h1>Historique des Livraisons</h1>
+        <div class="timestamp">
+          <span id="dateLivraison"></span>
+        </div>
+      </header>
+      <div id="livraisonsContainer" class="list-container"></div>
+    </section>
+    
+    <!-- Screen 3: Historique des Ventes -->
+    <section id="screen-historique" class="screen">
+      <header>
+        <h1>Historique des Ventes</h1>
+        <div class="timestamp">
+          <span id="dateAfficheHist"></span>
+        </div>
+      </header>
+      <div id="ventesContainer" class="list-container"></div>
+    </section>
+
+    <!-- Screen 4: Stock -->
+    <section id="screen-stock" class="screen">
+      <header>
+        <h1>Stock</h1>
+        <div class="timestamp">
+          <span id="dateStock"></span>
+        </div>
+      </header>
+      <div id="stock-home">
+        <div class="summary" style="padding: 15px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow); margin-bottom: 15px;">
+          <p><strong>Total Téléphones :</strong> <span id="total-telephones">0</span></p>
+          <p><strong>Total Accessoires :</strong> <span id="total-accessoires">0</span></p>
+        </div>
+        <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn-modern" onclick="showStockCategory('telephones')">
+            <i data-lucide="package"></i> Téléphones
+          </button>
+          <button class="btn-modern" onclick="showStockCategory('accessoires')">
+            <i data-lucide="headphones"></i> Accessoires
+          </button>
+        </div>
+      </div>
+      <div id="stock-category" style="display: none;">
+        <button class="btn-modern secondary" onclick="backToStockHome()">
+          <i data-lucide="arrow-left"></i> Retour
+        </button>
+        <input type="text" id="search-category" placeholder="Rechercher..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: var(--border-radius);" oninput="filterStockCategory()">
+        <div id="category-container" class="cards-container"></div>
+      </div>
+    </section>
+
+    <!-- Screen 5: Entrée de Stock -->
+    <section id="screen-entree-stock" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='parametres'">← Retour</button>
+        <h1>Nouvelle Entrée de Stock</h1>
+      </header>
+      <div class="form-section">
+        <h2>Ajouter un Article</h2>
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
+          <label for="categorieEntree">Catégorie</label>
+          <select id="categorieEntree">
+            <option value="telephones">Téléphones</option>
+            <option value="accessoires">Accessoires</option>
+          </select>
+          <label for="produitEntree">Article</label>
+          <div class="input-with-icon">
+            <i data-lucide="package"></i>
+            <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
+            <div id="suggestionListEntree" class="suggestion-list"></div>
+          </div>
+          <label for="prixEntree">Prix d'Achat Unitaire</label>
+          <div class="input-with-icon">
+            <i data-lucide="dollar-sign"></i>
+            <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
+          </div>
+          <label for="quantiteEntree">Quantité</label>
+          <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
+          <label for="totalEntree">Montant Total</label>
+          <div class="input-with-icon">
+            <i data-lucide="calculator"></i>
+            <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
+          </div>
+          <button class="btn-modern" type="submit">Ajouter Entrée</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Screen 6: Menu Principal (Thème Clair) -->
+    <section id="screen-menu" class="screen">
+      <div class="menu">
+        <!-- En-tête inchangé -->
+        <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div id="current-time-menu" style="font-size: 16px; font-weight: bold; color: #006064;">9:40</div>
+          <div class="header-icons" style="display: flex; gap: 15px;">
+            <i data-lucide="camera"></i>
+            <i data-lucide="message-circle"></i>
+            <i data-lucide="bell"></i>
+            <i data-lucide="user-circle"></i>
+          </div>
+        </div>
+        <!-- Section Profil inchangée -->
+        <div class="profile-section">
+          <div class="profile-pic" style="background: url('https://via.placeholder.com/40') center/cover;"></div>
+          <div class="profile-info">
+            <div>Zidane Akoda</div>
+          </div>
+          <i data-lucide="chevron-down"></i>
+        </div>
+        <!-- Sections du menu adaptées avec nouvelles fonctionnalités -->
+        <div class="sections">
+          <div class="section" onclick="window.location.hash='clients'">
+            <i data-lucide="users"></i>
+            Clients
+          </div>
+          <div class="section" onclick="window.location.hash='vendeurs'">
+            <i data-lucide="users"></i>
+            Gestion des Vendeurs
+          </div>
+          <div class="section" onclick="window.location.hash='rapports'">
+            <i data-lucide="file-text"></i>
+            Rapports & Statistiques
+          </div>
+          <!-- "Base Clients" section supprimée -->
+          <div class="section" onclick="window.location.hash='notifications'">
+            <i data-lucide="bell-ring"></i>
+            Notifications
+          </div>
+          <div class="section" onclick="window.location.hash='tresorerie'">
+            <i data-lucide="dollar-sign"></i>
+            Trésorerie
+          </div>
+          <div class="section" onclick="window.location.hash='depenses'">
+            <i data-lucide="file-minus"></i>
+            Dépenses
+          </div>
+          <div class="section" onclick="window.location.hash='faq'">
+            <i data-lucide="help-circle"></i>
+            FAQ
+          </div>
+          <div class="section" onclick="window.location.hash='parametres'">
+            <i data-lucide="settings"></i>
+            Paramètres
+          </div>
+          <div class="section" onclick="deconnexion()">
+            <i data-lucide="log-out"></i>
+            Déconnexion
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Nouvel écran dédié à la recherche d'article -->
+    <section id="screen-search-article" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='vendre'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Rechercher un Article</h1>
+      </header>
+      <div style="padding:15px;">
+        <input type="text" id="searchProduitInput" placeholder="Rechercher un article..." />
+        <div id="searchResults" class="cards-container"></div>
+      </div>
+    </section>
+
+    <!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
+<!-- Screen: Trésorerie -->
+<!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
+<section id="screen-tresorerie" class="screen">
+  <style>
+    :root {
+      --primary-color: #6D5DFD;
+      --background-color: #F5F5FA;
+      --card-bg: #ffffff;
+      --text-color: #333;
+      --border-radius: 12px;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+    }
+    .container {
+      padding: 15px;
+    }
+    .balance-card {
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .balance-card h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 15px 0 10px;
+    }
+    .history-list {
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+    .history-item {
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #EEE;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .amount {
+      font-weight: bold;
+    }
+    .in { color: #28a745; }
+    .out { color: #dc3545; }
+    .btn {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 12px;
+      text-align: center;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      margin-top: 10px;
+    }
+  </style>
+
+  <div class="container">
+    <!-- Carte de solde -->
+    <div class="balance-card">
+      <h1 id="balance-sold">XOF 0</h1>
+      <p>Solde actuel</p>
+      <p style="color:#666;">Comparé à hier : <strong id="balance-change" style="color:#28a745">+0%</strong></p>
+    </div>
+
+    <!-- Total des entrées d'aujourd'hui -->
+    <div class="section-title">Entrées d'aujourd'hui</div>
+    <div class="history-list" id="entrees-list">
+      <div class="history-item">
+        <div class="info">Total Entrées</div>
+        <div class="amount in" id="entrees-today">+XOF 0</div>
+        <button class="btn" onclick="window.location.hash='historique'">Voir plus</button>
+      </div>
+    </div>
+
+    <!-- Total des dépenses d'aujourd'hui -->
+    <div class="section-title">Dépenses d'aujourd'hui</div>
+    <div class="history-list" id="depenses-list">
+      <div class="history-item">
+        <div class="info">Total Dépenses</div>
+        <div class="amount out" id="depenses-today">-XOF 0</div>
+        <button class="btn" onclick="window.location.hash='depenses'">Voir plus</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Appel initial pour mettre à jour l'affichage des totaux et du solde
+    updateBalanceDisplay();
+  </script>
+</section>
+
+    <!-- Screen: Dépenses -->
+<!-- Screen: Dépenses -->
+<section id="screen-depenses" class="screen">
+  <style>
+    .depenses-container {
+      padding: 15px;
+    }
+    .depenses-summary {
+      background: var(--white);
+      box-shadow: var(--shadow);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .summary-item h2 {
+      margin-bottom: 5px;
+      color: var(--primary-color);
+    }
+    .summary-item p {
+      color: #666;
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .btn-modern.secondary {
+      background-color: #E4E6EB;
+      color: black;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-modern.secondary i {
+      font-size: 20px;
+    }
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: var(--text-color);
+    }
+    .history-list .history-item {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .history-icon {
+      margin-right: 8px;
+    }
+    /* Bouton Retour style Facebook */
+    .back-btn-fb {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 50%;
+      cursor: pointer;
+      overflow: hidden;
+      outline: none;
+    }
+    .back-btn-fb i {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .back-btn-fb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.3s ease-out;
+      pointer-events: none;
+    }
+    .back-btn-fb:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
+
+  <header>
+    <button class="back-btn-fb" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Dépenses</h1>
+  </header>
+
+  <div class="depenses-container">
+    <div class="depenses-summary">
+      <div class="summary-item">
+        <!-- Ici, on affiche exclusivement la somme des dépenses du jour -->
+        <h2 id="depenses-today-dep">0 FCFA</h2>
+        <p>Dépenses aujourd'hui</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
+        <i data-lucide="file-minus"></i> Dépense Fonctionnelle
+      </button>
+      <button id="btnDepensePapa" class="btn-modern secondary" onclick="window.location.hash='depense-papa'">
+        <i data-lucide="user-minus"></i> Dépense Papa
+      </button>          
+      <button class="btn-modern secondary" onclick="window.location.hash='remboursement-papa'">
+        <i data-lucide="user-check"></i> Remboursement
+      </button>
+    </div>
+
+    <div class="section-title">Historique récent</div>
+    <div id="recent-depenses" class="history-list">
+      <p style="text-align:center;">Chargement en cours...</p>
+    </div>
+
+    <button class="btn-modern secondary" onclick="exporterDepenses()">
+      <i data-lucide="download"></i> Exporter PDF
+    </button>
+  </div>
+
+  <script>
+    /**
+     * Récupère et affiche la somme de toutes les dépenses (type "depense" ou "papa")
+     * pour la journée en cours, puis met à jour le champ #depenses-today.
+     */
+    function afficherDepensesAujourdhui() {
+      const today = new Date();
+      // On définit le début et la fin du jour en millisecondes
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      dbFirestore.collection("depenses")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalDepenses = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // On somme uniquement les dépenses de type "depense" ou "papa"
+            // (si vous n'avez pas de type, retirez simplement le if)
+            if (data.type === "depense" || data.type === "papa" || !data.type) {
+              totalDepenses += parseFloat(data.montant) || 0;
+            }
+          });
+          // Mise à jour de l'affichage
+          document.getElementById("depenses-today-dep").textContent = `${totalDepenses.toLocaleString()} FCFA`;
+        })
+        .catch(error => {
+          console.error("Erreur lors de la récupération des dépenses du jour : " + error.message);
+        });
+    }
+
+    /**
+     * Récupère l'ensemble des documents de "depenses" et "remboursements",
+     * les fusionne, puis affiche un historique récent.
+     */
+    function chargerHistoriqueDepenses() {
+      const depensesPromise = dbFirestore.collection("depenses")
+        .orderBy("timestamp", "desc")
+        .get()
+        .then(snapshot => {
+          let depensesArray = [];
+          snapshot.forEach(doc => {
+            let d = doc.data();
+            // Par défaut, si le champ type n'existe pas, on le considère comme "depense"
+            d.type = d.type || "depense";
+            depensesArray.push(d);
+          });
+          return depensesArray;
+        });
+
+      const remboursementsPromise = dbFirestore.collection("remboursements")
+        .orderBy("timestamp", "desc")
+        .get()
+        .then(snapshot => {
+          let remboursementsArray = [];
+          snapshot.forEach(doc => {
+            let r = doc.data();
+            r.type = "remboursement";
+            remboursementsArray.push(r);
+          });
+          return remboursementsArray;
+        });
+
+      Promise.all([depensesPromise, remboursementsPromise])
+        .then(([depenses, remboursements]) => {
+          let combined = depenses.concat(remboursements);
+          // On trie par timestamp décroissant
+          combined.sort((a, b) => b.timestamp - a.timestamp);
+
+          const container = document.getElementById("recent-depenses");
+          container.innerHTML = "";
+
+          combined.forEach(item => {
+            let iconHtml = "";
+            let montantDisplay = "";
+            
+            if (item.type === "depense" || item.type === "papa") {
+              // Icône si c'est une "dépense papa"
+              iconHtml = item.type === "papa" 
+                ? `<i data-lucide="user-minus"></i>` 
+                : `<i data-lucide="file-minus"></i>`;
+              montantDisplay = `<div class="amount out">-XOF ${item.montant.toLocaleString()}</div>`;
+            } 
+            else if (item.type === "remboursement") {
+              // Icône pour un "remboursement"
+              iconHtml = `<i data-lucide="user-check"></i>`;
+              montantDisplay = `<div class="amount in">+XOF ${item.montant.toLocaleString()}</div>`;
+            }
+
+            container.innerHTML += `
+              <div class="history-item" style="display: flex; align-items: center;">
+                <div class="depense-icon" style="margin-right: 10px;">
+                  ${iconHtml}
+                </div>
+                <div class="depense-info" style="flex-grow: 1;">
+                  ${item.description || "Aucune description"}<br>
+                  <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
+                </div>
+                ${montantDisplay}
+              </div>
+            `;
+          });
+
+          // Recharge les icônes Lucide
+          lucide.createIcons();
+        })
+        .catch(error => console.error("Erreur lors du chargement des dépenses et remboursements :", error));
+    }
+
+    /**
+     * On met à jour le total des dépenses du jour + l'historique
+     * dès que l'écran "#depenses" est affiché.
+     */
+    window.addEventListener('hashchange', function(){
+      if(window.location.hash === '#depenses') {
+        afficherDepensesAujourdhui();    // ← pour afficher la somme des dépenses du jour
+        chargerHistoriqueDepenses();     // ← pour lister toutes les dépenses/remboursements
+      }
+    });
+    // Si on arrive directement sur "#depenses" après chargement...
+    if(window.location.hash === '#depenses') {
+      afficherDepensesAujourdhui();
+      chargerHistoriqueDepenses();
+    }
+  </script>
+</section>
+
+    <!--Dépense Fonctionnelle -->
+    <section id="screen-depense-fonctionnelle" class="screen">
+      <style>
+        .form-container {
+          padding: 15px;
+        }
+        .form-section {
+          background: var(--white);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: var(--shadow);
+        }
+        .form-section h2 {
+          text-align: center;
+          color: var(--primary-color);
+        }
+        #formDepenseFonctionnelle input,
+        #formDepenseFonctionnelle textarea {
+          width: 100%;
+          padding: 12px;
+          font-size: 16px;
+          border: none;
+          border-radius: 50px;
+          background: #E4E6EB;
+          color: #333;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          outline: none;
+        }
+        .btn-modern.primary {
+          background: var(--primary-color);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-modern.primary i {
+          font-size: 20px;
+        }
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
+
+      <header>
+        <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Nouvelle Dépense Fonctionnelle</h1>
+      </header>
+
+      <div class="form-container">
+        <div class="form-section">
+          <h2>Ajouter une Dépense</h2>
+          <form id="formDepenseFonctionnelle">
+            <label for="montantDepense">Montant (FCFA)</label>
+            <input type="number" id="montantDepense" placeholder="Montant" required>
+
+            <label for="descriptionDepense">Description</label>
+            <textarea id="descriptionDepense" placeholder="Ex: Achat matériel de bureau" required></textarea>
+
+            <button type="submit" class="btn-modern primary">
+              <i data-lucide="plus"></i> Enregistrer Dépense
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById("formDepenseFonctionnelle").addEventListener("submit", function (e) {
+  e.preventDefault();
+
+  const montant = parseFloat(document.getElementById("montantDepense").value.trim());
+  const description = document.getElementById("descriptionDepense").value.trim();
+
+  if (!montant || montant <= 0) {
+    alert("Veuillez entrer un montant valide.");
+    return;
+  }
+  if (!description) {
+    alert("Veuillez entrer une description.");
+    return;
+  }
+
+  const depense = {
+    montant: montant,
+    description: description,
+    type: "depense", // ou "papa", selon le cas
+    date: new Date().toISOString(),
+    timestamp: Date.now()
   };
 
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
+  dbFirestore.collection("depenses").add(depense)
+    .then(() => {
+      // Récupérer le solde actuel
+      return getRunningBalance();
+    })
+    .then(soldeActuel => {
+      // Décrémenter le solde avec le montant de la dépense
+      const nouveauSolde = soldeActuel - montant;
+      return setRunningBalance(nouveauSolde);
+    })
+    .then(() => {
+      alert("Dépense Fonctionnelle enregistrée avec succès !");
+      document.getElementById("montantDepense").value = "";
+      document.getElementById("descriptionDepense").value = "";
+      updateBalanceDisplay(); // Rafraîchir l'affichage du solde
+    })
+    .catch(err => {
+      alert("Erreur lors de l'ajout de la dépense : " + err.message);
+    });
+});
 
-  document.getElementById('loginForm').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const loginButton = document.getElementById("loginButton");
-    const buttonText = document.querySelector("#loginButton .button-text");
-    const buttonSpinner = document.getElementById("buttonSpinner");
-    const errorMessage = document.getElementById("errorMessage");
 
-    errorMessage.style.display = "none";
-    buttonText.style.opacity = "0";
-    buttonSpinner.style.display = "block";
+        window.addEventListener('hashchange', function () {
+          if (window.location.hash === '#depense-fonctionnelle') {
+            document.getElementById("montantDepense").value = "";
+            document.getElementById("descriptionDepense").value = "";
+          }
+        });
+      </script>
+    </section>
+    <!-- Screen: Dépense Papa -->
+    <section id="screen-depense-papa" class="screen">
+      <style>
+        .form-container {
+          padding: 15px;
+        }
+        .form-section {
+          background: var(--white);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: var(--shadow);
+        }
+        .form-section h2 {
+          text-align: center;
+          color: var(--primary-color);
+        }
+        /* Même style pour les inputs que pour l'écran Dépense Fonctionnelle */
+        #formDepensePapa input,
+        #formDepensePapa textarea {
+          width: 100%;
+          padding: 12px;
+          font-size: 16px;
+          border: none;
+          border-radius: 50px;
+          background: #E4E6EB;
+          color: #333;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          outline: none;
+        }
+        .btn-modern.primary {
+          background: var(--primary-color);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-modern.primary i {
+          font-size: 20px;
+        }
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
 
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+      <header>
+        <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Nouvelle Dépense Papa</h1>
+      </header>
 
-    auth.signInWithEmailAndPassword(email, password)
-      .then(() => {
-        // Après connexion, récupérer les custom claims pour déterminer le rôle
-        return firebase.auth().currentUser.getIdTokenResult();
-      })
-      .then((idTokenResult) => {
-        // Exemple : Vérifier si l'utilisateur est "admin" ou "employe"
-        const role = idTokenResult.claims.role || "employe";
-        // Vous pouvez ensuite rediriger ou adapter l'interface en fonction du rôle
-        console.log("Rôle récupéré via custom claims :", role);
-        window.location.href = 'index.html';
-      })
-      .catch((error) => {
-        buttonText.style.opacity = "1";
-        buttonSpinner.style.display = "none";
-        errorMessage.style.display = "block";
-        loginButton.classList.add("shake");
-        setTimeout(() => loginButton.classList.remove("shake"), 500);
-        console.error("Erreur de connexion :", error);
+      <div class="form-container">
+        <div class="form-section">
+          <h2>Ajouter une Dépense Papa</h2>
+          <form id="formDepensePapa">
+            <label for="montantDepensePapa">Montant (FCFA)</label>
+            <input type="number" id="montantDepensePapa" placeholder="Montant" required>
+            <label for="descriptionDepensePapa">Description</label>
+            <textarea id="descriptionDepensePapa" placeholder="Ex: Description de la dépense" required></textarea>
+            <button type="submit" class="btn-modern primary">
+              <i data-lucide="plus"></i> Enregistrer Dépense Papa
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <script>
+       document.getElementById("formDepensePapa").addEventListener("submit", function(e) {e.preventDefault();
+        const montant = parseFloat(document.getElementById("montantDepensePapa").value.trim());
+        const description = document.getElementById("descriptionDepensePapa").value.trim();
+        
+        if (!montant || montant <= 0) {
+          alert("Veuillez entrer un montant valide.");
+          return;
+        }
+        if (!description) {
+          alert("Veuillez entrer une description.");
+          return;
+        }
+        
+        const depensePapa = {
+          montant: montant,
+          description: description,
+          type: "papa",  // Pour identifier ce type de dépense
+          date: new Date().toISOString(),
+          timestamp: Date.now()
+        };
+        
+        dbFirestore.collection("depenses").add(depensePapa)
+          .then(() => {
+            // Lancer en parallèle la mise à jour du solde des dépenses papa
+            // ET la mise à jour du solde global.
+            return Promise.all([
+              updateDepensePapaBalance(), // Met à jour le document "depensePapa/balance"
+              (function() {
+                return getRunningBalance().then(currentGlobal => {
+                  const nouveauGlobal = currentGlobal - montant;
+                  return setRunningBalance(nouveauGlobal);
+                });
+              })()
+            ]);
+          })
+          .then(() => {
+            // On peut ensuite rafraîchir l'affichage (les deux soldes)
+            updateBalanceDisplay();       // Pour le solde global
+            updateDepensePapaButton();    // Pour le bouton "Dépense Papa"
+            alert("Dépense Papa enregistrée avec succès !");
+            document.getElementById("montantDepensePapa").value = "";
+            document.getElementById("descriptionDepensePapa").value = "";
+          })
+          .catch(err => {
+            alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
+          });
       });
-  });
 
-  window.addEventListener('load', () => {
-    lucide.createIcons();
-  });
-</script>
+            </script>
+          </section>
+    <!-- Screen: Remboursements -->
+<!-- Screen: Remboursement Papa -->
+<section id="screen-remboursement-papa" class="screen">
+  <style>
+    .form-container {
+      padding: 15px;
+    }
+    .form-section {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: var(--shadow);
+    }
+    .form-section h2 {
+      text-align: center;
+      color: var(--primary-color);
+    }
+    /* Styles pour les inputs */
+    #formRemboursementPapa input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 50px;
+      background: #E4E6EB;
+      color: #333;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .btn-modern.primary {
+      background: var(--primary-color);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-modern.primary i {
+      font-size: 20px;
+    }
+    .back-btn-fb {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 50%;
+      cursor: pointer;
+      overflow: hidden;
+      outline: none;
+    }
+    .back-btn-fb i {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .back-btn-fb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.3s ease-out;
+      pointer-events: none;
+    }
+    .back-btn-fb:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
 
+  <header>
+    <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Nouveau Remboursement Papa</h1>
+  </header>
+
+  <div class="form-container">
+    <div class="form-section">
+      <h2>Ajouter un Remboursement Papa</h2>
+      <form id="formRemboursementPapa">
+         <label for="montantRemboursementPapa">Montant (FCFA)</label>
+         <input type="number" id="montantRemboursementPapa" placeholder="Montant" required>
+         <button type="submit" class="btn-modern primary">
+           <i data-lucide="plus"></i> Enregistrer Remboursement Papa
+         </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("formRemboursementPapa").addEventListener("submit", function(e) {
+  e.preventDefault();
+  
+  const montant = parseFloat(document.getElementById("montantRemboursementPapa").value.trim());
+  if (!montant || montant <= 0) {
+    alert("Veuillez entrer un montant valide.");
+    return;
+  }
+  
+  const remboursement = {
+    montant: montant,
+    description: "Remboursement", // Description fixe ou vous pouvez la rendre dynamique si besoin
+    type: "remboursement",         // Permet d'identifier l'opération
+    date: new Date().toISOString(),
+    timestamp: Date.now()
+  };
+  
+  dbFirestore.collection("remboursements").add(remboursement)
+    .then(() => {
+      // Récupérer le solde cumulatif actuel
+      return getRunningBalance();
+    })
+    .then(soldeActuel => {
+      // Pour un remboursement, on ajoute le montant au solde
+      const nouveauSolde = soldeActuel + montant;
+      return setRunningBalance(nouveauSolde);
+    })
+    .then(() => {
+      alert("Remboursement enregistré avec succès !");
+      document.getElementById("montantRemboursementPapa").value = "";
+      updateBalanceDisplay(); // Rafraîchir l'affichage de la trésorerie
+    })
+    .catch(err => {
+      alert("Erreur lors de l'ajout du remboursement : " + err.message);
+    });
+});
+
+  </script>
+</section>
+
+    <!-- Bottom Navigation Modernisée (Navigation par hash) -->
+    <nav class="bottom-nav-pro">
+      <div class="nav-item" id="nav-vendre" onclick="window.location.hash='vendre'">
+        <i data-lucide="shopping-cart"></i>
+        <span>Vente</span>
+      </div>
+      <div class="nav-item" id="nav-stock" onclick="window.location.hash='stock'">
+        <i data-lucide="package"></i>
+        <span>Stock</span>
+      </div>
+      <div class="nav-item" id="nav-livraisons" onclick="window.location.hash='livraisons'">
+        <i data-lucide="truck"></i>
+        <span>Livraisons</span>
+      </div>
+      <div class="nav-item" id="nav-historique" onclick="window.location.hash='historique'">
+        <i data-lucide="clock"></i>
+        <span>Historique</span>
+      </div>
+      <div class="nav-item" id="nav-menu" onclick="window.location.hash='menu'">
+        <i data-lucide="menu"></i>
+        <span>Menu</span>
+      </div>
+    </nav>
+  </div>
+  
+  <!-- Modal: Détails d'une vente -->
+  <div id="modalDetail" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerModal()">&times;</span>
+      <h2>Détails de la Vente</h2>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+  
+  <!-- Modal: Panier des Articles -->
+  <div id="modalPanier" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerPanier()">&times;</span>
+      <h2>Panier d'Articles</h2>
+      <div id="panierContent"></div>
+    </div>
+  </div>
+  
+  <!-- Modal pour ajouter une opération -->
+  <div id="modalAjoutOperation" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerModalTresorerie()">&times;</span>
+      <h2>Ajouter une Opération</h2>
+      <form class="vente-form">
+        <label for="typeOperation">Type d'opération</label>
+        <select id="typeOperation">
+          <option value="entree">Entrée (Vente)</option>
+          <option value="sortie">Dépense</option>
+        </select>
+
+        <label for="montantOperation">Montant</label>
+        <input type="number" id="montantOperation" placeholder="Montant en FCFA" required>
+
+        <label for="descriptionOperation">Observations</label>
+        <textarea id="descriptionOperation" placeholder="Observations (facultatif)"></textarea>
+
+        <button type="button" class="btn-modern" onclick="ajouterOperationTresorerie()">Ajouter</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    // Préloader
+    window.addEventListener('load', function() {
+      const preloader = document.getElementById('preloader');
+      preloader.style.opacity = '0';
+      setTimeout(() => { preloader.style.display = 'none'; }, 500);
+    });
+
+    // Toast Notification
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.style.display = "block";
+      setTimeout(() => { toast.style.display = "none"; }, 3000);
+    }
+
+    // Sale Loader Functions
+    function showSaleLoader() {
+      document.getElementById("saleLoader").style.display = "flex";
+    }
+    function hideSaleLoader() {
+      document.getElementById("saleLoader").style.display = "none";
+    }
+
+    // Gestion des étapes de vente (Stepper)
+    let currentStep = 0;
+    const steps = document.querySelectorAll(".sale-step");
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.remove("active");
+        if(i === index) {
+          step.classList.add("active");
+        }
+      });
+      const progress = ((index + 1) / steps.length) * 100;
+      document.getElementById("progressBar").style.width = progress + "%";
+      document.getElementById("progressText").innerText = `Étape ${index + 1} / ${steps.length}`;
+      if(index === steps.length - 1) {
+        generateRecap();
+      }
+    }
+    function nextStep() {
+      if(currentStep < steps.length - 1) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    }
+    function prevStep() {
+      if(currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    }
+    function generateRecap() {
+      const recap = document.getElementById("saleRecap");
+      let html = "<h3>Récapitulatif de la Vente</h3><strong>Articles :</strong><br>";
+      currentItems.forEach(item => {
+        html += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
+      });
+      html += "<br><strong>Client :</strong> " + document.getElementById("clientNom").value + " (" + document.getElementById("clientNumero").value + ")<br>";
+      html += "<strong>Vendeur :</strong> " + document.getElementById("vendeurSelect").value + "<br>";
+      html += "<strong>Total :</strong> " + currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
+      recap.innerHTML = html;
+    }
+
+    // Compression d'image
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Initialisation Firebase et Firestore
+    const firebaseConfig = {
+      apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
+      authDomain: "africaphone1-accfb.firebaseapp.com",
+      projectId: "africaphone1-accfb",
+      storageBucket: "africaphone1-accfb.firebasestorage.app",
+      messagingSenderId: "747416222232",
+      appId: "1:747416222232:web:36cb8a93f3c8342ad3e16d",
+      measurementId: "G-LFT6C3Q9D9"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const dbFirestore = firebase.firestore();
+
+    // --- Début de la gestion du solde "dépense papa" ---
+
+  // Fonction pour récupérer le solde actuel de dépense papa
+  function getDepensePapaBalance() {
+    return dbFirestore.collection("depensePapa").doc("balance")
+      .get()
+      .then(doc => {
+        if (doc.exists) {
+          return doc.data().montant || 0;
+        } else {
+          // Si le document n'existe pas, retourner 0
+          return 0;
+        }
+      })
+      .catch(error => {
+        console.error("Erreur lors de la récupération du solde de dépense papa :", error);
+        return 0;
+      });
+  }
+
+  // Fonction pour mettre à jour le solde de dépense papa
+  function setDepensePapaBalance(newBalance) {
+    return dbFirestore.collection("depensePapa").doc("balance").set({ montant: newBalance })
+      .catch(error => {
+        console.error("Erreur lors de la mise à jour du solde de dépense papa :", error);
+      });
+  }
+
+  // Fonction pour mettre à jour le texte du bouton "Dépense Papa" avec le solde actuel
+  function updateDepensePapaButton() {
+    getDepensePapaBalance().then(balance => {
+      const btn = document.getElementById("btnDepensePapa");
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="user-minus"></i> Dépense Papa : ${balance.toLocaleString()} FCFA`;
+        // Recharge les icônes Lucide
+        lucide.createIcons();
+      }
+    }).catch(error => {
+      console.error("Erreur lors de la mise à jour du bouton Dépense Papa :", error);
+    });
+  }
+
+  // Fonction qui interroge la base pour récupérer la somme de toutes les dépenses de papa,
+// met à jour le document "depensePapa/balance" et rafraîchit l'affichage sur le bouton.
+function updateDepensePapaBalance() {
+  console.log("Mise à jour du solde des dépenses Papa...");
+  return dbFirestore.collection("depenses")
+    .where("type", "==", "papa")
+    .get()
+    .then(snapshot => {
+      let totalDepenses = 0;
+      snapshot.forEach(doc => {
+        totalDepenses += parseFloat(doc.data().montant) || 0;
+      });
+      // On retourne la somme pour la chaînage
+      return totalDepenses;
+    })
+    .then(totalDepenses => {
+      // Mise à jour du document "depensePapa/balance" avec la somme calculée
+      return dbFirestore.collection("depensePapa").doc("balance").set({ montant: totalDepenses })
+        .then(() => totalDepenses);
+    })
+    .then(totalDepenses => {
+      console.log("Solde des dépenses Papa mis à jour :", totalDepenses);
+      updateDepensePapaButton(); // Rafraîchit l'affichage du bouton
+      return totalDepenses;
+    })
+    .catch(error => {
+      console.error("Erreur dans updateDepensePapaBalance() :", error);
+    });
+}
+
+
+
+  // --- Fin de la gestion du solde "dépense papa"
+
+    /* === Fonctions centralisées pour le calcul des entrées, dépenses et solde === */
+    function calculateEntreesToday() {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      // Total des ventes de la journée
+      const ventesPromise = dbFirestore.collection("ventes")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalVentes = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            totalVentes += parseFloat(data.overallTotal) || 0;
+          });
+          return totalVentes;
+        });
+
+      // Total des remboursements de la journée
+      const remboursementsPromise = dbFirestore.collection("remboursements")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalRemboursements = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            totalRemboursements += parseFloat(data.montant) || 0;
+          });
+          return totalRemboursements;
+        });
+
+      return Promise.all([ventesPromise, remboursementsPromise])
+        .then(([totalVentes, totalRemboursements]) => {
+          return totalVentes + totalRemboursements;
+        })
+        .catch(error => {
+          console.error("Erreur dans calculateEntreesToday : " + error.message);
+          return 0;
+        });
+    }
+
+    function calculateDepensesToday() {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      return dbFirestore.collection("depenses")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalDepenses = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // On somme les dépenses de type "depense", "papa" ou non défini
+            if (data.type === "depense" || data.type === "papa" || !data.type) {
+              totalDepenses += parseFloat(data.montant) || 0;
+            }
+          });
+          return totalDepenses;
+        })
+        .catch(error => {
+          console.error("Erreur dans calculateDepensesToday : " + error.message);
+          return 0;
+        });
+    }
+
+    function updateBalanceDisplay() {
+      Promise.all([
+        calculateEntreesToday(),
+        calculateDepensesToday(),
+        getRunningBalance()   // Récupère le solde cumulatif à jour
+      ])
+      .then(([totalEntreesToday, totalDepensesToday, soldeCumulatif]) => {
+        document.getElementById("entrees-today").textContent  = "+XOF " + totalEntreesToday.toLocaleString();
+        document.getElementById("depenses-today").textContent = "-XOF " + totalDepensesToday.toLocaleString();
+        document.getElementById("balance-sold").textContent   = "XOF " + soldeCumulatif.toLocaleString();
+      })
+      .catch(error => console.error("Erreur updateBalanceDisplay:", error));
+    }
+
+        /**
+     * Récupère le solde cumulatif depuis le document "tresorerie/balance".
+     * Retourne 0 si le doc n'existe pas ou en cas d'erreur.
+     */
+    function getRunningBalance() {
+      return dbFirestore.collection("tresorerie").doc("balance")
+        .get()
+        .then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            return data.montant || 0;
+          } else {
+            // Si jamais le doc n'existe pas encore
+            return 0;
+          }
+        })
+        .catch(error => {
+          console.error("Erreur getRunningBalance:", error.message);
+          return 0;
+        });
+    }
+
+    /**
+     * Met à jour (ou crée) le document "tresorerie/balance" 
+     * avec le nouveau solde passé en paramètre.
+     */
+    function setRunningBalance(nouveauSolde) {
+      return dbFirestore.collection("tresorerie").doc("balance").set({
+        montant: nouveauSolde
+      })
+      .catch(error => {
+        console.error("Erreur setRunningBalance:", error.message);
+      });
+    }
+
+
+    // Fonctions Firestore pour les ventes
+    function addSaleFirestore(vente) {
+      return dbFirestore.collection("ventes").add(vente)
+        .then(docRef => docRef.id)
+        .catch(error => { throw new Error("Erreur lors de l'ajout de la vente : " + error.message); });
+    }
+    function updateSaleFirestore(venteId, vente) {
+      return dbFirestore.collection("ventes").doc(venteId).set(vente, { merge: true })
+        .then(() => venteId)
+        .catch(error => { throw new Error("Erreur lors de la mise à jour de la vente : " + error.message); });
+    }
+    function getSalesForTodayFirestore() {
+      const today = new Date().toLocaleDateString("fr-FR");
+      return dbFirestore.collection("ventes")
+        .where("dateVente", "==", today)
+        .get()
+        .then(querySnapshot => {
+          const ventes = [];
+          querySnapshot.forEach(doc => {
+            ventes.push({ id: doc.id, ...doc.data() });
+          });
+          return ventes;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération des ventes : " + error.message); });
+    }
+    function getSaleByIdFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).get()
+        .then(doc => {
+          if (doc.exists) {
+            return { id: doc.id, ...doc.data() };
+          } else {
+            throw new Error("Vente non trouvée.");
+          }
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération de la vente : " + error.message); });
+    }
+    function deleteSaleFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).delete()
+        .then(() => true)
+        .catch(error => { throw new Error("Erreur lors de la suppression de la vente : " + error.message); });
+    }
+
+    // Fonctions Firestore pour le stock
+    function getAllStockFirestore() {
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          const stocks = [];
+          querySnapshot.forEach(doc => {
+            stocks.push({ id: doc.id, ...doc.data() });
+          });
+          return stocks;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération du stock : " + error.message); });
+    }
+    function importStockToFirestore(stocks) {
+      const batch = dbFirestore.batch();
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          stocks.forEach(stockItem => {
+            const docRef = dbFirestore.collection("stock").doc();
+            batch.set(docRef, stockItem);
+          });
+          return batch.commit();
+        })
+        .catch(error => { throw new Error("Erreur lors de l'importation du stock : " + error.message); });
+    }
+    function updateStockAfterSaleFirestore(items) {
+      const promises = items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = Math.max(0, stockData.stock - item.quantite);
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
+            }
+          });
+      });
+      return Promise.all(promises).then(() => updateStockSummary());
+    }
+    function restockAfterCancellationFirestore(sale) {
+      const promises = sale.items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = stockData.stock + item.quantite;
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
+            }
+          });
+      });
+      return Promise.all(promises).then(() => updateStockSummary());
+    }
+
+    // Mise à jour de l'affichage du stock
+    function updateStockSummary() {
+      getAllStockFirestore().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
+    }
+
+    // Annulation de vente avec restockage
+    function demanderAnnulation(id) {
+      const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
+      if (motDePasse !== "zizou") {
+        alert("Mot de passe incorrect !");
+        return;
+      }
+      if (confirm("Voulez-vous vraiment annuler cette vente ? Cela réintégrera les articles dans le stock.")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            return restockAfterCancellationFirestore(sale).then(() => sale);
+          })
+          .then(sale => {
+            return deleteSaleFirestore(sale.id);
+          })
+          .then(() => {
+            alert("Vente annulée et stock mis à jour !");
+            afficherVentes();
+          })
+          .catch(err => alert("Erreur lors de l'annulation : " + err.message));
+      }
+    }
+
+    // Hash Router pour la navigation
+    function handleHashChange() {
+    const hash = window.location.hash.substring(1);
+    showScreenByHash(hash);
+    }
+    function showScreenByHash(hash) {
+  const allScreens = document.querySelectorAll('.screen');
+  allScreens.forEach(screen => screen.classList.remove('active'));
+  const targetScreen = document.getElementById(`screen-${hash}`);
+  if (targetScreen) {
+    targetScreen.classList.add('active');
+  } else {
+    document.getElementById('screen-vendre').classList.add('active');
+    window.location.hash = 'vendre';
+  }
+  document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+  const activeNav = document.getElementById(`nav-${hash}`);
+  if (activeNav) {
+    activeNav.classList.add('active');
+  }
+  window.scrollTo(0, 0);
+  switch (hash) {
+  case 'vendre':
+    break;
+  case 'stock':
+    updateStockSummary();
+    break;
+  case 'livraisons':
+    afficherLivraisons();
+    break;
+  case 'historique':
+    afficherVentes();
+    break;
+  case 'depenses':
+    chargerHistoriqueDepenses();
+    updateBalanceDisplay();  // Remplacez updateDepensesToday() ou updateBalance()
+    break;
+  case 'tresorerie':
+    updateBalanceDisplay();  // Même chose ici
+    break;
+  // Ajoutez d'autres cas si nécessaire
+}   }
+
+    window.addEventListener('load', () => {
+      if (!window.location.hash) {
+        window.location.hash = 'vendre';
+      }
+      handleHashChange();
+      window.addEventListener('hashchange', handleHashChange);
+      lucide.createIcons();
+
+      updateDepensePapaBalance();
+    });
+
+    // Gestion du Panier (Vente)
+    let currentItems = [];
+    function updatePanier() {
+      const panierContainer = document.getElementById("panierContent");
+      panierContainer.innerHTML = "";
+      if(currentItems.length === 0) {
+        panierContainer.innerHTML = "<p>Le panier est vide.</p>";
+        return;
+      }
+      currentItems.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "panier-item";
+        div.innerHTML = `<strong>${item.produit}</strong><br>Prix: ${item.prix} | Qté: ${item.quantite} | Total: ${item.total}`;
+        panierContainer.appendChild(div);
+      });
+    }
+    function ouvrirPanier() {
+      updatePanier();
+      document.getElementById("modalPanier").style.display = "flex";
+    }
+    function fermerPanier() {
+      document.getElementById("modalPanier").style.display = "none";
+    }
+
+    // Ajout d'un article au panier
+    function ajouterArticle() {
+      const produit = document.getElementById("produit").value.trim();
+      const prix = parseFloat(document.getElementById("prix").value);
+      const quantite = parseInt(document.getElementById("quantite").value);
+      const total = document.getElementById("totalArticle").value;
+      if(!produit) {
+        alert("Veuillez sélectionner un article.");
+        return;
+      }
+      if(!prix || prix <= 0) {
+        alert("Veuillez entrer un prix unitaire valide.");
+        return;
+      }
+      if(!quantite || quantite <= 0) {
+        alert("Veuillez entrer une quantité valide.");
+        return;
+      }
+      const article = { produit, prix, quantite, total };
+      currentItems.push(article);
+      document.getElementById("produit").value = "";
+      document.getElementById("prix").value = "";
+      document.getElementById("quantite").value = 1;
+      document.getElementById("totalArticle").value = "";
+      showToast("Article ajouté au panier !");
+    }
+    function calculerTotalArticle() {
+      const prix = parseFloat(document.getElementById("prix").value) || 0;
+      const quantite = parseInt(document.getElementById("quantite").value) || 0;
+      document.getElementById("totalArticle").value = (prix * quantite).toFixed(2);
+    }
+    function decrementQuantity() {
+      const input = document.getElementById("quantite");
+      let value = parseInt(input.value) || 1;
+      if(value > 1) {
+        input.value = --value;
+        calculerTotalArticle();
+      }
+    }
+    function incrementQuantity() {
+      const input = document.getElementById("quantite");
+      let value = parseInt(input.value) || 1;
+      input.value = ++value;
+      calculerTotalArticle();
+    }
+
+    // Gestion de la livraison dans la vente
+    function toggleDeliveryFields() {
+      const isDelivery = document.getElementById("isDelivery").checked;
+      const deliveryFields = document.getElementById("deliveryFields");
+      const btnValider = document.getElementById("btnValider");
+      if(isDelivery) {
+        deliveryFields.style.display = "block";
+        btnValider.textContent = "Valider Livraison";
+      } else {
+        deliveryFields.style.display = "none";
+        btnValider.textContent = "Valider Vente";
+      }
+    }
+    function getValidationMessage() {
+      return document.getElementById("isDelivery").checked ? "Valider la livraison ?" : "Valider la vente ?";
+    }
+
+    // Validation et finalisation de la vente
+    function validerVente() {
+      if(currentItems.length === 0) {
+        alert("Veuillez ajouter au moins un article.");
+        return;
+      }
+      const clientNom = document.getElementById("clientNom").value.trim();
+      const clientNumero = document.getElementById("clientNumero").value.trim();
+      if(!clientNom) {
+        alert("Veuillez entrer le nom du client.");
+        return;
+      }
+      if(!clientNumero) {
+        alert("Veuillez entrer le numéro WhatsApp du client.");
+        return;
+      }
+      const vendeur = document.getElementById("vendeurSelect").value;
+      const photoFile = document.getElementById("photoFacture").files[0];
+      const observationsVendeur = document.getElementById("observationsVendeur").value.trim();
+      let isDelivery = document.getElementById("isDelivery").checked;
+      let livreurNom = "";
+      let livreurNumero = "";
+      let lieuLivraison = "";
+      if(isDelivery) {
+        livreurNom = document.getElementById("livreurNom").value.trim();
+        livreurNumero = document.getElementById("livreurNumero").value.trim();
+        lieuLivraison = document.getElementById("lieuLivraison").value.trim();
+        if(!livreurNom || !livreurNumero || !lieuLivraison) {
+          alert("Veuillez remplir toutes les informations de livraison.");
+          return;
+        }
+      }
+      if(photoFile) {
+        compressImage(photoFile, 800, 800, 0.7, function(compressedData) {
+          finaliserVente(clientNom, clientNumero, vendeur, compressedData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+        });
+      } else {
+        finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+      }
+    }
+    function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+      showSaleLoader();
+      const now = new Date();
+      const dateVente = now.toLocaleDateString("fr-FR");
+      const heureVente = now.toLocaleTimeString("fr-FR");
+      const overallTotal = currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
+
+      const vente = { 
+        dateVente, 
+        heureVente, 
+        clientNom, 
+        clientNumero, 
+        vendeur,
+        items: currentItems, 
+        overallTotal, 
+        photoFacture: photoData, 
+        observationsVendeur,
+        isDelivery,
+        timestamp: Date.now()
+      };
+
+      addSaleFirestore(vente)
+        .then(() => {
+          return updateStockAfterSaleFirestore(currentItems);
+        })
+        .then(() => {
+          // Récupérer le solde actuel
+          return getRunningBalance();
+        })
+        .then(soldeActuel => {
+          // Incrémenter le solde avec le total de la vente
+          const nouveauSolde = soldeActuel + parseFloat(overallTotal);
+          return setRunningBalance(nouveauSolde);
+        })
+        .then(() => {
+          hideSaleLoader();
+          alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+          // Réinitialiser les champs et vider le panier
+          currentItems = [];
+          document.getElementById("clientNom").value = "";
+          document.getElementById("clientNumero").value = "";
+          document.getElementById("photoFacture").value = "";
+          document.getElementById("observationsVendeur").value = "";
+          document.getElementById("isDelivery").checked = false;
+          toggleDeliveryFields();
+          afficherVentes();
+          if(isDelivery) {
+            afficherLivraisons();
+          }
+          updateBalanceDisplay(); // Rafraîchir l'affichage de la trésorerie
+        })
+        .catch(error => {
+          hideSaleLoader();
+          alert("Erreur lors de l'ajout de la vente : " + error.message);
+        });
+    }
+
+
+    // Compression de l'image via canvas
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Affichage et détails des ventes
+    function afficherVentes() {
+      getSalesForTodayFirestore()
+        .then(sales => {
+          const ventes = sales.filter(sale => !sale.isDelivery || (sale.isDelivery && sale.convertedToSale));
+          ventes.sort((a, b) => b.id.localeCompare(a.id));
+          const container = document.getElementById("ventesContainer");
+          container.innerHTML = "";
+          if (ventes.length === 0) {
+            container.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
+                <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+                <p style="font-size: 18px; color: #888; margin-top: 20px;">
+                  Aucune vente aujourd'hui…<br>
+                </p>
+              </div>
+            `;
+            // Recharge les icônes Lucide pour afficher l'icône
+            lucide.createIcons();
+            return;
+          }
+          ventes.forEach(sale => {
+            const card = document.createElement("div");
+            card.className = "vente-card";
+            card.innerHTML = 
+              `<p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+              <p>Vendeur : ${sale.vendeur}</p>
+              <p>Articles : ${sale.items ? sale.items.length : 0}</p>
+              <p>Total : ${sale.overallTotal}</p>
+              <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+              <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>`;
+            container.appendChild(card);
+          });
+        })
+        .catch(error => console.error("Erreur lors de la récupération des ventes : " + error.message));
+    }
+    
+    // Affichage des livraisons
+    function afficherLivraisons() {
+      getSalesForTodayFirestore()
+        .then(sales => {
+          const livraisons = sales.filter(sale => sale.isDelivery);
+          livraisons.sort((a, b) => b.id.localeCompare(a.id));
+          const container = document.getElementById("livraisonsContainer");
+          container.innerHTML = "";
+          if(livraisons.length === 0) {
+            container.innerHTML = "<p>Aucune livraison enregistrée aujourd'hui.</p>";
+            return;
+          }
+          livraisons.forEach(sale => {
+            let statusEmoji = "🟠 En cours";
+            if(sale.deliveryStatus === "réussie") {
+              statusEmoji = "🟢 Réussie";
+            } else if(sale.deliveryStatus === "échouée") {
+              statusEmoji = "🔴 Échouée";
+            }
+            const card = document.createElement("div");
+            card.className = "vente-card";
+            if(sale.deliveryStatus === "échouée") {
+              card.classList.add("echouee");
+            }
+            let actionButtons = "";
+            if(sale.deliveryStatus === "en cours") {
+              actionButtons = 
+                `<button onclick="marquerCommeReussie('${sale.id}')">Marquer comme Réussie</button>
+                <button onclick="marquerCommeEchouee('${sale.id}')">Marquer comme Échouée</button>`;
+            }
+            card.innerHTML = 
+              `<p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+              <p>Vendeur : ${sale.vendeur}</p>
+              <p>Livraison par : ${sale.livreurNom || ""} (${sale.livreurNumero || ""})</p>
+              <p>Lieu : ${sale.lieuLivraison || ""}</p>
+              <p>Statut : ${statusEmoji}</p>
+              <p>Total : ${sale.overallTotal}</p>
+              <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+              ${actionButtons}`;
+            container.appendChild(card);
+          });
+        })
+        .catch(error => console.error("Erreur lors de la récupération des livraisons : " + error.message));
+    }
+    
+    // Fonctions de marquage des livraisons
+    function marquerCommeReussie(id) {
+      if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            sale.deliveryStatus = "réussie";
+            sale.convertedToSale = true;
+            updateSaleFirestore(sale.id, sale)
+              .then(() => {
+                alert("Livraison marquée comme réussie et convertie en vente !");
+                afficherLivraisons();
+                afficherVentes();
+              })
+              .catch(error => alert("Erreur lors de la mise à jour de la vente : " + error.message));
+          })
+          .catch(error => alert("Erreur dans marquerCommeReussie : " + error.message));
+      }
+    }
+    function marquerCommeEchouee(id) {
+      if(confirm("Voulez-vous marquer cette livraison comme échouée ?")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            sale.deliveryStatus = "échouée";
+            updateSaleFirestore(sale.id, sale)
+              .then(() => {
+                alert("Livraison marquée comme échouée !");
+                afficherLivraisons();
+              })
+              .catch(error => alert("Erreur lors de la mise à jour de la livraison : " + error.message));
+          })
+          .catch(error => alert("Erreur dans marquerCommeEchouee : " + error.message));
+      }
+    }
+    
+    // Détails d'une vente
+    function ouvrirDetails(id) {
+      getSaleByIdFirestore(id)
+        .then(sale => {
+          let articlesText = "";
+          if (Array.isArray(sale.items)) {
+            sale.items.forEach(item => {
+              articlesText += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
+            });
+          } else {
+            articlesText = "Aucun article.";
+          }
+          let detailHTML = 
+            `<p><strong>Date :</strong> ${sale.dateVente}</p>
+            <p><strong>Heure :</strong> ${sale.heureVente}</p>
+            <p><strong>Client :</strong> ${sale.clientNom} (${sale.clientNumero})</p>
+            <p><strong>Vendeur :</strong> ${sale.vendeur}</p>
+            <p><strong>Articles :</strong><br>${articlesText}</p>
+            <p><strong>Total Général :</strong> ${sale.overallTotal}</p>
+            <p><strong>Observations :</strong> ${sale.observationsVendeur || "Aucune"}</p>`;
+          if(sale.isDelivery) {
+            let statusEmoji = "🟠 En cours";
+            if(sale.deliveryStatus === "réussie") {
+              statusEmoji = "🟢 Réussie";
+            } else if(sale.deliveryStatus === "échouée") {
+              statusEmoji = "🔴 Échouée";
+            }
+            detailHTML += 
+              `<p><strong>Livraison par :</strong> ${sale.livreurNom} (${sale.livreurNumero})</p>
+              <p><strong>Lieu de Livraison :</strong> ${sale.lieuLivraison}</p>
+              <p><strong>Statut de Livraison :</strong> ${statusEmoji}</p>`;
+          }
+          if(sale.photoFacture) {
+            detailHTML += `<p><strong>Photo :</strong><br>
+                        <img src="${sale.photoFacture}" alt="Photo" style="max-width:100%; border-radius:5px;"></p>`;
+          }
+          document.getElementById("detailContent").innerHTML = detailHTML;
+          document.getElementById("modalDetail").style.display = "flex";
+        })
+        .catch(error => console.error("Erreur lors de la récupération de la vente : " + error.message));
+    }
+    function fermerModal() {
+      document.getElementById("modalDetail").style.display = "none";
+    }
+    window.onclick = function(event) {
+      if (event.target === document.getElementById("modalDetail")) {
+        fermerModal();
+      }
+      if (event.target === document.getElementById("modalPanier")) {
+        fermerPanier();
+      }
+      if (event.target === document.getElementById("modalAjoutOperation")) {
+        fermerModalTresorerie();
+      }
+    };
+
+    // Export PDF (Format JSON)
+    function exporterPDF() {
+      const progressElem = document.getElementById("downloadProgress");
+      progressElem.style.display = "block";
+      progressElem.textContent = "Téléchargement en cours...";
+      getSalesForTodayFirestore()
+        .then(sales => {
+          try {
+            if (!sales || sales.length === 0) {
+              throw new Error("Aucune vente récupérée.");
+            }
+            const jsonOutput = JSON.stringify(sales, (key, value) => {
+              if(key === "photoRecu" || key === "photoFacture") return undefined;
+              return value;
+            }, 2);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(10);
+            const lines = doc.splitTextToSize(jsonOutput, 180);
+            doc.text(lines, 10, 10);
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.save("ventes_json.pdf");
+            setTimeout(() => {
+              progressElem.textContent = "Téléchargement terminé";
+              setTimeout(() => { progressElem.style.display = "none"; }, 2000);
+            }, 1000);
+          } catch (e) {
+            console.error("Erreur lors de l'exportation du PDF JSON : " + e.message);
+            progressElem.textContent = "Erreur lors du téléchargement: " + e.message;
+            setTimeout(() => { progressElem.style.display = "none"; }, 4000);
+            alert("Erreur : " + e.message);
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors de l'exportation du PDF JSON : " + error.message);
+          progressElem.textContent = "Erreur lors du téléchargement: " + error.message;
+          setTimeout(() => { progressElem.style.display = "none"; }, 4000);
+          alert("Erreur : " + error.message);
+        });
+    }
+
+    // Export Factures PDF
+    function exporterFacturesPDF() {
+      getSalesForTodayFirestore()
+        .then(sales => {
+          try {
+            const salesWithFacture = sales.filter(sale => sale.photoFacture);
+            if (!salesWithFacture.length) {
+              alert("Aucune vente avec facture disponible pour l'exportation.");
+              return;
+            }
+            salesWithFacture.sort((a, b) => b.id.localeCompare(a.id));
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text("Factures des Ventes", 14, 15);
+            doc.setFontSize(10);
+            let currentY = 25;
+            salesWithFacture.forEach((sale, index) => {
+              if(index > 0) {
+                doc.addPage();
+                currentY = 20;
+              }
+              doc.text("Date : " + sale.dateVente, 14, currentY);
+              currentY += 7;
+              doc.text("Heure : " + sale.heureVente, 14, currentY);
+              currentY += 7;
+              doc.text("Client : " + sale.clientNom + " (" + sale.clientNumero + ")", 14, currentY);
+              currentY += 7;
+              doc.text("Observations : " + (sale.observationsVendeur || "Aucune"), 14, currentY);
+              currentY += 7;
+              try {
+                doc.addImage(sale.photoFacture, "JPEG", 14, currentY, 60, 40);
+                currentY += 50;
+              } catch (err) {
+                console.error("Erreur lors de l'ajout de l'image : " + err.message);
+                alert("Erreur lors de l'ajout de l'image pour une vente: " + err.message);
+              }
+            });
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.save("factures.pdf");
+          } catch (e) {
+            console.error("Erreur lors de l'exportation des factures en PDF : " + e.message);
+            alert("Erreur : " + e.message);
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors de l'exportation des factures en PDF : " + error.message);
+          alert("Erreur : " + error.message);
+        });
+    }
+
+    // Auto-suggestion pour la Vente
+    const produitInput = document.getElementById("produit");
+    const suggestionList = document.getElementById("suggestionList");
+    produitInput.addEventListener("input", function () {
+      const query = this.value.trim().toLowerCase();
+      suggestionList.innerHTML = "";
+      if (query === "") {
+        suggestionList.style.display = "none";
+        return;
+      }
+      getAllStockFirestore().then(stocks => {
+        const produits = stocks.map(s => s.name);
+        const filtered = produits.filter(name => name.toLowerCase().includes(query));
+        if(filtered.length === 0) {
+          const noResult = document.createElement("div");
+          noResult.className = "suggestion-item no-result";
+          noResult.textContent = "Aucun produit trouvé";
+          suggestionList.appendChild(noResult);
+        } else {
+          filtered.forEach(prod => {
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.textContent = prod;
+            div.addEventListener("click", function () {
+              produitInput.value = prod;
+              suggestionList.innerHTML = "";
+              suggestionList.style.display = "none";
+            });
+            suggestionList.appendChild(div);
+          });
+        }
+        suggestionList.style.display = "block";
+      }).catch(err => {
+        console.error("Erreur lors de la récupération des produits : " + err.message);
+        suggestionList.innerHTML = "<div class='suggestion-item no-result'>Erreur lors de la récupération</div>";
+        suggestionList.style.display = "block";
+      });
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target !== produitInput) {
+        suggestionList.style.display = "none";
+      }
+    });
+
+    // Auto-suggestion pour l'Entrée de Stock
+    const produitEntreeInput = document.getElementById("produitEntree");
+    const suggestionListEntree = document.getElementById("suggestionListEntree");
+    produitEntreeInput.addEventListener("input", function () {
+      const query = this.value.trim().toLowerCase();
+      suggestionListEntree.innerHTML = "";
+      if (query === "") {
+        suggestionListEntree.style.display = "none";
+        return;
+      }
+      getAllStockFirestore().then(stocks => {
+        const produits = stocks.map(s => s.name);
+        const filtered = produits.filter(name => name.toLowerCase().includes(query));
+        if(filtered.length === 0){
+          const noResult = document.createElement("div");
+          noResult.className = "suggestion-item no-result";
+          noResult.textContent = "Aucun produit trouvé";
+          suggestionListEntree.appendChild(noResult);
+        } else {
+          filtered.forEach(prod => {
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.textContent = prod;
+            div.addEventListener("click", function () {
+              produitEntreeInput.value = prod;
+              suggestionListEntree.innerHTML = "";
+              suggestionListEntree.style.display = "none";
+            });
+            suggestionListEntree.appendChild(div);
+          });
+        }
+        suggestionListEntree.style.display = "block";
+      }).catch(err => {
+        console.error("Erreur lors de la récupération des produits : " + err.message);
+        suggestionListEntree.innerHTML = "<div class='suggestion-item no-result'>Erreur lors de la récupération</div>";
+        suggestionListEntree.style.display = "block";
+      });
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target !== produitEntreeInput) {
+        suggestionListEntree.style.display = "none";
+      }
+    });
+
+    // Gestion des onglets dans la section Stock
+    function filterStockItems(category) {
+      let searchTerm = "";
+      let containerId = "";
+      if(category === 'telephones'){
+        const inputElement = document.getElementById("search-telephones");
+        if (!inputElement) {
+          console.error('L\'élément avec l\'id "search-telephones" n\'a pas été trouvé.');
+          return;
+        }
+        searchTerm = inputElement.value.toLowerCase();
+        containerId = "telephones-container";
+      } else if(category === 'accessoires'){
+        const inputElement = document.getElementById("search-accessoires");
+        if (!inputElement) {
+          console.error('L\'élément avec l\'id "search-accessoires" n\'a pas été trouvé.');
+          return;
+        }
+        searchTerm = inputElement.value.toLowerCase();
+        containerId = "accessoires-container";
+      } else if(category === 'liste-prix'){
+        const inputElement = document.getElementById("search-prix");
+        if (!inputElement) {
+          console.error('L\'élément avec l\'id "search-prix" n\'a pas été trouvé.');
+          return;
+        }
+        searchTerm = inputElement.value.toLowerCase();
+        containerId = "liste-prix-container";
+      }
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      getAllStockFirestore().then(stocks => {
+        let filteredProducts = stocks.filter(prod => prod.category === category && prod.name.toLowerCase().includes(searchTerm));
+        if(filteredProducts.length === 0){
+          container.innerHTML = "<p>Aucun produit trouvé.</p>";
+          return;
+        }
+        if(category === 'liste-prix'){
+          filteredProducts.forEach(prod => {
+            const div = document.createElement("div");
+            div.className = "price-item";
+            div.innerHTML = `<p><strong>${prod.name}</strong> - 💰 Prix : ${prod.price.toLocaleString()} FCFA</p>`;
+            container.appendChild(div);
+          });
+        } else {
+          filteredProducts.forEach(prod => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = 
+              `<div class="product-icon">${prod.icon}</div>
+              <div class="product-details">
+                <h3>${prod.name}</h3>
+                <p>🔹 Stock : ${prod.stock} unités</p>
+                <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+              </div>`;
+            container.appendChild(card);
+          });
+        }
+      }).catch(err => console.error("Erreur dans filterStockItems : " + err.message));
+    }
+
+    let currentStockCategory = "";
+    function updateStockSummary() {
+      getAllStockFirestore().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
+    }
+    function showStockCategory(category) {
+      currentStockCategory = category;
+      document.getElementById("stock-home").style.display = "none";
+      document.getElementById("stock-category").style.display = "block";
+      const searchInput = document.getElementById("search-category");
+      if (!searchInput) {
+        console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
+        return;
+      }
+      searchInput.placeholder = category === "telephones" ? "Rechercher un téléphone..." : "Rechercher un accessoire...";
+      searchInput.value = "";
+      filterStockCategory();
+    }
+    function backToStockHome() {
+      document.getElementById("stock-category").style.display = "none";
+      document.getElementById("stock-home").style.display = "block";
+    }
+    function filterStockCategory() {
+      const searchInput = document.getElementById("search-category");
+      if (!searchInput) {
+        console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
+        return;
+      }
+      const searchTerm = searchInput.value.toLowerCase();
+      getAllStockFirestore().then(stocks => {
+        const filteredProducts = stocks.filter(prod => prod.category === currentStockCategory && prod.name.toLowerCase().includes(searchTerm));
+        const container = document.getElementById("category-container");
+        container.innerHTML = "";
+        if(filteredProducts.length === 0) {
+          container.innerHTML = "<p>Aucun produit trouvé.</p>";
+          return;
+        }
+        filteredProducts.forEach(prod => {
+          const card = document.createElement("div");
+          card.className = "product-card";
+          card.innerHTML = 
+            `<div class="product-icon">${prod.icon}</div>
+            <div class="product-details">
+              <h3>${prod.name}</h3>
+              <p>🔹 Stock : ${prod.stock} unités</p>
+              <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+            </div>`;
+          container.appendChild(card);
+        });
+      }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
+    }
+
+    // Importation du stock depuis un fichier TXT
+    function importStockFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      readAndImport(file);
+    }
+    function readAndImport(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        parseStockText(text);
+      };
+      reader.readAsText(file);
+    }
+    function parseStockText(text) {
+      const lines = text.split("\n");
+      let importedStocks = [];
+      const selectedCategory = document.getElementById("importCategorie").value;
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+        if (line.toLowerCase().includes("articles")) continue;
+        const parts = line.split("\t").filter(Boolean);
+        if (parts.length < 3) continue;
+        const name = parts[0].trim();
+        const stock = parseInt(parts[1].trim());
+        let priceText = parts[2].trim();
+        let price = parseInt(priceText.replace(/[^\d]/g, ""));
+        const category = selectedCategory;
+        const icon = category === "accessoires" ? "🎧" : "📱";
+        importedStocks.push({ name, category, stock, price, icon, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      importStockToFirestore(importedStocks)
+        .then(() => {
+          alert("Stock importé avec succès !");
+          updateStockSummary();
+        })
+        .catch(err => {
+          alert("Erreur lors de l'importation du stock : " + err.message);
+        });
+    }
+
+    // Gestion de l'Entrée de Stock
+    function calculerTotalEntree() {
+      const prix = parseFloat(document.getElementById("prixEntree").value) || 0;
+      const quantite = parseInt(document.getElementById("quantiteEntree").value) || 0;
+      document.getElementById("totalEntree").value = (prix * quantite).toFixed(2);
+    }
+    function decrementQuantityEntree() {
+      const input = document.getElementById("quantiteEntree");
+      let value = parseInt(input.value) || 1;
+      if(value > 1) {
+        input.value = --value;
+        calculerTotalEntree();
+      }
+    }
+    function incrementQuantityEntree() {
+      const input = document.getElementById("quantiteEntree");
+      let value = parseInt(input.value) || 1;
+      input.value = ++value;
+      calculerTotalEntree();
+    }
+    function ajouterEntreeStock() {
+      const produit = document.getElementById("produitEntree").value.trim();
+      const prix = parseFloat(document.getElementById("prixEntree").value);
+      const quantite = parseInt(document.getElementById("quantiteEntree").value);
+      const categorie = document.getElementById("categorieEntree").value;
+      const total = document.getElementById("totalEntree").value;
+      if(!produit) {
+        alert("Veuillez saisir le nom de l'article.");
+        return;
+      }
+      if(!prix || prix <= 0) {
+        alert("Veuillez entrer un prix d'achat valide.");
+        return;
+      }
+      if(!quantite || quantite <= 0) {
+        alert("Veuillez entrer une quantité valide.");
+        return;
+      }
+      ajouterOuMettreAJourStock(produit, quantite, prix, categorie)
+        .then(() => {
+          alert("Entrée de stock ajoutée !");
+          document.getElementById("produitEntree").value = "";
+          document.getElementById("prixEntree").value = "";
+          document.getElementById("quantiteEntree").value = 1;
+          document.getElementById("totalEntree").value = "";
+          updateStockSummary();
+        })
+        .catch(err => {
+          alert("Erreur lors de l'ajout de l'entrée de stock : " + err.message);
+        });
+    }
+    function ajouterOuMettreAJourStock(produit, quantite, prix, categorie) {
+      return dbFirestore.collection("stock")
+        .where("name", "==", produit)
+        .get()
+        .then(querySnapshot => {
+          if (!querySnapshot.empty) {
+            const doc = querySnapshot.docs[0];
+            const data = doc.data();
+            const newStock = (data.stock || 0) + quantite;
+            return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock, price: prix });
+          } else {
+            const icon = (categorie === "accessoires") ? "🎧" : "📱";
+            const newRecord = { name: produit, stock: quantite, price: prix, category: categorie, icon, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+            return dbFirestore.collection("stock").add(newRecord);
+          }
+        });
+    }
+
+    // Gestion des Vendeurs via Firestore
+    function chargerVendeurs() {
+      dbFirestore.collection("vendeurs").get()
+        .then(querySnapshot => {
+          const vendeurs = [];
+          querySnapshot.forEach(doc => {
+            vendeurs.push({ id: doc.id, ...doc.data() });
+          });
+          const select = document.getElementById("vendeurSelect");
+          select.innerHTML = "";
+          vendeurs.forEach(v => {
+            const option = document.createElement("option");
+            option.value = v.name;
+            option.textContent = v.name;
+            select.appendChild(option);
+          });
+          const liste = document.getElementById("listeVendeurs");
+          liste.innerHTML = "";
+          vendeurs.forEach(v => {
+            const div = document.createElement("div");
+            div.style.display = "flex";
+            div.style.justifyContent = "space-between";
+            div.style.alignItems = "center";
+            div.style.marginBottom = "5px";
+            div.textContent = v.name;
+            const btn = document.createElement("button");
+            btn.textContent = "Supprimer";
+            btn.style.backgroundColor = "#ff6f00";
+            btn.style.color = "#fff";
+            btn.style.border = "none";
+            btn.style.borderRadius = "4px";
+            btn.style.cursor = "pointer";
+            btn.onclick = function () { supprimerVendeur(v.id); };
+            div.appendChild(btn);
+            liste.appendChild(div);
+          });
+        })
+        .catch(err => console.error("Erreur lors du chargement des vendeurs : " + err.message));
+    }
+    function ajouterVendeur() {
+      const input = document.getElementById("nomVendeur");
+      const nom = input.value.trim();
+      if(nom === "") {
+        alert("Veuillez saisir le nom du vendeur.");
+        return;
+      }
+      dbFirestore.collection("vendeurs").add({
+        name: nom,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      })
+      .then(() => {
+        input.value = "";
+        chargerVendeurs();
+      })
+      .catch(err => alert("Erreur lors de l'ajout du vendeur : " + err.message));
+    }
+    function supprimerVendeur(id) {
+      dbFirestore.collection("vendeurs").doc(id).delete()
+        .then(() => {
+          chargerVendeurs();
+        })
+        .catch(err => alert("Erreur lors de la suppression du vendeur : " + err.message));
+    }
+    window.addEventListener("load", function() {
+      chargerVendeurs();
+    });
+
+    // Vibration sur clic
+    document.querySelectorAll('.btn-modern').forEach(button => {
+      button.addEventListener('click', () => {
+        if(navigator.vibrate) {
+          navigator.vibrate(30);
+        }
+      });
+    });
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+    });
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        user.getIdTokenResult().then(idTokenResult => {
+          // Récupère le rôle depuis les Custom Claims (par défaut "employe")
+          window.userRole = idTokenResult.claims.role || "employe";
+          console.log("Rôle de l'utilisateur :", window.userRole);
+          ajusterInterfaceSelonRole(window.userRole);
+          // Affiche l'application une fois que le rôle est connu
+          document.getElementById("app").style.display = "block";
+          
+          // Pour le rôle "patron", rediriger immédiatement si la page actuelle n'est pas autorisée.
+          if (window.userRole === "patron") {
+            // Liste des écrans autorisés pour le patron
+            const allowedHashes = ['#stock', '#historique', '#menu'];
+            // Si le hash actuel n'est pas dans la liste, rediriger vers "#stock"
+            if (!allowedHashes.includes(window.location.hash)) {
+              window.location.hash = 'stock';
+            }
+          }
+        }).catch(error => {
+          console.error("Erreur lors de la récupération des Custom Claims :", error);
+          window.location.href = 'login.html';
+        });
+      } else {
+        window.location.href = 'login.html';
+      }
+    });
+
+    function ajusterInterfaceSelonRole(role) {
+      // Pour le menu de navigation
+      if (role === "employe") {
+        // Les employés ne voient pas le bouton Menu
+        const navMenu = document.getElementById("nav-menu");
+        if (navMenu) {
+          navMenu.style.display = "none";
+        }
+        // Vous pouvez ajouter ici d'autres masquages spécifiques aux employés.
+      } else if (role === "patron") {
+        // Le patron ne doit voir que Stock, Historique et Menu.
+        // Masquer Vente et Livraisons
+        const navVendre = document.getElementById("nav-vendre");
+        const navLivraisons = document.getElementById("nav-livraisons");
+        if (navVendre) { navVendre.style.display = "none"; }
+        if (navLivraisons) { navLivraisons.style.display = "none"; }
+        // Dans l'écran Menu, n'afficher que Rapport & Statistiques, Trésorerie, Dépenses et Déconnexion.
+        const sections = document.querySelectorAll("#screen-menu .section");
+        sections.forEach(section => {
+          const txt = section.textContent.toLowerCase();
+          if (!(txt.includes("rapport") || txt.includes("trésorerie") || txt.includes("dépense") || txt.includes("déconnexion"))) {
+            section.style.display = "none";
+          }
+        });
+      } else if (role === "admin") {
+        // Pour l'admin, tout doit être visible.
+        const navMenu = document.getElementById("nav-menu");
+        if (navMenu) { navMenu.style.display = "flex"; }
+        const sections = document.querySelectorAll("#screen-menu .section");
+        sections.forEach(section => {
+          section.style.display = "flex";
+        });
+      }
+    }
+
+
+    function deconnexion() {
+      firebase.auth().signOut().then(() => {
+        window.location.href = 'login.html';
+      }).catch(error => {
+        alert("Erreur lors de la déconnexion: " + error.message);
+      });
+    }
+
+    // Fonctions du Menu Principal
+    function ouvrirGestionVendeurs() {
+      alert('Ouvrir la page de gestion des vendeurs.');
+    }
+
+    // Actualisation de l'heure dans le menu
+    function updateTimeMenu() {
+      const menuTime = document.getElementById("current-time-menu");
+      if(menuTime) {
+        const now = new Date();
+        menuTime.textContent = now.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+    setInterval(updateTimeMenu, 1000);
+
+    // *************** MODIFICATIONS POUR L'ÉCRAN DE RECHERCHE D'ARTICLE ***************
+    produitInput.addEventListener('focus', function() {
+      window.location.hash = 'search-article';
+    });
+    window.addEventListener('hashchange', function() {
+      if(window.location.hash === '#search-article') {
+        document.getElementById("searchProduitInput").value = "";
+        document.getElementById("searchProduitInput").focus();
+        loadProductsList();
+      }
+    });
+    function loadProducts(query="") {
+      const searchQuery = query.toLowerCase();
+      getAllStockFirestore().then(stocks => {
+        let filtered = stocks.filter(p => p.name.toLowerCase().includes(document.getElementById("searchProduitInput").value.toLowerCase()));
+        const container = document.getElementById("searchProduitInput").parentNode.querySelector('.cards-container');
+        container.innerHTML = "";
+        if(filtered.length === 0) {
+          container.innerHTML = "<p>Aucun produit trouvé.</p>";
+          return;
+        }
+        filtered.forEach(prod => {
+          const card = document.createElement("div");
+          card.className = "product-card";
+          card.innerHTML = `
+            <div class="product-icon">${prod.icon}</div>
+            <div class="product-details">
+              <h3>${prod.name}</h3>
+              <p>🔹 Stock : ${prod.stock} unités</p>
+              <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+            </div>`;
+          card.onclick = function() {
+            selectProduct(prod);
+          };
+          container.appendChild(card);
+        });
+      });
+    }
+    function loadProductsList() {
+      loadProducts();
+    }
+    function selectProduct(prod) {
+      document.getElementById("produit").value = prod.name;
+      document.getElementById("prix").value = prod.price;
+      document.getElementById("quantite").value = 1;
+      calculerTotalArticle();
+      window.location.hash = 'vendre';
+    }
+    document.addEventListener("input", function(e) {
+      if(e.target.id === "searchProduitInput") {
+        loadProducts();
+      }
+    });
+    // **********************************************************************************
+
+    /* Fonctions pour la Trésorerie */
+    function ouvrirFormOperationTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "flex";
+    }
+    function fermerModalTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "none";
+    }
+    function ajouterOperationTresorerie() {
+      const type = document.getElementById("typeOperation").value;
+      const montant = document.getElementById("montantOperation").value;
+      const description = document.getElementById("descriptionOperation").value;
+      alert("Opération ajoutée : " + type + " de " + montant + " FCFA");
+      fermerModalTresorerie();
+    }
+  </script>
 </body>
 </html>
