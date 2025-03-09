@@ -502,13 +502,16 @@
     /* ===============================
        Interface Menu (Thème Clair)
        =============================== */
-    #screen-menu {
-      background-color: #f9f9f9;
-      color: #333;
-      height: 100vh;
-      overflow-y: auto;
-      font-family: Arial, sans-serif;
-    }
+       #screen-menu {
+  background-color: #f9f9f9;
+  color: #333;
+  height: 90vh;
+  overflow-y: hidden;
+  overscroll-behavior: none;
+  font-family: Arial, sans-serif;
+}
+
+
     #screen-menu .menu {
       padding: 15px;
     }
@@ -1420,40 +1423,49 @@
 
       <script>
         document.getElementById("formDepenseFonctionnelle").addEventListener("submit", function (e) {
-          e.preventDefault();
+  e.preventDefault();
 
-          const montant = document.getElementById("montantDepense").value.trim();
-          const description = document.getElementById("descriptionDepense").value.trim();
+  const montant = parseFloat(document.getElementById("montantDepense").value.trim());
+  const description = document.getElementById("descriptionDepense").value.trim();
 
-          if (!montant || montant <= 0) {
-            alert("Veuillez entrer un montant valide.");
-            return;
-          }
+  if (!montant || montant <= 0) {
+    alert("Veuillez entrer un montant valide.");
+    return;
+  }
+  if (!description) {
+    alert("Veuillez entrer une description.");
+    return;
+  }
 
-          if (!description) {
-            alert("Veuillez entrer une description.");
-            return;
-          }
+  const depense = {
+    montant: montant,
+    description: description,
+    type: "depense", // ou "papa", selon le cas
+    date: new Date().toISOString(),
+    timestamp: Date.now()
+  };
 
-          const depense = {
-            montant: parseFloat(montant),
-            description: description,
-            date: new Date().toISOString(),
-            auteur: "VotreNomOuUtilisateur",
-            timestamp: Date.now()
-          };
+  dbFirestore.collection("depenses").add(depense)
+    .then(() => {
+      // Récupérer le solde actuel
+      return getRunningBalance();
+    })
+    .then(soldeActuel => {
+      // Décrémenter le solde avec le montant de la dépense
+      const nouveauSolde = soldeActuel - montant;
+      return setRunningBalance(nouveauSolde);
+    })
+    .then(() => {
+      alert("Dépense Fonctionnelle enregistrée avec succès !");
+      document.getElementById("montantDepense").value = "";
+      document.getElementById("descriptionDepense").value = "";
+      updateBalanceDisplay(); // Rafraîchir l'affichage du solde
+    })
+    .catch(err => {
+      alert("Erreur lors de l'ajout de la dépense : " + err.message);
+    });
+});
 
-          dbFirestore.collection("depenses").add(depense)
-            .then(() => {
-              alert("Dépense Fonctionnelle enregistrée avec succès !");
-              document.getElementById("montantDepense").value = "";
-              document.getElementById("descriptionDepense").value = "";
-              window.location.hash = "depenses";
-            })
-            .catch(err => {
-              alert("Erreur lors de l'ajout de la dépense : " + err.message);
-            });
-        });
 
         window.addEventListener('hashchange', function () {
           if (window.location.hash === '#depense-fonctionnelle') {
@@ -1565,37 +1577,47 @@
 
       <script>
         document.getElementById("formDepensePapa").addEventListener("submit", function(e) {
-          e.preventDefault();
-          const montant = document.getElementById("montantDepensePapa").value.trim();
-          const description = document.getElementById("descriptionDepensePapa").value.trim();
-          if (!montant || montant <= 0) {
-            alert("Veuillez entrer un montant valide.");
-            return;
-          }
-          if (!description) {
-            alert("Veuillez entrer une description.");
-            return;
-          }
-          const depensePapa = {
-            montant: parseFloat(montant),
-            description: description,
-            type: "papa",  // Pour identifier ce type de dépense
-            date: new Date().toISOString(),
-            auteur: "VotreNomOuUtilisateur",  // À adapter selon votre logique d'authentification
-            timestamp: Date.now()
-          };
-          dbFirestore.collection("depenses").add(depensePapa)
-            .then(() => {
-              alert("Dépense Papa enregistrée avec succès !");
-              document.getElementById("montantDepensePapa").value = "";
-              document.getElementById("descriptionDepensePapa").value = "";
-              // Retour à l'écran historique des dépenses
-              window.location.hash = "depenses";
-            })
-            .catch(err => {
-              alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
-            });
-        });
+  e.preventDefault();
+  
+  const montant = parseFloat(document.getElementById("montantDepensePapa").value.trim());
+  const description = document.getElementById("descriptionDepensePapa").value.trim();
+  
+  if (!montant || montant <= 0) {
+    alert("Veuillez entrer un montant valide.");
+    return;
+  }
+  if (!description) {
+    alert("Veuillez entrer une description.");
+    return;
+  }
+  
+  const depensePapa = {
+    montant: montant,
+    description: description,
+    type: "papa",  // Pour identifier ce type de dépense
+    date: new Date().toISOString(),
+    timestamp: Date.now()
+  };
+  
+  dbFirestore.collection("depenses").add(depensePapa)
+    .then(() => {
+      return getRunningBalance();
+    })
+    .then(soldeActuel => {
+      const nouveauSolde = soldeActuel - montant;
+      return setRunningBalance(nouveauSolde);
+    })
+    .then(() => {
+      alert("Dépense Papa enregistrée avec succès !");
+      document.getElementById("montantDepensePapa").value = "";
+      document.getElementById("descriptionDepensePapa").value = "";
+      updateBalanceDisplay();
+    })
+    .catch(err => {
+      alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
+    });
+});
+
       </script>
     </section>
     <!-- Screen: Remboursements -->
@@ -1698,30 +1720,42 @@
 
   <script>
     document.getElementById("formRemboursementPapa").addEventListener("submit", function(e) {
-      e.preventDefault();
-      const montant = document.getElementById("montantRemboursementPapa").value.trim();
-      if (!montant || montant <= 0) {
-         alert("Veuillez entrer un montant valide.");
-         return;
-      }
-      const remboursement = {
-         montant: parseFloat(montant),
-         description: "Remboursement", // Description fixe
-         type: "remboursement", // Pour identifier cet enregistrement
-         date: new Date().toISOString(),
-         auteur: "VotreNomOuUtilisateur", // Adaptez selon votre logique d'authentification
-         timestamp: Date.now()
-      };
-      dbFirestore.collection("remboursements").add(remboursement)
-         .then(() => {
-            alert("Remboursement Papa enregistré avec succès !");
-            document.getElementById("montantRemboursementPapa").value = "";
-            window.location.hash = "depenses"; // Retour à l'écran Dépenses (historique)
-         })
-         .catch(err => {
-            alert("Erreur lors de l'ajout du remboursement papa : " + err.message);
-         });
+  e.preventDefault();
+  
+  const montant = parseFloat(document.getElementById("montantRemboursementPapa").value.trim());
+  if (!montant || montant <= 0) {
+    alert("Veuillez entrer un montant valide.");
+    return;
+  }
+  
+  const remboursement = {
+    montant: montant,
+    description: "Remboursement", // Description fixe ou vous pouvez la rendre dynamique si besoin
+    type: "remboursement",         // Permet d'identifier l'opération
+    date: new Date().toISOString(),
+    timestamp: Date.now()
+  };
+  
+  dbFirestore.collection("remboursements").add(remboursement)
+    .then(() => {
+      // Récupérer le solde cumulatif actuel
+      return getRunningBalance();
+    })
+    .then(soldeActuel => {
+      // Pour un remboursement, on ajoute le montant au solde
+      const nouveauSolde = soldeActuel + montant;
+      return setRunningBalance(nouveauSolde);
+    })
+    .then(() => {
+      alert("Remboursement enregistré avec succès !");
+      document.getElementById("montantRemboursementPapa").value = "";
+      updateBalanceDisplay(); // Rafraîchir l'affichage de la trésorerie
+    })
+    .catch(err => {
+      alert("Erreur lors de l'ajout du remboursement : " + err.message);
     });
+});
+
   </script>
 </section>
 
@@ -1959,27 +1993,52 @@
     }
 
     function updateBalanceDisplay() {
-      Promise.all([calculateEntreesToday(), calculateDepensesToday()])
-        .then(([totalEntrees, totalDepenses]) => {
-          const balance = totalEntrees - totalDepenses;
-          // Mettez à jour les éléments du DOM concernés (vérifiez qu'ils existent sur la page active)
-          const balanceElem = document.getElementById("balance-sold");
-          const entreesElem = document.getElementById("entrees-today");
-          const depensesElem = document.getElementById("depenses-today");
+  Promise.all([
+    calculateEntreesToday(),
+    calculateDepensesToday(),
+    getRunningBalance()   // Récupère le solde cumulatif à jour
+  ])
+  .then(([totalEntreesToday, totalDepensesToday, soldeCumulatif]) => {
+    document.getElementById("entrees-today").textContent  = "+XOF " + totalEntreesToday.toLocaleString();
+    document.getElementById("depenses-today").textContent = "-XOF " + totalDepensesToday.toLocaleString();
+    document.getElementById("balance-sold").textContent   = "XOF " + soldeCumulatif.toLocaleString();
+  })
+  .catch(error => console.error("Erreur updateBalanceDisplay:", error));
+}
 
-          if (entreesElem) {
-            entreesElem.innerText = "+XOF " + totalEntrees.toLocaleString();
-          }
-          if (depensesElem) {
-            depensesElem.innerText = "-XOF " + totalDepenses.toLocaleString();
-          }
-          if (balanceElem) {
-            balanceElem.innerText = "XOF " + balance.toLocaleString();
+        /**
+     * Récupère le solde cumulatif depuis le document "tresorerie/balance".
+     * Retourne 0 si le doc n'existe pas ou en cas d'erreur.
+     */
+    function getRunningBalance() {
+      return dbFirestore.collection("tresorerie").doc("balance")
+        .get()
+        .then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            return data.montant || 0;
+          } else {
+            // Si jamais le doc n'existe pas encore
+            return 0;
           }
         })
         .catch(error => {
-          console.error("Erreur lors de la mise à jour du solde : " + error.message);
+          console.error("Erreur getRunningBalance:", error.message);
+          return 0;
         });
+    }
+
+    /**
+     * Met à jour (ou crée) le document "tresorerie/balance" 
+     * avec le nouveau solde passé en paramètre.
+     */
+    function setRunningBalance(nouveauSolde) {
+      return dbFirestore.collection("tresorerie").doc("balance").set({
+        montant: nouveauSolde
+      })
+      .catch(error => {
+        console.error("Erreur setRunningBalance:", error.message);
+      });
     }
 
 
@@ -2303,6 +2362,7 @@
       const dateVente = now.toLocaleDateString("fr-FR");
       const heureVente = now.toLocaleTimeString("fr-FR");
       const overallTotal = currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
+
       const vente = { 
         dateVente, 
         heureVente, 
@@ -2313,23 +2373,27 @@
         overallTotal, 
         photoFacture: photoData, 
         observationsVendeur,
-        isDelivery: isDelivery, 
+        isDelivery,
         timestamp: Date.now()
       };
-      if(isDelivery) {
-        vente.livreurNom = livreurNom;
-        vente.livreurNumero = livreurNumero;
-        vente.lieuLivraison = lieuLivraison;
-        vente.deliveryStatus = "en cours";
-        vente.convertedToSale = false;
-      }
+
       addSaleFirestore(vente)
-        .then(id => {
+        .then(() => {
           return updateStockAfterSaleFirestore(currentItems);
+        })
+        .then(() => {
+          // Récupérer le solde actuel
+          return getRunningBalance();
+        })
+        .then(soldeActuel => {
+          // Incrémenter le solde avec le total de la vente
+          const nouveauSolde = soldeActuel + parseFloat(overallTotal);
+          return setRunningBalance(nouveauSolde);
         })
         .then(() => {
           hideSaleLoader();
           alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+          // Réinitialiser les champs et vider le panier
           currentItems = [];
           document.getElementById("clientNom").value = "";
           document.getElementById("clientNumero").value = "";
@@ -2337,18 +2401,18 @@
           document.getElementById("observationsVendeur").value = "";
           document.getElementById("isDelivery").checked = false;
           toggleDeliveryFields();
-          if(vente.isDelivery){
+          afficherVentes();
+          if(isDelivery) {
             afficherLivraisons();
-            afficherVentes();
-          } else {
-            afficherVentes();
           }
+          updateBalanceDisplay(); // Rafraîchir l'affichage de la trésorerie
         })
         .catch(error => {
           hideSaleLoader();
           alert("Erreur lors de l'ajout de la vente : " + error.message);
         });
     }
+
 
     // Compression de l'image via canvas
     function compressImage(file, maxWidth, maxHeight, quality, callback) {
