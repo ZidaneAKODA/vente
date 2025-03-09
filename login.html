@@ -8,35 +8,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    /* ========= Variables Globales ========= */
-    :root {
-      --primary-color: #006064;
-      --secondary-color: #004d40;
-      --accent-color: #ff6f00;
-      --bg-light: #f5f7fa;
-      --white: #ffffff;
-      --text-light: #333;
-      --border-radius: 16px;
-      --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      --input-focus-color: #00bcd4; /* cyan */
-      --error-color: #ff3b30;
-    }
-
-    /* Mode sombre (si activé par le système) */
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --primary-color: #80deea;
-        --secondary-color: #4dd0e1;
-        --bg-light: #121212;
-        --white: #1e1e1e;
-        --text-light: #e0e0e0;
-      }
-      body {
-        background: linear-gradient(135deg, #121212, #1e1e1e);
-      }
-    }
-
-    /* ========= Reset & Body ========= */
+    /* ======= Reset & Base ======= */
     * {
       margin: 0;
       padding: 0;
@@ -47,45 +19,42 @@
       font-family: 'Roboto', sans-serif;
     }
     body {
-      /* Dégradé fluide en diagonale (top-left to bottom-right) */
-      background: linear-gradient(135deg, #e0f7fa, #80deea);
+      background: #ffffff; /* Fond blanc */
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-light);
+      color: #333;
     }
-
-    /* ========= Conteneur de Login (Glassmorphism + slide-in) ========= */
+    
+    /* ======= Conteneur de Login ======= */
     .login-container {
-      background: rgba(255, 255, 255, 0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: var(--border-radius);
+      background: #ffffff;
       padding: 40px 30px;
-      box-shadow: var(--shadow);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       width: 90%;
       max-width: 400px;
       text-align: center;
-      animation: slideInFromBottom 1s ease-out;
+      animation: slideIn 0.8s ease-out;
     }
-    @keyframes slideInFromBottom {
+    @keyframes slideIn {
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-    /* ========= Titres & Texte ========= */
+    
+    /* ======= Titres & Texte ======= */
     .login-container h1 {
       font-size: 28px;
-      color: var(--primary-color);
+      color: #333;
       margin-bottom: 10px;
     }
     .login-container p {
       font-size: 16px;
-      color: #555;
+      color: #666;
       margin-bottom: 30px;
     }
-
-    /* ========= Groupes d'Input ========= */
+    
+    /* ======= Groupes d'Input ======= */
     .input-group {
       position: relative;
       margin-bottom: 20px;
@@ -97,19 +66,18 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       font-size: 16px;
-      transition: border 0.3s ease, box-shadow 0.3s ease;
       outline: none;
-      background: var(--white);
+      transition: border 0.3s ease;
+      background: #ffffff;
+      color: #333;
     }
     .input-group select:focus,
     .input-group input:focus {
-      border: 2px solid var(--input-focus-color);
-      box-shadow: 0 0 8px rgba(0, 188, 212, 0.3);
+      border: 2px solid #00bcd4;
     }
-    /* Pour le select, suppression de l'apparence native et ajout d'une flèche */
     .input-group select {
       appearance: none;
-      background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="%23006064" d="M7 10l5 5 5-5z"/></svg>');
+      background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="%23333" d="M7 10l5 5 5-5z"/></svg>');
       background-repeat: no-repeat;
       background-position: right 12px center;
       background-size: 20px;
@@ -123,25 +91,23 @@
       color: #ccc;
       transition: color 0.3s ease;
     }
-    /* Sur focus, l'icône change de couleur (par exemple en bleu foncé) */
     .input-group input:focus + .icon,
     .input-group select:focus + .icon {
-      color: var(--primary-color);
+      color: #00bcd4;
     }
-
-    /* ========= Bouton de Connexion avec Spinner ========= */
+    
+    /* ======= Bouton de Connexion avec Spinner ======= */
     .btn-login {
       position: relative;
       width: 100%;
       padding: 14px;
       font-size: 18px;
       font-weight: bold;
-      background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-      color: #fff;
-      border: none;
+      background: #ffffff;
+      border: 1px solid #ccc;
       border-radius: 8px;
       cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      transition: transform 0.2s ease;
     }
     .btn-login:hover {
       transform: translateY(-2px);
@@ -163,6 +129,7 @@
     .btn-login .button-text {
       display: inline-block;
       transition: opacity 0.3s ease;
+      color: #333;
     }
     .btn-login .button-spinner {
       display: none;
@@ -172,8 +139,8 @@
       transform: translate(-50%, -50%);
       width: 20px;
       height: 20px;
-      border: 3px solid rgba(255,255,255,0.6);
-      border-top: 3px solid rgba(255,255,255,1);
+      border: 3px solid rgba(0,0,0,0.3);
+      border-top: 3px solid rgba(0,0,0,0.7);
       border-radius: 50%;
       animation: spin 2s linear infinite;
     }
@@ -181,12 +148,12 @@
       0% { transform: translate(-50%, -50%) rotate(0deg); }
       100% { transform: translate(-50%, -50%) rotate(360deg); }
     }
-
-    /* ========= Message d'Erreur ========= */
+    
+    /* ======= Message d'Erreur ======= */
     .error-message {
       font-size: 14px;
       margin-top: 15px;
-      color: #999;
+      color: #ff3b30;
       animation: bounceIn 0.6s ease-out forwards;
       opacity: 0;
     }
@@ -203,15 +170,12 @@
         transform: translateY(0);
       }
     }
-
-    /* ========= Améliorations UX Mobile ========= */
+    
+    /* ======= Améliorations UX Mobile ======= */
     button, select, input {
-      /* Boutons et champs plus grands pour une utilisation à une main */
       font-size: 18px;
       padding: 14px;
     }
-    /* Zones de clic élargies déjà assurées par la largeur à 100% */
-
   </style>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
@@ -224,20 +188,16 @@
   <p>Accès réservé aux employés autorisés</p>
   
   <form id="loginForm">
-    <!-- Sélection du type de compte avec icône dynamique -->
     <div class="input-group">
-      <select id="role" required onchange="this.classList.add('rotate')">
+      <select id="role" required>
         <option value="admin">Admin</option>
         <option value="employe">Employé</option>
       </select>
-      <!-- Vous pouvez ajouter une icône ici si souhaité -->
     </div>
-    <!-- Champ mot de passe avec icône animée -->
     <div class="input-group">
       <input type="password" id="password" placeholder="Mot de passe" required>
       <span class="icon"><i data-lucide="lock"></i></span>
     </div>
-    <!-- Bouton de connexion -->
     <button type="submit" class="btn-login" id="loginButton">
       <span class="button-text">Se Connecter</span>
       <span class="button-spinner" id="buttonSpinner"></span>
@@ -274,7 +234,7 @@
     const buttonSpinner = document.getElementById("buttonSpinner");
     const errorMessage = document.getElementById("errorMessage");
 
-    // Réinitialiser l'état du message d'erreur
+    // Réinitialiser le message d'erreur
     errorMessage.style.display = "none";
 
     // Masquer le texte et afficher le spinner
@@ -290,7 +250,7 @@
         window.location.href = 'index.html';
       })
       .catch((error) => {
-        // En cas d'erreur, remettre l'état du bouton et faire vibrer le bouton
+        // En cas d'erreur, rétablir l'état du bouton et faire vibrer le bouton
         buttonText.style.opacity = "1";
         buttonSpinner.style.display = "none";
         errorMessage.style.display = "block";
