@@ -645,7 +645,7 @@
   <!-- Message de progression pour les téléchargements -->
   <div id="downloadProgress" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:var(--white); padding:10px 20px; border-radius:5px; z-index:3000;"></div>
   
-  <div id="app">
+  <div id="app" style="display: none;">
     <!-- Screen 1: Nouvelle Vente - Multi-steps -->
     <section id="screen-vendre" class="screen active">
       <header>
@@ -3082,14 +3082,70 @@
       lucide.createIcons();
     });
 
-    // Vérification de l'authentification
-    firebase.auth().onAuthStateChanged(function(user) {
+    firebase.auth().onAuthStateChanged(user => {
       if (user) {
-        // Le menu est accessible via le bouton "Menu"
+        user.getIdTokenResult().then(idTokenResult => {
+          // Récupère le rôle depuis les Custom Claims (par défaut "employe")
+          window.userRole = idTokenResult.claims.role || "employe";
+          console.log("Rôle de l'utilisateur :", window.userRole);
+          ajusterInterfaceSelonRole(window.userRole);
+          // Affiche l'application une fois que le rôle est connu
+          document.getElementById("app").style.display = "block";
+          
+          // Pour le rôle "patron", rediriger immédiatement si la page actuelle n'est pas autorisée.
+          if (window.userRole === "patron") {
+            // Liste des écrans autorisés pour le patron
+            const allowedHashes = ['#stock', '#historique', '#menu'];
+            // Si le hash actuel n'est pas dans la liste, rediriger vers "#stock"
+            if (!allowedHashes.includes(window.location.hash)) {
+              window.location.hash = 'stock';
+            }
+          }
+        }).catch(error => {
+          console.error("Erreur lors de la récupération des Custom Claims :", error);
+          window.location.href = 'login.html';
+        });
       } else {
         window.location.href = 'login.html';
       }
     });
+
+    function ajusterInterfaceSelonRole(role) {
+      // Pour le menu de navigation
+      if (role === "employe") {
+        // Les employés ne voient pas le bouton Menu
+        const navMenu = document.getElementById("nav-menu");
+        if (navMenu) {
+          navMenu.style.display = "none";
+        }
+        // Vous pouvez ajouter ici d'autres masquages spécifiques aux employés.
+      } else if (role === "patron") {
+        // Le patron ne doit voir que Stock, Historique et Menu.
+        // Masquer Vente et Livraisons
+        const navVendre = document.getElementById("nav-vendre");
+        const navLivraisons = document.getElementById("nav-livraisons");
+        if (navVendre) { navVendre.style.display = "none"; }
+        if (navLivraisons) { navLivraisons.style.display = "none"; }
+        // Dans l'écran Menu, n'afficher que Rapport & Statistiques, Trésorerie, Dépenses et Déconnexion.
+        const sections = document.querySelectorAll("#screen-menu .section");
+        sections.forEach(section => {
+          const txt = section.textContent.toLowerCase();
+          if (!(txt.includes("rapport") || txt.includes("trésorerie") || txt.includes("dépense") || txt.includes("déconnexion"))) {
+            section.style.display = "none";
+          }
+        });
+      } else if (role === "admin") {
+        // Pour l'admin, tout doit être visible.
+        const navMenu = document.getElementById("nav-menu");
+        if (navMenu) { navMenu.style.display = "flex"; }
+        const sections = document.querySelectorAll("#screen-menu .section");
+        sections.forEach(section => {
+          section.style.display = "flex";
+        });
+      }
+    }
+
+
     function deconnexion() {
       firebase.auth().signOut().then(() => {
         window.location.href = 'login.html';
