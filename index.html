@@ -1318,6 +1318,411 @@
   </script>
 </section>
 
+<!-- ===== Début de la section Rapports & Statistiques ===== -->
+<section id="screen-rapports" class="screen">
+  <header class="rapport-header">
+    <button class="btn-back" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Rapports & Statistiques</h1>
+    <button class="btn-refresh" onclick="updateRapports()">
+      <i data-lucide="rotate-ccw"></i> Actualiser
+    </button>
+  </header>
+
+  <!-- Filtres avancés : Sélection de la journée -->
+  <div class="filter-container">
+    <label for="filterDate">Sélectionnez une journée :</label>
+    <input type="date" id="filterDate" onchange="updateRapports()" />
+  </div>
+
+  <div class="reports-container">
+    <!-- Carte Résumé des Ventes -->
+    <div class="report-card">
+      <h2>Résumé des Ventes</h2>
+      <ul>
+        <li><span>Nombre total de ventes:</span> <span id="total-ventes">0</span></li>
+        <li><span>Chiffre d'affaires:</span> <span id="chiffre-affaires">0 FCFA</span></li>
+        <li><span>Moyenne par vente:</span> <span id="moyenne-vente">0 FCFA</span></li>
+        <li><span>Répartition Ventes/Livraisons:</span> <span id="ventes-repartition">0 / 0</span></li>
+      </ul>
+    </div>
+    <!-- Carte Analyse des Livraisons -->
+    <div class="report-card">
+      <h2>Analyse des Livraisons</h2>
+      <ul>
+        <li><span>Total livraisons:</span> <span id="total-livraisons">0</span></li>
+        <li><span>En cours:</span> <span id="livraisons-en-cours">0</span></li>
+        <li><span>Réussies:</span> <span id="livraisons-reussies">0</span></li>
+        <li><span>Échouées:</span> <span id="livraisons-echouees">0</span></li>
+      </ul>
+    </div>
+    <!-- Carte Synthèse du Stock -->
+    <div class="report-card">
+      <h2>Synthèse du Stock</h2>
+      <ul>
+        <li><span>Téléphones:</span> <span id="rapport-total-telephones">0</span></li>
+        <li><span>Accessoires:</span> <span id="rapport-total-accessoires">0</span></li>
+        <li><span>Faible stock:</span> <span id="faible-stock">Aucun</span></li>
+        <li><span>Valeur du stock:</span> <span id="valeur-stock">0 FCFA</span></li>
+      </ul>
+    </div>
+    <!-- Carte Vue Financière -->
+    <div class="report-card">
+      <h2>Vue Financière</h2>
+      <ul>
+        <li><span>Solde trésorerie:</span> <span id="solde-tresorerie">0 FCFA</span></li>
+        <li><span>Total Entrées:</span> <span id="total-entrees">0 FCFA</span></li>
+        <li><span>Total Dépenses:</span> <span id="total-depenses">0 FCFA</span></li>
+        <li><span>Variation:</span> <span id="variation">0%</span></li>
+      </ul>
+    </div>
+    <!-- Carte Détail Dépenses -->
+    <div class="report-card">
+      <h2>Détail Dépenses</h2>
+      <ul>
+        <li><span>Dépenses Fonctionnelles:</span> <span id="depenses-fonctionnelles">0 FCFA</span></li>
+        <li><span>Dépenses "Papa":</span> <span id="depenses-papa">0 FCFA</span></li>
+        <li><span>Transactions:</span> <span id="nombre-transactions">0</span></li>
+        <li><span>Moyenne dépense:</span> <span id="moyenne-depense">0 FCFA</span></li>
+      </ul>
+    </div>
+    <!-- Carte Performance Vendeurs -->
+    <div class="report-card">
+      <h2>Performance Vendeurs</h2>
+      <ul>
+        <li><span>CA par vendeur:</span> <span id="ca-par-vendeur">-</span></li>
+        <li><span>Ventes par vendeur:</span> <span id="ventes-par-vendeur">-</span></li>
+      </ul>
+    </div>
+    <!-- Carte Indicateurs Clés -->
+    <div class="report-card">
+      <h2>Indicateurs Clés</h2>
+      <ul>
+        <li><span>Comparaison jour/semaine:</span> <span id="comparaison-temporelle">-</span></li>
+        <li><span>Évolution stocks:</span> <span id="evolution-stocks">-</span></li>
+        <li><span>KPIs globaux:</span> <span id="kpi-globaux">-</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section Graphique : Graphique de tendance des ventes -->
+  <div class="chart-container">
+    <h2>Tendance des Ventes</h2>
+    <canvas id="salesChart"></canvas>
+  </div>
+</section>
+<!-- ===== Fin de la section Rapports & Statistiques ===== -->
+
+<!-- ===== Styles CSS pour la section Rapports & Statistiques ===== -->
+<style>
+  /* Fond et structure générale */
+  #screen-rapports {
+    background-color: #ffffff;
+    padding: 20px;
+    min-height: calc(100vh - 60px);
+    font-family: 'Roboto', sans-serif;
+  }
+
+  /* En-tête de la section */
+  .rapport-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .rapport-header h1 {
+    font-size: 24px;
+    color: #333;
+    margin: 0;
+  }
+
+  /* Boutons plats, arrondis, avec couleurs neutres et accents */
+  .btn-back,
+  .btn-refresh {
+    background-color: #f2f2f2;
+    border: none;
+    border-radius: 25px;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-back:hover,
+  .btn-refresh:hover {
+    background-color: #e0e0e0;
+  }
+
+  /* Filtres avancés */
+  .filter-container {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+  }
+  .filter-container label {
+    font-weight: 500;
+    color: #333;
+  }
+  .filter-container input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+  }
+
+  /* Grille de cartes pour les rapports */
+  .reports-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  /* Style des cartes de rapport */
+  .report-card {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #f0f0f0;
+    transition: box-shadow 0.3s ease;
+  }
+  .report-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+
+  /* Titres des cartes */
+  .report-card h2 {
+    font-size: 20px;
+    color: #006064;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #006064;
+    padding-bottom: 8px;
+  }
+
+  /* Listes des indicateurs */
+  .report-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .report-card ul li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 10px;
+  }
+  .report-card ul li span:first-child {
+    font-weight: 500;
+    color: #333;
+  }
+  .report-card ul li span:last-child {
+    font-weight: bold;
+    color: #000;
+  }
+
+  /* Section graphique */
+  .chart-container {
+    margin-top: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #f0f0f0;
+  }
+  .chart-container h2 {
+    font-size: 20px;
+    color: #006064;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    #screen-rapports {
+      padding: 15px;
+    }
+    .report-card {
+      padding: 15px;
+    }
+    .report-card h2 {
+      font-size: 18px;
+    }
+    .report-card ul li {
+      font-size: 14px;
+    }
+  }
+</style>
+
+<!-- ===== Intégration de Chart.js pour les graphiques ===== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- ===== Script JavaScript pour mettre à jour les rapports et le graphique ===== -->
+<script>
+  function updateRapports() {
+    // Optionnel : Récupérer la date filtrée (si sélectionnée)
+    const filterDate = document.getElementById("filterDate").value;
+    // Pour cet exemple, nous utilisons filterDate pour ajuster la requête dans vos fonctions
+    // Si filterDate est renseignée, vous pouvez adapter vos fonctions Firestore pour filtrer par date
+
+    // Mise à jour du résumé des ventes
+    getSalesForTodayFirestore().then(sales => {
+      // Filtrer si une date est sélectionnée (à adapter selon votre schéma de date)
+      if(filterDate) {
+        sales = sales.filter(sale => sale.dateVente === new Date(filterDate).toLocaleDateString("fr-FR"));
+      }
+      const totalVentes = sales.length;
+      const chiffreAffaires = sales.reduce((sum, sale) => sum + (parseFloat(sale.overallTotal) || 0), 0);
+      const moyenneVente = totalVentes > 0 ? chiffreAffaires / totalVentes : 0;
+      const ventesClassiques = sales.filter(sale => !sale.isDelivery || (sale.isDelivery && sale.convertedToSale)).length;
+      const livraisons = sales.filter(sale => sale.isDelivery && !sale.convertedToSale).length;
+      document.getElementById("total-ventes").textContent = totalVentes;
+      document.getElementById("chiffre-affaires").textContent = chiffreAffaires.toLocaleString() + " FCFA";
+      document.getElementById("moyenne-vente").textContent = moyenneVente.toLocaleString() + " FCFA";
+      document.getElementById("ventes-repartition").textContent = ventesClassiques + " / " + livraisons;
+      
+      // Mise à jour du graphique des ventes
+      updateSalesChart(sales);
+    });
+
+    // Mise à jour de l'analyse des livraisons
+    getSalesForTodayFirestore().then(sales => {
+      if(filterDate) {
+        sales = sales.filter(sale => sale.dateVente === new Date(filterDate).toLocaleDateString("fr-FR"));
+      }
+      const livraisonsSales = sales.filter(sale => sale.isDelivery);
+      const totalLivraisons = livraisonsSales.length;
+      const enCours = livraisonsSales.filter(sale => sale.deliveryStatus === "en cours").length;
+      const reussies = livraisonsSales.filter(sale => sale.deliveryStatus === "réussie").length;
+      const echouees = livraisonsSales.filter(sale => sale.deliveryStatus === "échouée").length;
+      document.getElementById("total-livraisons").textContent = totalLivraisons;
+      document.getElementById("livraisons-en-cours").textContent = enCours;
+      document.getElementById("livraisons-reussies").textContent = reussies;
+      document.getElementById("livraisons-echouees").textContent = echouees;
+    });
+
+    // Mise à jour de la synthèse du stock
+    getAllStockFirestore().then(stocks => {
+      const totalTelephones = stocks.filter(s => s.category === "telephones").reduce((sum, s) => sum + s.stock, 0);
+      const totalAccessoires = stocks.filter(s => s.category === "accessoires").reduce((sum, s) => sum + s.stock, 0);
+      const faiblesStocks = stocks.filter(s => s.stock < 5).map(s => s.name).join(", ") || "Aucun";
+      const valeurStock = stocks.reduce((sum, s) => sum + (s.stock * s.price), 0);
+      document.getElementById("rapport-total-telephones").textContent = totalTelephones;
+      document.getElementById("rapport-total-accessoires").textContent = totalAccessoires;
+      document.getElementById("faible-stock").textContent = faiblesStocks;
+      document.getElementById("valeur-stock").textContent = valeurStock.toLocaleString() + " FCFA";
+    });
+
+    // Mise à jour de la vue financière
+    Promise.all([
+      getRunningBalance(),
+      calculateEntreesToday(),
+      calculateDepensesToday()
+    ]).then(([soldeTresorerie, totalEntrees, totalDepenses]) => {
+      document.getElementById("solde-tresorerie").textContent = soldeTresorerie.toLocaleString() + " FCFA";
+      document.getElementById("total-entrees").textContent = totalEntrees.toLocaleString() + " FCFA";
+      document.getElementById("total-depenses").textContent = totalDepenses.toLocaleString() + " FCFA";
+      document.getElementById("variation").textContent = "N/A"; // À personnaliser selon vos besoins
+    });
+
+    // Mise à jour du détail des dépenses
+    dbFirestore.collection("depenses").get().then(snapshot => {
+      let depenseFonctionnelle = 0, depensePapa = 0, transactions = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const montant = parseFloat(data.montant) || 0;
+        transactions++;
+        if (data.type === "papa") {
+          depensePapa += montant;
+        } else {
+          depenseFonctionnelle += montant;
+        }
+      });
+      document.getElementById("depenses-fonctionnelles").textContent = depenseFonctionnelle.toLocaleString() + " FCFA";
+      document.getElementById("depenses-papa").textContent = depensePapa.toLocaleString() + " FCFA";
+      document.getElementById("nombre-transactions").textContent = transactions;
+      const moyenneDepense = transactions > 0 ? (depenseFonctionnelle + depensePapa) / transactions : 0;
+      document.getElementById("moyenne-depense").textContent = moyenneDepense.toLocaleString() + " FCFA";
+    });
+
+    // Mise à jour de la performance des vendeurs
+    getSalesForTodayFirestore().then(sales => {
+      const caParVendeur = {};
+      const ventesParVendeur = {};
+      sales.forEach(sale => {
+        const vendeur = sale.vendeur || "Inconnu";
+        caParVendeur[vendeur] = (caParVendeur[vendeur] || 0) + (parseFloat(sale.overallTotal) || 0);
+        ventesParVendeur[vendeur] = (ventesParVendeur[vendeur] || 0) + 1;
+      });
+      document.getElementById("ca-par-vendeur").textContent = JSON.stringify(caParVendeur);
+      document.getElementById("ventes-par-vendeur").textContent = JSON.stringify(ventesParVendeur);
+    });
+
+    // Mise à jour des indicateurs clés
+    document.getElementById("comparaison-temporelle").textContent = "À implémenter";
+    document.getElementById("evolution-stocks").textContent = "À implémenter";
+    document.getElementById("kpi-globaux").textContent = "À implémenter";
+  }
+
+  // Fonction pour créer ou mettre à jour le graphique des ventes
+  let salesChart; // Variable globale pour le graphique
+  function updateSalesChart(salesData) {
+    // Préparation des données : par exemple, agrégation par heure de la journée
+    // Ici, un exemple simple : nombre de ventes par heure (0 à 23)
+    const ventesParHeure = new Array(24).fill(0);
+    salesData.forEach(sale => {
+      // On suppose que sale.timestamp est en millisecondes
+      const heure = new Date(sale.timestamp).getHours();
+      ventesParHeure[heure]++;
+    });
+    const labels = ventesParHeure.map((_, index) => index + "h");
+
+    // Si le graphique existe déjà, on le met à jour
+    if(salesChart) {
+      salesChart.data.labels = labels;
+      salesChart.data.datasets[0].data = ventesParHeure;
+      salesChart.update();
+    } else {
+      // Sinon, on le crée
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Ventes par heure',
+            data: ventesParHeure,
+            backgroundColor: 'rgba(0, 96, 100, 0.2)',
+            borderColor: 'rgba(0, 96, 100, 1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { display: true },
+            y: { display: true, beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+  }
+</script>
+
+
+
     <!--Dépense Fonctionnelle -->
     <section id="screen-depense-fonctionnelle" class="screen">
       <style>
@@ -1734,7 +2139,7 @@
   
   const remboursement = {
     montant: montant,
-    description: "Remboursement", // Description fixe ou vous pouvez la rendre dynamique si besoin
+    description: "Remboursement", // ou une description dynamique si besoin
     type: "remboursement",         // Permet d'identifier l'opération
     date: new Date().toISOString(),
     timestamp: Date.now()
@@ -1742,23 +2147,34 @@
   
   dbFirestore.collection("remboursements").add(remboursement)
     .then(() => {
-      // Récupérer le solde cumulatif actuel
+      // Mise à jour du solde global de trésorerie (reste inchangé)
       return getRunningBalance();
     })
-    .then(soldeActuel => {
-      // Pour un remboursement, on ajoute le montant au solde
-      const nouveauSolde = soldeActuel + montant;
-      return setRunningBalance(nouveauSolde);
+    .then(soldeGlobal => {
+      const nouveauGlobal = soldeGlobal + montant;
+      return setRunningBalance(nouveauGlobal);
+    })
+    .then(() => {
+      // MàJ du solde des dépenses Papa
+      return getDepensePapaBalance();
+    })
+    .then(soldeDepPapa => {
+      // Comme le remboursement "récupère" une partie du montant dépensé,
+      // on soustrait ce montant du solde des dépenses Papa.
+      const nouveauDepPapa = soldeDepPapa - montant;
+      return setDepensePapaBalance(nouveauDepPapa);
     })
     .then(() => {
       alert("Remboursement enregistré avec succès !");
       document.getElementById("montantRemboursementPapa").value = "";
-      updateBalanceDisplay(); // Rafraîchir l'affichage de la trésorerie
+      updateBalanceDisplay(); // Mise à jour du solde global affiché
+      updateDepensePapaButton(); // Mise à jour du bouton "Dépense Papa"
     })
     .catch(err => {
       alert("Erreur lors de l'ajout du remboursement : " + err.message);
     });
 });
+
 
   </script>
 </section>
@@ -2121,7 +2537,8 @@ function updateDepensePapaBalance() {
         console.error("Erreur setRunningBalance:", error.message);
       });
     }
-
+    
+    
 
     // Fonctions Firestore pour les ventes
     function addSaleFirestore(vente) {
@@ -2263,9 +2680,14 @@ function updateDepensePapaBalance() {
     const hash = window.location.hash.substring(1);
     showScreenByHash(hash);
     }
-    function showScreenByHash(hash) {
+
+
+  function showScreenByHash(hash) {
+  // Masquer tous les écrans
   const allScreens = document.querySelectorAll('.screen');
   allScreens.forEach(screen => screen.classList.remove('active'));
+
+  // Afficher l'écran correspondant au hash, sinon afficher "vendre" par défaut
   const targetScreen = document.getElementById(`screen-${hash}`);
   if (targetScreen) {
     targetScreen.classList.add('active');
@@ -2273,33 +2695,44 @@ function updateDepensePapaBalance() {
     document.getElementById('screen-vendre').classList.add('active');
     window.location.hash = 'vendre';
   }
+
+  // Mettre à jour l'état actif de la navigation
   document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
   const activeNav = document.getElementById(`nav-${hash}`);
   if (activeNav) {
     activeNav.classList.add('active');
   }
+
   window.scrollTo(0, 0);
+
+  // Gérer les cas spécifiques selon le hash
   switch (hash) {
-  case 'vendre':
-    break;
-  case 'stock':
-    updateStockSummary();
-    break;
-  case 'livraisons':
-    afficherLivraisons();
-    break;
-  case 'historique':
-    afficherVentes();
-    break;
-  case 'depenses':
-    chargerHistoriqueDepenses();
-    updateBalanceDisplay();  // Remplacez updateDepensesToday() ou updateBalance()
-    break;
-  case 'tresorerie':
-    updateBalanceDisplay();  // Même chose ici
-    break;
-  // Ajoutez d'autres cas si nécessaire
-}   }
+    case 'vendre':
+      break;
+    case 'stock':
+      updateStockSummary();
+      break;
+    case 'livraisons':
+      afficherLivraisons();
+      break;
+    case 'historique':
+      afficherVentes();
+      break;
+    case 'depenses':
+      chargerHistoriqueDepenses();
+      updateBalanceDisplay();
+      break;
+    case 'tresorerie':
+      updateBalanceDisplay();
+      break;
+    case 'rapports':
+      // Appeler la fonction qui met à jour la section "Rapports & Statistiques"
+      updateRapports();
+      break;
+    // Ajoutez d'autres cas si nécessaire
+  }
+}
+
 
     window.addEventListener('load', () => {
       if (!window.location.hash) {
