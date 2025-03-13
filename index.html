@@ -922,6 +922,12 @@
             <i data-lucide="file-minus"></i>
             Dépenses
           </div>
+
+          <div class="section" onclick="window.location.hash='repertoire-imei'">
+            <i data-lucide="list"></i>
+            Répertoire d'IMEI
+          </div>
+
           <div class="section" onclick="window.location.hash='faq'">
             <i data-lucide="help-circle"></i>
             FAQ
@@ -949,6 +955,19 @@
       <div style="padding:15px;">
         <input type="text" id="searchProduitInput" placeholder="Rechercher un article..." />
         <div id="searchResults" class="cards-container"></div>
+      </div>
+    </section>
+
+    <section id="screen-repertoire-imei" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='menu'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Répertoire d'IMEI</h1>
+      </header>
+      <div style="padding: 15px;">
+        <!-- Ajoutez ici le contenu du répertoire d'IMEI -->
+        <p>Liste des IMEI...</p>
       </div>
     </section>
 
@@ -1994,7 +2013,11 @@ function updateProfitScreen() {
   <!-- Formulaire d'approvisionnement -->
   <div class="form-section">
     <h2>Nouveau Approvisionnement</h2>
-    <form class="vente-form" onsubmit="event.preventDefault(); ajouterApprovisionnement();">
+    <form class="vente-form" onsubmit="event.preventDefault(); ajouterApprovisionnementItem();">
+      <!-- Champ Fournisseur -->
+      <label for="fournisseurAppro">Fournisseur</label>
+      <input type="text" id="fournisseurAppro" placeholder="Nom du fournisseur" required />
+
       <!-- Recherche du modèle de téléphone -->
       <label for="modeleAppro">Modèle de téléphone</label>
       <div class="input-container">
@@ -2014,8 +2037,17 @@ function updateProfitScreen() {
       <!-- Coût total -->
       <label for="coutTotalAppro">Coût total</label>
       <input type="number" id="coutTotalAppro" placeholder="Calcul automatique" readonly />
-      <button type="submit" class="btn-modern">Enregistrer Approvisionnement</button>
+      <button type="button" class="btn-modern" onclick="ajouterApprovisionnementItem()">Ajouter au panier</button>
     </form>
+  </div>
+
+  <!-- Panier Approvisionnement -->
+  <div class="panier-approvisionnement">
+    <h2>Panier Approvisionnement</h2>
+    <div id="panierApproContent" class="list-container">
+      <p>Le panier est vide.</p>
+    </div>
+    <button class="btn-modern" onclick="finaliserApprovisionnement()">Enregistrer Approvisionnement</button>
   </div>
 
   <!-- Historique des approvisionnements -->
@@ -2157,7 +2189,37 @@ function updateProfitScreen() {
     cursor: pointer;
     margin-bottom: 10px;
   }
-  /* Historique */
+  /* Panier Approvisionnement */
+  .panier-approvisionnement {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  .panier-approvisionnement h2 {
+    font-size: 20px;
+    color: #000;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .panier-approvisionnement .list-container {
+    margin-bottom: 15px;
+  }
+  .panier-approvisionnement .list-container .panier-item {
+    background: #ffffff;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 16px;
+  }
+  .panier-approvisionnement .list-container .panier-item span.remove-item {
+    color: red;
+    cursor: pointer;
+    float: right;
+  }
+  /* Historique des approvisionnements */
   #screen-approvisionnement .approvisionnement-history h2 {
     text-align: center;
     margin: 15px 0;
@@ -2187,6 +2249,9 @@ function updateProfitScreen() {
 </style>
 
 <script>
+  // Variable globale pour stocker les articles ajoutés au panier d'approvisionnement
+  let currentApproItems = [];
+
   // Calcul du coût total d'approvisionnement
   function calculerCoutTotalAppro() {
     const quantite = parseFloat(document.getElementById("quantiteAppro").value) || 0;
@@ -2266,42 +2331,110 @@ function updateProfitScreen() {
     }
   });
 
-  // Fonction pour ajouter un approvisionnement
-  function ajouterApprovisionnement() {
+  // Fonction pour ajouter un article d'approvisionnement au panier
+  function ajouterApprovisionnementItem() {
+    const fournisseur = document.getElementById("fournisseurAppro").value.trim();
     const modele = document.getElementById("modeleAppro").value.trim();
     const quantite = parseFloat(document.getElementById("quantiteAppro").value);
     const prixAchat = parseFloat(document.getElementById("prixAchatAppro").value);
     const coutTotal = parseFloat(document.getElementById("coutTotalAppro").value);
 
-    if (!modele || !quantite || quantite <= 0 || !prixAchat || prixAchat <= 0) {
-      alert("Veuillez remplir correctement tous les champs.");
+    if (!fournisseur) {
+      alert("Veuillez entrer le nom du fournisseur.");
       return;
     }
-
-    const approvisionnement = {
-      modele,
+    if (!modele) {
+      alert("Veuillez saisir le modèle de téléphone.");
+      return;
+    }
+    if (!quantite || quantite <= 0) {
+      alert("Veuillez entrer une quantité valide.");
+      return;
+    }
+    if (!prixAchat || prixAchat <= 0) {
+      alert("Veuillez entrer un prix d'achat valide.");
+      return;
+    }
+    const item = {
+      fournisseur,
+      produit: modele,
       quantite,
       prixAchat,
-      coutTotal,
-      timestamp: Date.now()
+      coutTotal: coutTotal.toFixed(2)
     };
 
+    currentApproItems.push(item);
+    updatePanierApprovisionnement();
+    // Réinitialiser les champs relatifs à l'article (le fournisseur reste pour le groupe)
+    document.getElementById("modeleAppro").value = "";
+    document.getElementById("quantiteAppro").value = "1";
+    document.getElementById("prixAchatAppro").value = "";
+    document.getElementById("coutTotalAppro").value = "";
+    suggestionListAppro.style.display = "none";
+  }
+
+  // Met à jour l'affichage du panier d'approvisionnement
+  function updatePanierApprovisionnement() {
+    const container = document.getElementById("panierApproContent");
+    container.innerHTML = "";
+    if (currentApproItems.length === 0) {
+      container.innerHTML = "<p>Le panier est vide.</p>";
+      return;
+    }
+    currentApproItems.forEach((item, index) => {
+      const div = document.createElement("div");
+      div.className = "panier-item";
+      div.innerHTML = `<strong>${item.produit}</strong> - Qté: ${item.quantite} - Prix: ${item.prixAchat} FCFA - Total: ${item.coutTotal} FCFA <span class="remove-item" onclick="retirerApproItem(${index})">×</span>`;
+      container.appendChild(div);
+    });
+  }
+
+  // Permet de retirer un article du panier
+  function retirerApproItem(index) {
+    currentApproItems.splice(index, 1);
+    updatePanierApprovisionnement();
+  }
+
+  // Finalise l'approvisionnement en enregistrant la commande et en mettant à jour le stock
+  function finaliserApprovisionnement() {
+    if (currentApproItems.length === 0) {
+      alert("Le panier est vide.");
+      return;
+    }
+    // Supposons que tous les articles proviennent du même fournisseur
+    const fournisseur = currentApproItems[0].fournisseur;
+    const approvisionnement = {
+      fournisseur,
+      items: currentApproItems,
+      timestamp: Date.now()
+    };
     dbFirestore.collection("approvisionnement").add(approvisionnement)
       .then(() => {
+        // Met à jour le stock pour chaque article (ici, la catégorie est "telephones")
+        const updatePromises = currentApproItems.map(item => {
+          return ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, "telephones");
+        });
+        return Promise.all(updatePromises);
+      })
+      .then(() => {
         alert("Approvisionnement enregistré avec succès !");
-        // Réinitialiser le formulaire
-        document.getElementById("modeleAppro").value = "";
-        document.getElementById("quantiteAppro").value = "1";
-        document.getElementById("prixAchatAppro").value = "";
-        document.getElementById("coutTotalAppro").value = "";
+        currentApproItems = [];
+        updatePanierApprovisionnement();
+        document.getElementById("fournisseurAppro").value = "";
         chargerApprovisionnements();
-        // Mettre à jour le coût moyen dans le stock pour ce modèle
-        mettreAJourCoutMoyen(modele, quantite, prixAchat);
+        updateStockSummary();
       })
       .catch(error => {
         alert("Erreur lors de l'ajout de l'approvisionnement : " + error.message);
       });
   }
+
+  // Charger l'historique dès l'accès à la page Approvisionnement
+  window.addEventListener('load', function() {
+    if(window.location.hash === '#approvisionnement'){
+      chargerApprovisionnements();
+    }
+  });
 
   // Fonction pour charger l'historique des approvisionnements
   function chargerApprovisionnements() {
@@ -2315,11 +2448,16 @@ function updateProfitScreen() {
           const appro = doc.data();
           const div = document.createElement("div");
           div.className = "history-item";
+          let itemsText = "";
+          if (appro.items && Array.isArray(appro.items)) {
+            appro.items.forEach(item => {
+              itemsText += `${item.produit} (Qté: ${item.quantite}, Prix: ${item.prixAchat} FCFA, Total: ${item.coutTotal} FCFA)<br>`;
+            });
+          }
           div.innerHTML = `
             <div>
-              <strong>${appro.modele}</strong><br>
-              Quantité: ${appro.quantite} - Prix unitaire: ${appro.prixAchat.toLocaleString()} FCFA<br>
-              Coût total: ${appro.coutTotal.toLocaleString()} FCFA
+              <strong>Fournisseur: ${appro.fournisseur}</strong><br>
+              ${itemsText}
             </div>
             <small>${new Date(appro.timestamp).toLocaleString()}</small>
           `;
@@ -2330,53 +2468,6 @@ function updateProfitScreen() {
         console.error("Erreur lors du chargement des approvisionnements : " + error.message);
       });
   }
-
-  // Fonction pour mettre à jour le coût moyen d'achat dans le stock pour un modèle donné
-  function mettreAJourCoutMoyen(modele, quantiteNouvelle, prixAchatNouvelle) {
-  dbFirestore.collection("stock").where("name", "==", modele).get()
-    .then(querySnapshot => {
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        const data = doc.data();
-        const stockExistant = data.stock || 0;
-        const prixExistant = data.price || 0; // on utilise le champ "price" pour le coût moyen
-        const nouveauStock = stockExistant + quantiteNouvelle;
-        // Calcul du coût moyen pondéré
-        const nouveauPrixMoyen = ((stockExistant * prixExistant) + (quantiteNouvelle * prixAchatNouvelle)) / nouveauStock;
-        return dbFirestore.collection("stock").doc(doc.id).update({
-          stock: nouveauStock,
-          price: nouveauPrixMoyen
-        });
-      } else {
-        // Si le modèle n'existe pas, on le crée avec "price" égal au prix d'achat du premier approvisionnement.
-        const nouveauDoc = {
-          name: modele,
-          stock: quantiteNouvelle,
-          price: prixAchatNouvelle,
-          category: "telephones",
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        return dbFirestore.collection("stock").add(nouveauDoc);
-      }
-    })
-    .then(() => {
-      if (typeof updateStockSummary === 'function') {
-        updateStockSummary();
-      }
-    })
-    .catch(error => {
-      console.error("Erreur lors de la mise à jour du coût moyen :", error.message);
-    });
-}
-
-
-
-  // Charger l'historique dès l'accès à la page Approvisionnement
-  window.addEventListener('load', function() {
-    if(window.location.hash === '#approvisionnement'){
-      chargerApprovisionnements();
-    }
-  });
 </script>
 
 
@@ -3390,10 +3481,12 @@ function updateDepensePapaBalance() {
     case 'approvisionnement':
         chargerApprovisionnements();
         break;
-
     case 'profit':
       updateProfitScreen(); // Appellez ici la fonction qui met à jour et affiche les détails du profit
         break;
+    case 'repertoire-imei':
+      // Code spécifique pour le répertoire d'IMEI, si nécessaire
+      break;
     // Ajoutez d'autres cas si nécessaire
   }
 }
