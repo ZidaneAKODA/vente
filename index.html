@@ -12,7 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-auth-compat.js"></script>
   <!-- Lucide Icons -->
-  <script defer src="https://unpkg.com/lucide@0.482.0"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
     /* Désactivation globale de la sélection de texte (sauf input et textarea) */
@@ -3674,6 +3674,7 @@ function updateDepensePapaBalance() {
       photoFacture: photoData, 
       observationsVendeur,
       isDelivery,
+      deliveryStatus: isDelivery ? "en cours" : undefined,
       timestamp: Date.now()
     };
     
