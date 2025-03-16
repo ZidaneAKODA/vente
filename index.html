@@ -3091,6 +3091,37 @@ function updateProfitScreen() {
     firebase.initializeApp(firebaseConfig);
     const dbFirestore = firebase.firestore();
 
+    // Déclaration globale
+let cachedStock = [];
+
+// Fonction pour charger le stock depuis Firestore et le mettre en cache
+function fetchAndCacheStock() {
+  dbFirestore.collection("stock").get()
+    .then(querySnapshot => {
+      cachedStock = [];
+      querySnapshot.forEach(doc => {
+        cachedStock.push({ id: doc.id, ...doc.data() });
+      });
+      console.log("Stock chargé en cache :", cachedStock);
+    })
+    .catch(error => console.error("Erreur lors du chargement du stock :", error));
+}
+
+// Appeler la fonction dès le chargement de l'app
+fetchAndCacheStock();
+
+// Fonction debounce : exécute la fonction passée après un délai d'attente
+function debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
+
+
     // --- Début de la gestion du solde "dépense papa" ---
 
   // Fonction pour récupérer le solde actuel de dépense papa
@@ -3996,90 +4027,82 @@ function updateDepensePapaBalance() {
     // Auto-suggestion pour la Vente
     const produitInput = document.getElementById("produit");
     const suggestionList = document.getElementById("suggestionList");
-    produitInput.addEventListener("input", function () {
+    produitInput.addEventListener("input", debounce(function () {
       const query = this.value.trim().toLowerCase();
       suggestionList.innerHTML = "";
       if (query === "") {
         suggestionList.style.display = "none";
         return;
       }
-      getAllStockFirestore().then(stocks => {
-        const produits = stocks.map(s => s.name);
-        const filtered = produits.filter(name => name.toLowerCase().includes(query));
-        if(filtered.length === 0) {
-          const noResult = document.createElement("div");
-          noResult.className = "suggestion-item no-result";
-          noResult.textContent = "Aucun produit trouvé";
-          suggestionList.appendChild(noResult);
-        } else {
-          filtered.forEach(prod => {
-            const div = document.createElement("div");
-            div.className = "suggestion-item";
-            div.textContent = prod;
-            div.addEventListener("click", function () {
-              produitInput.value = prod;
-              suggestionList.innerHTML = "";
-              suggestionList.style.display = "none";
-            });
-            suggestionList.appendChild(div);
-          });
-        }
+      // Utiliser le cache au lieu d'interroger Firestore à chaque saisie
+      if (cachedStock.length === 0) {
+        suggestionList.innerHTML = "<div class='suggestion-item no-result'>Données non chargées</div>";
         suggestionList.style.display = "block";
-      }).catch(err => {
-        console.error("Erreur lors de la récupération des produits : " + err.message);
-        suggestionList.innerHTML = "<div class='suggestion-item no-result'>Erreur lors de la récupération</div>";
-        suggestionList.style.display = "block";
-      });
-    });
-    document.addEventListener("click", function (e) {
-      if (e.target !== produitInput) {
-        suggestionList.style.display = "none";
+        return;
       }
-    });
+      const produits = cachedStock.map(s => s.name);
+      const filtered = produits.filter(name => name.toLowerCase().includes(query));
+      if (filtered.length === 0) {
+        const noResult = document.createElement("div");
+        noResult.className = "suggestion-item no-result";
+        noResult.textContent = "Aucun produit trouvé";
+        suggestionList.appendChild(noResult);
+      } else {
+        filtered.forEach(prod => {
+          const div = document.createElement("div");
+          div.className = "suggestion-item";
+          div.textContent = prod;
+          div.addEventListener("click", function () {
+            produitInput.value = prod;
+            suggestionList.innerHTML = "";
+            suggestionList.style.display = "none";
+          });
+          suggestionList.appendChild(div);
+        });
+      }
+      suggestionList.style.display = "block";
+    }, 300));
+
 
     // Auto-suggestion pour l'Entrée de Stock
     const produitEntreeInput = document.getElementById("produitEntree");
     const suggestionListEntree = document.getElementById("suggestionListEntree");
-    produitEntreeInput.addEventListener("input", function () {
+    produitEntreeInput.addEventListener("input", debounce(function () {
       const query = this.value.trim().toLowerCase();
       suggestionListEntree.innerHTML = "";
       if (query === "") {
         suggestionListEntree.style.display = "none";
         return;
       }
-      getAllStockFirestore().then(stocks => {
-        const produits = stocks.map(s => s.name);
-        const filtered = produits.filter(name => name.toLowerCase().includes(query));
-        if(filtered.length === 0){
-          const noResult = document.createElement("div");
-          noResult.className = "suggestion-item no-result";
-          noResult.textContent = "Aucun produit trouvé";
-          suggestionListEntree.appendChild(noResult);
-        } else {
-          filtered.forEach(prod => {
-            const div = document.createElement("div");
-            div.className = "suggestion-item";
-            div.textContent = prod;
-            div.addEventListener("click", function () {
-              produitEntreeInput.value = prod;
-              suggestionListEntree.innerHTML = "";
-              suggestionListEntree.style.display = "none";
-            });
-            suggestionListEntree.appendChild(div);
-          });
-        }
+      // Utiliser le cache pour filtrer les produits
+      if (cachedStock.length === 0) {
+        suggestionListEntree.innerHTML = "<div class='suggestion-item no-result'>Données non chargées</div>";
         suggestionListEntree.style.display = "block";
-      }).catch(err => {
-        console.error("Erreur lors de la récupération des produits : " + err.message);
-        suggestionListEntree.innerHTML = "<div class='suggestion-item no-result'>Erreur lors de la récupération</div>";
-        suggestionListEntree.style.display = "block";
-      });
-    });
-    document.addEventListener("click", function (e) {
-      if (e.target !== produitEntreeInput) {
-        suggestionListEntree.style.display = "none";
+        return;
       }
-    });
+      const produits = cachedStock.map(s => s.name);
+      const filtered = produits.filter(name => name.toLowerCase().includes(query));
+      if (filtered.length === 0) {
+        const noResult = document.createElement("div");
+        noResult.className = "suggestion-item no-result";
+        noResult.textContent = "Aucun produit trouvé";
+        suggestionListEntree.appendChild(noResult);
+      } else {
+        filtered.forEach(prod => {
+          const div = document.createElement("div");
+          div.className = "suggestion-item";
+          div.textContent = prod;
+          div.addEventListener("click", function () {
+            produitEntreeInput.value = prod;
+            suggestionListEntree.innerHTML = "";
+            suggestionListEntree.style.display = "none";
+          });
+          suggestionListEntree.appendChild(div);
+        });
+      }
+      suggestionListEntree.style.display = "block";
+    }, 300));
+
 
     // Gestion des onglets dans la section Stock
     function filterStockItems(category) {
