@@ -728,18 +728,6 @@
             <input type="file" accept="image/*" capture="camera" id="photoFacture" />
             <label for="observationsVendeur">Observations</label>
             <textarea id="observationsVendeur" placeholder="Observations (facultatif)"></textarea>
-
-            <label for="isAdvance">
-              <input type="checkbox" id="isAdvance" onchange="toggleAdvanceField()" />
-              Vente avec avance
-            </label>
-
-            <!-- Ce bloc sera affiché uniquement quand "Vente avec avance" est cochée -->
-          <div id="advancePaidAmountContainer" style="display:none; margin-top:10px;">
-            <label for="paidAmountAdvance">Montant déjà payé :</label>
-            <input type="number" id="paidAmountAdvance" placeholder="Montant déjà payé" />
-          </div>
-
             <label for="isDelivery">
               <input type="checkbox" id="isDelivery" onchange="toggleDeliveryFields()" /> Vente avec Livraison
             </label>
@@ -790,18 +778,6 @@
         </div>
       </div>
     </section>
-
-    <script>
-      // Fonction pour afficher ou masquer le champ de montant déjà payé en fonction de l'option "Vente avec avance"
-      function toggleAdvanceField() {
-        const container = document.getElementById("advancePaidAmountContainer");
-        if (document.getElementById("isAdvance").checked) {
-          container.style.display = "block";  // Affiche le champ
-        } else {
-          container.style.display = "none";   // Masque le champ
-        }
-      }
-    </script>
     
     <!-- Screen 2: Livraisons -->
     <section id="screen-livraisons" class="screen">
@@ -893,294 +869,111 @@
       </div>
     </section>
 
-    <!-- Screen: Avance - Suivi des ventes avec option avance -->
-<section id="screen-avance" class="screen">
-  <style>
-    /* Styles pour l'écran Avance */
-    #screen-avance {
-      padding: 15px;
-      background: var(--bg-color);
-      min-height: calc(100vh - 60px);
-    }
-    #screen-avance header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 15px;
-    }
-    #screen-avance header h1 {
-      font-size: 22px;
-      color: var(--primary-color);
-    }
-    #screen-avance .search-container {
-      margin-bottom: 15px;
-    }
-    #screen-avance .search-container input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: var(--border-radius);
-      font-size: 16px;
-    }
-    #screen-avance .cards-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    #screen-avance .avance-card {
-      background: var(--white);
-      border: 1px solid #ccc;
-      border-radius: var(--border-radius);
-      padding: 10px;
-      flex: 1 1 calc(50% - 10px);
-      box-shadow: var(--shadow);
-      font-size: 14px;
-    }
-    #screen-avance .avance-card p {
-      margin: 5px 0;
-    }
-    #screen-avance .avance-card button {
-      margin-top: 10px;
-      padding: 8px;
-      width: 100%;
-      background: var(--primary-color);
-      color: var(--white);
-      border: none;
-      border-radius: var(--border-radius);
-      cursor: pointer;
-      font-size: 14px;
-    }
-    /* Modal pour compléter le paiement */
-    #modalPaiementAvance {
-      display: none;
-      position: fixed;
-      z-index: 2000;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      align-items: center;
-      justify-content: center;
-      padding: 15px;
-    }
-    #modalPaiementAvance .modal-content {
-      background: var(--white);
-      border-radius: var(--border-radius);
-      max-width: 400px;
-      width: 100%;
-      padding: 20px;
-      box-shadow: var(--shadow);
-      position: relative;
-    }
-    #modalPaiementAvance .modal-content .close {
-      position: absolute;
-      top: 10px;
-      right: 15px;
-      font-size: 24px;
-      cursor: pointer;
-    }
-    #modalPaiementAvance .modal-content h2 {
-      margin-bottom: 15px;
-      text-align: center;
-      font-size: 20px;
-      color: var(--primary-color);
-    }
-    #modalPaiementAvance .modal-content label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 500;
-    }
-    #modalPaiementAvance .modal-content input, 
-    #modalPaiementAvance .modal-content select, 
-    #modalPaiementAvance .modal-content textarea {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: var(--border-radius);
-      font-size: 16px;
-    }
-    #modalPaiementAvance .modal-content button {
-      width: 100%;
-      padding: 10px;
-      background: var(--primary-color);
-      color: var(--white);
-      border: none;
-      border-radius: var(--border-radius);
-      cursor: pointer;
-      font-size: 16px;
-    }
-  </style>
-
+    <!-- Section Avance de Paiement -->
+<section id="screen-advance" class="screen">
   <header>
     <button class="back-btn" onclick="window.location.hash='menu'">
-      <i data-lucide="arrow-left"></i>
+      <i data-lucide="arrow-left"></i> Retour
     </button>
-    <h1>Suivi des ventes en avance</h1>
+    <h1>Enregistrer une Avance</h1>
   </header>
-  <div class="search-container">
-    <input type="text" id="rechercheAvance" placeholder="Rechercher par nom de client..." />
-  </div>
-  <div class="cards-container" id="avancesContainer">
-    <!-- Les cartes des ventes en avance seront affichées ici -->
+  <div class="form-section">
+    <h2>Avance de Paiement</h2>
+    <form id="formAdvance" onsubmit="event.preventDefault(); enregistrerAvance();">
+      <label for="saleId">ID de la Vente</label>
+      <input type="text" id="saleId" placeholder="Entrez l'ID de la vente" required />
+
+      <label for="avanceAmount">Montant de l'Avance (FCFA)</label>
+      <input type="number" id="avanceAmount" placeholder="Montant de l'avance" required />
+
+      <label for="modePaiement">Mode de Paiement</label>
+      <select id="modePaiement">
+        <option value="espèces">Espèces</option>
+        <option value="carte">Carte bancaire</option>
+        <option value="virement">Virement</option>
+      </select>
+
+      <button type="submit" class="btn-modern">Enregistrer l'Avance</button>
+    </form>
   </div>
 </section>
 
-<!-- Modal pour compléter le paiement en avance -->
-<div id="modalPaiementAvance">
-  <div class="modal-content">
-    <span class="close" onclick="fermerModalPaiementAvance()">&times;</span>
-    <h2>Compléter le paiement</h2>
-    <p>Client : <span id="clientPaiement"></span></p>
-    <p>Total de la vente : <span id="totalVente"></span> FCFA</p>
-    <p>Payé déjà : <span id="paidVente"></span> FCFA</p>
-    <p>Reste à payer : <span id="remainingVente"></span> FCFA</p>
-    <label for="montantPaiement">Montant à ajouter :</label>
-    <input type="number" id="montantPaiement" placeholder="Montant" min="1" />
-    <label for="modePaiement">Mode de paiement :</label>
-    <select id="modePaiement">
-      <option value="espèces">Espèces</option>
-      <option value="carte">Carte</option>
-      <option value="virement">Virement</option>
-    </select>
-    <label for="remarquesPaiement">Remarques (facultatif) :</label>
-    <textarea id="remarquesPaiement" placeholder="Remarques"></textarea>
-    <button onclick="validerPaiementAvance()">Enregistrer le paiement</button>
-  </div>
-</div>
-
+<!-- Script pour la gestion des avances -->
 <script>
-  /* --- Partie JavaScript pour l'écran Avance --- */
+  /**
+   * Fonction pour enregistrer une avance de paiement sur une vente.
+   * Elle récupère le document de vente par son ID, vérifie le solde restant,
+   * ajoute le paiement dans la sous-collection "paiements" puis met à jour le document.
+   */
+  function enregistrerAvance() {
+    const saleId = document.getElementById("saleId").value.trim();
+    const avanceAmount = parseFloat(document.getElementById("avanceAmount").value);
+    const modePaiement = document.getElementById("modePaiement").value;
 
-  // Fonction pour charger les ventes avec avance
-  function chargerVentesAvance() {
-    // Sélectionne les ventes où isAdvance est vrai et remainingBalance > 0
-    dbFirestore.collection("ventes")
-      .where("isAdvance", "==", true)
-      .where("remainingBalance", ">", 0)
-      .orderBy("timestamp", "desc")
-      .get()
-      .then(querySnapshot => {
-        const container = document.getElementById("avancesContainer");
-        container.innerHTML = "";
-        querySnapshot.forEach(doc => {
-          const vente = { id: doc.id, ...doc.data() };
-          const card = document.createElement("div");
-          card.className = "avance-card";
-          card.innerHTML = `
-            <p><strong>${vente.clientNom}</strong></p>
-            <p>Total : ${vente.totalAmount} FCFA</p>
-            <p>Payé : ${vente.paidAmount} FCFA</p>
-            <p>Reste : ${vente.remainingBalance} FCFA</p>
-            <button onclick="ouvrirModalPaiement('${vente.id}', '${vente.clientNom}', ${vente.totalAmount}, ${vente.paidAmount}, ${vente.remainingBalance})">
-              Compléter le paiement
-            </button>
-          `;
-          container.appendChild(card);
-        });
-        lucide.createIcons();
-      })
-      .catch(error => console.error("Erreur lors du chargement des ventes en avance : ", error.message));
-  }
-
-  // Fonction pour ouvrir le modal de paiement
-  let currentVenteId = null;
-  function ouvrirModalPaiement(venteId, clientNom, total, paid, remaining) {
-    currentVenteId = venteId;
-    document.getElementById("clientPaiement").textContent = clientNom;
-    document.getElementById("totalVente").textContent = total;
-    document.getElementById("paidVente").textContent = paid;
-    document.getElementById("remainingVente").textContent = remaining;
-    document.getElementById("montantPaiement").value = "";
-    document.getElementById("modePaiement").value = "espèces";
-    document.getElementById("remarquesPaiement").value = "";
-    document.getElementById("modalPaiementAvance").style.display = "flex";
-  }
-
-  // Fonction pour fermer le modal de paiement
-  function fermerModalPaiementAvance() {
-    document.getElementById("modalPaiementAvance").style.display = "none";
-  }
-
-  // Fonction pour enregistrer le paiement partiel via transaction Firestore
-  // Fonction modifiée de validation d'un paiement complémentaire sur une vente en avance
-function validerPaiementAvance() {
-  const montant = parseFloat(document.getElementById("montantPaiement").value);
-  if (!montant || montant <= 0) {
-      alert("Veuillez saisir un montant valide.");
+    if (!saleId) {
+      alert("Veuillez saisir l'ID de la vente.");
       return;
+    }
+    if (isNaN(avanceAmount) || avanceAmount <= 0) {
+      alert("Veuillez saisir un montant d'avance valide.");
+      return;
+    }
+
+    // Récupérer le document de vente dans la collection "ventes"
+    const saleRef = dbFirestore.collection("ventes").doc(saleId);
+    saleRef.get().then(doc => {
+      if (!doc.exists) {
+        alert("Vente introuvée !");
+        return;
+      }
+      const saleData = doc.data();
+      // Si la vente est déjà réglée, on ne peut pas enregistrer d'avance
+      if (saleData.status === "complet") {
+        alert("La vente est déjà réglée en totalité.");
+        return;
+      }
+      // Calculer le solde restant (en utilisant le champ remainingBalance si présent)
+      const remaining = saleData.remainingBalance !== undefined
+                        ? saleData.remainingBalance
+                        : saleData.totalAmount - (saleData.paidAmount || 0);
+      if (avanceAmount > remaining) {
+        alert("Le montant d'avance dépasse le solde restant (" + remaining.toLocaleString() + " FCFA).");
+        return;
+      }
+      // Créer un document de paiement dans la sous-collection "paiements"
+      const paiement = {
+        montant: avanceAmount,
+        datePaiement: new Date().toISOString(),
+        modePaiement: modePaiement
+      };
+      saleRef.collection("paiements").add(paiement)
+        .then(() => {
+          // Mettre à jour le document de vente avec le nouveau cumul et recalculer le solde
+          const newPaidAmount = (saleData.paidAmount || 0) + avanceAmount;
+          const newRemaining = saleData.totalAmount - newPaidAmount;
+          const newStatus = newRemaining <= 0 ? "complet" : "avance partielle";
+          return saleRef.update({
+            paidAmount: newPaidAmount,
+            remainingBalance: newRemaining,
+            status: newStatus
+          });
+        })
+        .then(() => {
+          alert("Avance enregistrée avec succès !");
+          document.getElementById("formAdvance").reset();
+        })
+        .catch(err => {
+          console.error("Erreur lors de l'enregistrement de l'avance :", err);
+          alert("Erreur lors de l'enregistrement de l'avance : " + err.message);
+        });
+    })
+    .catch(error => {
+      console.error("Erreur lors de la récupération de la vente :", error);
+      alert("Erreur lors de la récupération de la vente : " + error.message);
+    });
   }
-  const modePaiement = document.getElementById("modePaiement").value;
-  const remarques = document.getElementById("remarquesPaiement").value;
-  
-  dbFirestore.runTransaction(async (transaction) => {
-      const venteRef = dbFirestore.collection("ventes").doc(currentVenteId);
-      const venteDoc = await transaction.get(venteRef);
-      if (!venteDoc.exists) {
-          throw "Vente non trouvée";
-      }
-      const venteData = venteDoc.data();
-      const newPaidAmount = parseFloat(venteData.paidAmount) + montant;
-      const newRemaining = parseFloat(venteData.totalAmount) - newPaidAmount;
-      let newStatus = "avance partielle";
-      if (newRemaining <= 0) {
-          newStatus = "complet";
-      }
-      transaction.update(venteRef, {
-          paidAmount: newPaidAmount,
-          remainingBalance: newRemaining,
-          status: newStatus
-      });
-      const paiementRef = venteRef.collection("paiements").doc();
-      transaction.set(paiementRef, {
-          montant: montant,
-          modePaiement: modePaiement,
-          remarques: remarques,
-          datePaiement: new Date().toISOString(),
-          timestamp: Date.now()
-      });
-      return { newStatus, newRemaining, venteData };
-  })
-  .then(result => {
-      fermerModalPaiementAvance();
-      // Mettre à jour la trésorerie avec le paiement complémentaire reçu
-      getRunningBalance().then(soldeActuel => {
-         const nouveauSolde = soldeActuel + montant;
-         setRunningBalance(nouveauSolde);
-      });
-      alert(result.newStatus === "complet" 
-         ? "Paiement complet ! La vente est finalisée." 
-         : "Paiement enregistré. Reste à payer : " + result.newRemaining.toFixed(2) + " FCFA");
-      if (result.newStatus === "complet") {
-         updateStockAfterSaleFirestore(result.venteData.reservedItems)
-         .then(() => {
-            updateBalanceDisplay();
-         });
-      }
-      chargerVentesAvance();
-      afficherVentes();
-  })
-  .catch(error => {
-      alert("Erreur lors de l'enregistrement du paiement : " + error);
-  });
-}
-
-
-  // Charger les ventes en avance lorsque l'écran "avance" est affiché
-  window.addEventListener('load', () => {
-    if (window.location.hash === '#avance') {
-      chargerVentesAvance();
-    }
-  });
-  window.addEventListener('hashchange', () => {
-    if (window.location.hash === '#avance') {
-      chargerVentesAvance();
-    }
-  });
 </script>
 
-    
 
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
@@ -1221,13 +1014,7 @@ function validerPaiementAvance() {
           <div class="section" onclick="window.location.hash='approvisionnement'">
             <i data-lucide="archive"></i>
             Approvisionnement
-          </div>  
-          
-          <div class="section" onclick="window.location.hash='avance'">
-            <i data-lucide="dollar-sign"></i>
-            Avance
-          </div>
-          
+          </div>          
           <!-- "Base Clients" section supprimée -->
           <div class="section" onclick="window.location.hash='notifications'">
             <i data-lucide="bell-ring"></i>
@@ -1241,7 +1028,11 @@ function validerPaiementAvance() {
             <i data-lucide="file-minus"></i>
             Dépenses
           </div>
-
+          <!-- Dans la section du Menu, par exemple dans la div contenant les sections -->
+          <div class="section" onclick="window.location.hash='advance'">
+            <i data-lucide="dollar-sign"></i>
+            Avance
+          </div>
           <div class="section" onclick="window.location.hash='repertoire-imei'">
             <i data-lucide="list"></i>
             Répertoire d'IMEI
@@ -3855,6 +3646,10 @@ function updateDepensePapaBalance() {
       // Code spécifique pour le répertoire d'IMEI, si nécessaire
       break;
     // Ajoutez d'autres cas si nécessaire
+
+    case 'advance':  // Ajout du cas pour la section avance
+      // Vous pouvez ajouter des actions spécifiques si besoin
+      break;
   }
 }
 
@@ -3997,17 +3792,17 @@ function updateDepensePapaBalance() {
         finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
       }
     }
-// Fonction modifiée de finalisation de vente
-function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+    function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
   showSaleLoader();
   const now = new Date();
   const dateVente = now.toLocaleDateString("fr-FR");
   const heureVente = now.toLocaleTimeString("fr-FR");
   
+  // Calcul de l'overallTotal et calcul du profit par article
   let overallTotal = 0;
   let totalProfit = 0;
   
-  // Calcul de l'overallTotal et du profit pour chaque article
+  // Pour chaque article vendu, on calcule le profit en récupérant le coût d'achat moyen
   const profitCalculations = currentItems.map(item => {
     overallTotal += parseFloat(item.total);
     return dbFirestore.collection("stock")
@@ -4016,26 +3811,19 @@ function finaliserVente(clientNom, clientNumero, vendeur, photoData, observation
       .then(querySnapshot => {
         if (!querySnapshot.empty) {
           const stockData = querySnapshot.docs[0].data();
+          // Profit unitaire = Prix de vente saisi - coût moyen (stock.price)
           const profitUnitaire = item.prix - (stockData.price || 0);
           const profitTotal = profitUnitaire * item.quantite;
           totalProfit += profitTotal;
+          // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
           item.profitUnitaire = profitUnitaire;
           item.profitTotal = profitTotal;
         }
       });
   });
   
+  // Attendre que tous les calculs de profit soient faits
   Promise.all(profitCalculations).then(() => {
-    // Pour une vente en avance, seul le montant payé est encaissé
-    const isAdvance = document.getElementById("isAdvance").checked;
-    let initialPaidAmount = 0;
-    if (isAdvance) {
-      initialPaidAmount = parseFloat(document.getElementById("paidAmountAdvance").value) || 0;
-    } else {
-      initialPaidAmount = overallTotal;
-    }
-    
-    // Enregistrement de la vente avec le montant payé et le solde restant
     const vente = { 
       dateVente, 
       heureVente, 
@@ -4043,12 +3831,8 @@ function finaliserVente(clientNom, clientNumero, vendeur, photoData, observation
       clientNumero, 
       vendeur,
       items: currentItems, 
-      totalAmount: overallTotal.toFixed(2),
-      paidAmount: initialPaidAmount,
-      remainingBalance: (overallTotal - initialPaidAmount).toFixed(2),
-      isAdvance: isAdvance,
-      reservedItems: currentItems,  // Réservation pour vente avec avance
-      status: isAdvance ? (initialPaidAmount < overallTotal ? "avance partielle" : "complet") : "complet",
+      overallTotal: overallTotal.toFixed(2),
+      totalProfit: totalProfit.toFixed(2), // Stocker le profit total de la vente
       photoFacture: photoData, 
       observationsVendeur,
       isDelivery,
@@ -4057,59 +3841,88 @@ function finaliserVente(clientNom, clientNumero, vendeur, photoData, observation
     };
     
     addSaleFirestore(vente)
-      .then((saleId) => {
-        // Pour les ventes payées intégralement, déduction immédiate du stock
-        if (!isAdvance) {
-          return updateStockAfterSaleFirestore(currentItems);
-        }
-      })
+      .then(() => updateStockAfterSaleFirestore(currentItems))
       .then(() => getRunningBalance())
       .then(soldeActuel => {
-         // Mise à jour de la trésorerie : on ajoute uniquement le montant encaissé
-         const nouveauSolde = soldeActuel + parseFloat(initialPaidAmount);
-         return setRunningBalance(nouveauSolde);
+        const nouveauSolde = soldeActuel + parseFloat(overallTotal);
+        return setRunningBalance(nouveauSolde);
       })
       .then(() => {
-         // En cas de vente en avance, enregistrer le montant restant comme créance client
-         if (isAdvance && overallTotal > initialPaidAmount) {
-             const receivable = {
-                // saleId pourra être utilisé pour le lien avec la vente
-                saleId: vente.id, 
-                clientNom,
-                remainingAmount: (overallTotal - initialPaidAmount).toFixed(2),
-                timestamp: Date.now()
-             };
-             return dbFirestore.collection("creances").add(receivable);
-         }
-      })
-      .then(() => {
-         hideSaleLoader();
-         alert(isDelivery ? "Livraison validée !" : "Vente validée !");
-         // Réinitialiser les champs et le panier
-         currentItems = [];
-         document.getElementById("clientNom").value = "";
-         document.getElementById("clientNumero").value = "";
-         document.getElementById("photoFacture").value = "";
-         document.getElementById("observationsVendeur").value = "";
-         if (document.getElementById("isAdvance")) {
-            document.getElementById("isAdvance").checked = false;
-            toggleAdvanceField();
-         }
-         if (document.getElementById("isDelivery")) {
-            document.getElementById("isDelivery").checked = false;
-            toggleDeliveryFields();
-         }
-         afficherVentes();
-         if(isDelivery) {
-            afficherLivraisons();
-         }
-         updateBalanceDisplay();
+        hideSaleLoader();
+        alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+        currentItems = [];
+        document.getElementById("clientNom").value = "";
+        document.getElementById("clientNumero").value = "";
+        document.getElementById("photoFacture").value = "";
+        document.getElementById("observationsVendeur").value = "";
+        document.getElementById("isDelivery").checked = false;
+        toggleDeliveryFields();
+        afficherVentes();
+        if(isDelivery) {
+          afficherLivraisons();
+        }
+        updateBalanceDisplay();
       })
       .catch(error => {
-         hideSaleLoader();
-         alert("Erreur lors de l'ajout de la vente : " + error.message);
+        hideSaleLoader();
+        alert("Erreur lors de l'ajout de la vente : " + error.message);
       });
   });
+}
+
+
+    // Compression de l'image via canvas
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Affichage et détails des ventes
+    function afficherVentes() {
+  getAllSalesFirestore()
+    .then(ventes => {
+      const container = document.getElementById("ventesContainer");
+      container.innerHTML = "";
+      if (ventes.length === 0) {
+        container.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
+            <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+            <p style="font-size: 18px; color: #888; margin-top: 20px;">
+              Aucune vente enregistrée…
+            </p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+      ventes.forEach(sale => {
+        const card = document.createElement("div");
+        card.className = "vente-card";
+        card.innerHTML = `
+          <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+          <p>Vendeur : ${sale.vendeur}</p>
+          <p>Articles : ${sale.items ? sale.items.length : 0}</p>
+          <p>Total : ${sale.overallTotal}</p>
+          <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+          <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>
+        `;
+        container.appendChild(card);
+      });
+    })
+    .catch(error => console.error("Erreur lors de la récupération des ventes : " + error.message));
 }
 
     
