@@ -869,6 +869,112 @@
       </div>
     </section>
 
+    <!-- Section Avance de Paiement -->
+<section id="screen-advance" class="screen">
+  <header>
+    <button class="back-btn" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i> Retour
+    </button>
+    <h1>Enregistrer une Avance</h1>
+  </header>
+  <div class="form-section">
+    <h2>Avance de Paiement</h2>
+    <form id="formAdvance" onsubmit="event.preventDefault(); enregistrerAvance();">
+      <label for="saleId">ID de la Vente</label>
+      <input type="text" id="saleId" placeholder="Entrez l'ID de la vente" required />
+
+      <label for="avanceAmount">Montant de l'Avance (FCFA)</label>
+      <input type="number" id="avanceAmount" placeholder="Montant de l'avance" required />
+
+      <label for="modePaiement">Mode de Paiement</label>
+      <select id="modePaiement">
+        <option value="espèces">Espèces</option>
+        <option value="carte">Carte bancaire</option>
+        <option value="virement">Virement</option>
+      </select>
+
+      <button type="submit" class="btn-modern">Enregistrer l'Avance</button>
+    </form>
+  </div>
+</section>
+
+<!-- Script pour la gestion des avances -->
+<script>
+  /**
+   * Fonction pour enregistrer une avance de paiement sur une vente.
+   * Elle récupère le document de vente par son ID, vérifie le solde restant,
+   * ajoute le paiement dans la sous-collection "paiements" puis met à jour le document.
+   */
+  function enregistrerAvance() {
+    const saleId = document.getElementById("saleId").value.trim();
+    const avanceAmount = parseFloat(document.getElementById("avanceAmount").value);
+    const modePaiement = document.getElementById("modePaiement").value;
+
+    if (!saleId) {
+      alert("Veuillez saisir l'ID de la vente.");
+      return;
+    }
+    if (isNaN(avanceAmount) || avanceAmount <= 0) {
+      alert("Veuillez saisir un montant d'avance valide.");
+      return;
+    }
+
+    // Récupérer le document de vente dans la collection "ventes"
+    const saleRef = dbFirestore.collection("ventes").doc(saleId);
+    saleRef.get().then(doc => {
+      if (!doc.exists) {
+        alert("Vente introuvée !");
+        return;
+      }
+      const saleData = doc.data();
+      // Si la vente est déjà réglée, on ne peut pas enregistrer d'avance
+      if (saleData.status === "complet") {
+        alert("La vente est déjà réglée en totalité.");
+        return;
+      }
+      // Calculer le solde restant (en utilisant le champ remainingBalance si présent)
+      const remaining = saleData.remainingBalance !== undefined
+                        ? saleData.remainingBalance
+                        : saleData.totalAmount - (saleData.paidAmount || 0);
+      if (avanceAmount > remaining) {
+        alert("Le montant d'avance dépasse le solde restant (" + remaining.toLocaleString() + " FCFA).");
+        return;
+      }
+      // Créer un document de paiement dans la sous-collection "paiements"
+      const paiement = {
+        montant: avanceAmount,
+        datePaiement: new Date().toISOString(),
+        modePaiement: modePaiement
+      };
+      saleRef.collection("paiements").add(paiement)
+        .then(() => {
+          // Mettre à jour le document de vente avec le nouveau cumul et recalculer le solde
+          const newPaidAmount = (saleData.paidAmount || 0) + avanceAmount;
+          const newRemaining = saleData.totalAmount - newPaidAmount;
+          const newStatus = newRemaining <= 0 ? "complet" : "avance partielle";
+          return saleRef.update({
+            paidAmount: newPaidAmount,
+            remainingBalance: newRemaining,
+            status: newStatus
+          });
+        })
+        .then(() => {
+          alert("Avance enregistrée avec succès !");
+          document.getElementById("formAdvance").reset();
+        })
+        .catch(err => {
+          console.error("Erreur lors de l'enregistrement de l'avance :", err);
+          alert("Erreur lors de l'enregistrement de l'avance : " + err.message);
+        });
+    })
+    .catch(error => {
+      console.error("Erreur lors de la récupération de la vente :", error);
+      alert("Erreur lors de la récupération de la vente : " + error.message);
+    });
+  }
+</script>
+
+
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
       <div class="menu">
@@ -922,7 +1028,11 @@
             <i data-lucide="file-minus"></i>
             Dépenses
           </div>
-
+          <!-- Dans la section du Menu, par exemple dans la div contenant les sections -->
+          <div class="section" onclick="window.location.hash='advance'">
+            <i data-lucide="dollar-sign"></i>
+            Avance
+          </div>
           <div class="section" onclick="window.location.hash='repertoire-imei'">
             <i data-lucide="list"></i>
             Répertoire d'IMEI
@@ -3536,6 +3646,10 @@ function updateDepensePapaBalance() {
       // Code spécifique pour le répertoire d'IMEI, si nécessaire
       break;
     // Ajoutez d'autres cas si nécessaire
+
+    case 'advance':  // Ajout du cas pour la section avance
+      // Vous pouvez ajouter des actions spécifiques si besoin
+      break;
   }
 }
 
