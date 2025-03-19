@@ -798,8 +798,100 @@
           <span id="dateAfficheHist"></span>
         </div>
       </header>
+
+      <div id="history-filters" style="padding:10px; text-align:center;">
+        <input type="date" id="filterHistoryDate" onchange="filterHistory()" />
+        <div id="totalPhonesSold" style="margin-top:10px; font-weight:bold;"></div>
+      </div>
       <div id="ventesContainer" class="list-container"></div>
     </section>
+
+    <script>
+      // Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
+      window.addEventListener("load", () => {
+        const todayISO = new Date().toISOString().split("T")[0];
+        document.getElementById("filterHistoryDate").value = todayISO;
+        filterHistory(); // Charge automatiquement les ventes d'aujourd'hui
+      });
+    
+      // Fonction pour filtrer l'historique des ventes en fonction de la date sélectionnée
+      function filterHistory() {
+        const dateInput = document.getElementById("filterHistoryDate").value;
+        if (!dateInput) {
+          console.warn("Aucune date sélectionnée");
+          return;
+        }
+        // Convertir la date ISO en format "fr-FR" (par exemple "19/03/2025")
+        const selectedDate = new Date(dateInput).toLocaleDateString("fr-FR");
+    
+        dbFirestore.collection("ventes")
+          .where("dateVente", "==", selectedDate)
+          .get()
+          .then(querySnapshot => {
+            let totalPhones = 0;
+            const salesList = [];
+            
+            querySnapshot.forEach(doc => {
+              const sale = doc.data();
+              sale.id = doc.id;
+              salesList.push(sale);
+              
+              // Calculer le total des téléphones vendus.
+              // Si l'article ne contient pas de propriété "category", on suppose que c'est un téléphone.
+              if (sale.items && Array.isArray(sale.items)) {
+                sale.items.forEach(item => {
+                  if (!item.category || item.category.toLowerCase() === "telephones") {
+                    totalPhones += parseInt(item.quantite) || 0;
+                  }
+                });
+              }
+            });
+            
+            // Met à jour l'affichage du nombre total de téléphones vendus
+            document.getElementById("totalPhonesSold").innerText =
+              "Total Téléphones vendus : " + totalPhones;
+            
+            // Affiche l'historique des ventes
+            displaySalesHistory(salesList);
+          })
+          .catch(err => {
+            console.error("Erreur lors du filtrage des ventes par date:", err);
+          });
+      }
+    
+      // Fonction pour afficher l'historique des ventes dans la section appropriée
+      function displaySalesHistory(salesList) {
+        const container = document.getElementById("ventesContainer");
+        container.innerHTML = "";
+        
+        if (salesList.length === 0) {
+          container.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
+              <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+              <p style="font-size: 18px; color: #888; margin-top: 20px;">Aucune vente enregistrée…</p>
+            </div>`;
+          lucide.createIcons();
+          return;
+        }
+        
+        salesList.forEach(sale => {
+          const card = document.createElement("div");
+          card.className = "vente-card";
+          card.innerHTML = `
+            <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+            <p>Vendeur : ${sale.vendeur}</p>
+            <p>Articles : ${sale.items ? sale.items.length : 0}</p>
+            <p>Total : ${sale.overallTotal}</p>
+            <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+            <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>
+          `;
+          container.appendChild(card);
+        });
+        // Recharge les icônes Lucide
+        lucide.createIcons();
+      }
+    </script>
+    
 
     <!-- Screen 4: Stock -->
     <section id="screen-stock" class="screen">
@@ -3199,6 +3291,10 @@ function updateProfitScreen() {
       measurementId: "G-LFT6C3Q9D9"
     };
     firebase.initializeApp(firebaseConfig);
+    firebase.firestore().enablePersistence()
+  .catch(err => {
+    console.error("Erreur d'activation de la persistance Firestore:", err);
+  });
     const dbFirestore = firebase.firestore();
 
     // Déclaration globale
@@ -3490,16 +3586,21 @@ function updateDepensePapaBalance() {
 
     // Fonctions Firestore pour le stock
     function getAllStockFirestore() {
-      return dbFirestore.collection("stock").get()
-        .then(querySnapshot => {
-          const stocks = [];
-          querySnapshot.forEach(doc => {
-            stocks.push({ id: doc.id, ...doc.data() });
-          });
-          return stocks;
-        })
-        .catch(error => { throw new Error("Erreur lors de la récupération du stock : " + error.message); });
-    }
+  return new Promise((resolve, reject) => {
+    dbFirestore.collection("stock").onSnapshot(snapshot => {
+      const stocks = [];
+      snapshot.forEach(doc => {
+        stocks.push({ id: doc.id, ...doc.data() });
+      });
+      // Mettre à jour le cache global
+      cachedStock = stocks;
+      resolve(stocks);
+    }, error => {
+      reject(new Error("Erreur lors de la récupération du stock : " + error.message));
+    });
+  });
+}
+
     function importStockToFirestore(stocks) {
       const batch = dbFirestore.batch();
       return dbFirestore.collection("stock").get()
@@ -3586,6 +3687,45 @@ function updateDepensePapaBalance() {
     const hash = window.location.hash.substring(1);
     showScreenByHash(hash);
     }
+// Votre fonction enregistrerSnapshotDaily ici
+function enregistrerSnapshotDaily() {
+  const today = new Date();
+  const todayString = today.toLocaleDateString("fr-FR");
+  
+  const historiqueRef = dbFirestore
+    .collection("tresorerie")
+    .doc("balance")
+    .collection("historique");
+  
+  historiqueRef.where("dateString", "==", todayString).get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        getRunningBalance().then(balance => {
+          historiqueRef.add({
+            date: firebase.firestore.Timestamp.fromDate(today),
+            dateString: todayString,
+            balance: balance
+          })
+          .then(() => {
+            console.log("Snapshot enregistré pour " + todayString);
+          })
+          .catch(err => {
+            console.error("Erreur lors de l'enregistrement du snapshot :", err.message);
+          });
+        });
+      } else {
+        console.log("Snapshot déjà existant pour " + todayString);
+      }
+    })
+    .catch(err => {
+      console.error("Erreur lors de la vérification du snapshot quotidien :", err.message);
+    });
+}
+
+// Appel de la fonction lors du chargement de la page
+window.addEventListener("load", () => {
+  enregistrerSnapshotDaily();
+});
 
 
   function showScreenByHash(hash) {
@@ -3622,7 +3762,7 @@ function updateDepensePapaBalance() {
       afficherLivraisons();
       break;
     case 'historique':
-      afficherVentes();
+         filterHistory();
       break;
     case 'depenses':
       chargerHistoriqueDepenses();
@@ -4444,22 +4584,38 @@ function updateDepensePapaBalance() {
         });
     }
     function ajouterOuMettreAJourStock(produit, quantite, prix, categorie) {
-      return dbFirestore.collection("stock")
-        .where("name", "==", produit)
-        .get()
-        .then(querySnapshot => {
-          if (!querySnapshot.empty) {
-            const doc = querySnapshot.docs[0];
-            const data = doc.data();
-            const newStock = (data.stock || 0) + quantite;
-            return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock, price: prix });
-          } else {
-            const icon = (categorie === "accessoires") ? "🎧" : "📱";
-            const newRecord = { name: produit, stock: quantite, price: prix, category: categorie, icon, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
-            return dbFirestore.collection("stock").add(newRecord);
-          }
+  return dbFirestore.collection("stock")
+    .where("name", "==", produit)
+    .get()
+    .then(querySnapshot => {
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        const data = doc.data();
+        const oldStock = parseFloat(data.stock) || 0;
+        const oldPrice = parseFloat(data.price) || 0;
+        const newStock = oldStock + quantite;
+        // Calcul du prix moyen pondéré :
+        // ((ancien stock * ancien prix) + (quantité approvisionnée * prix approvisionnement)) / nouveau stock
+        const newPrice = ((oldStock * oldPrice) + (quantite * prix)) / newStock;
+        return dbFirestore.collection("stock").doc(doc.id).update({
+          stock: newStock,
+          price: newPrice
         });
-    }
+      } else {
+        const icon = (categorie === "accessoires") ? "🎧" : "📱";
+        const newRecord = { 
+          name: produit, 
+          stock: quantite, 
+          price: prix, 
+          category: categorie, 
+          icon, 
+          createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+        };
+        return dbFirestore.collection("stock").add(newRecord);
+      }
+    });
+}
+
 
     // Gestion des Vendeurs via Firestore
     function chargerVendeurs() {
