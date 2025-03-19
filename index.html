@@ -3374,7 +3374,8 @@ function debounce(func, delay) {
 // met à jour le document "depensePapa/balance" et rafraîchit l'affichage sur le bouton.
 function updateDepensePapaBalance() {
   console.log("Mise à jour du solde des dépenses Papa...");
-  return dbFirestore.collection("depenses")
+  // Récupérer la somme des dépenses papa
+  const depensesPromise = dbFirestore.collection("depenses")
     .where("type", "==", "papa")
     .get()
     .then(snapshot => {
@@ -3382,18 +3383,32 @@ function updateDepensePapaBalance() {
       snapshot.forEach(doc => {
         totalDepenses += parseFloat(doc.data().montant) || 0;
       });
-      // On retourne la somme pour la chaînage
       return totalDepenses;
+    });
+  
+  // Récupérer la somme des remboursements (pour papa)
+  const remboursementsPromise = dbFirestore.collection("remboursements")
+    // Si nécessaire, vous pouvez filtrer ici uniquement pour les remboursements destinés aux "dépenses papa"
+    .get()
+    .then(snapshot => {
+      let totalRemboursements = 0;
+      snapshot.forEach(doc => {
+        totalRemboursements += parseFloat(doc.data().montant) || 0;
+      });
+      return totalRemboursements;
+    });
+  
+  return Promise.all([depensesPromise, remboursementsPromise])
+    .then(([totalDepenses, totalRemboursements]) => {
+      // Calculer le solde en soustrayant les remboursements des dépenses
+      const newBalance = totalDepenses - totalRemboursements;
+      return dbFirestore.collection("depensePapa").doc("balance").set({ montant: newBalance })
+        .then(() => newBalance);
     })
-    .then(totalDepenses => {
-      // Mise à jour du document "depensePapa/balance" avec la somme calculée
-      return dbFirestore.collection("depensePapa").doc("balance").set({ montant: totalDepenses })
-        .then(() => totalDepenses);
-    })
-    .then(totalDepenses => {
-      console.log("Solde des dépenses Papa mis à jour :", totalDepenses);
+    .then(newBalance => {
+      console.log("Solde des dépenses Papa mis à jour :", newBalance);
       updateDepensePapaButton(); // Rafraîchit l'affichage du bouton
-      return totalDepenses;
+      return newBalance;
     })
     .catch(error => {
       console.error("Erreur dans updateDepensePapaBalance() :", error);
