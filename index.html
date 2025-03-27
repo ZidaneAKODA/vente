@@ -4476,34 +4476,52 @@ window.addEventListener("load", () => {
       document.getElementById("stock-home").style.display = "block";
     }
     function filterStockCategory() {
-      const searchInput = document.getElementById("search-category");
-      if (!searchInput) {
-        console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
-        return;
+  const searchInput = document.getElementById("search-category");
+  if (!searchInput) {
+    console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
+    return;
+  }
+  const searchTerm = searchInput.value.toLowerCase();
+  getAllStockFirestore().then(stocks => {
+    let filteredProducts = stocks.filter(prod =>
+      prod.category === currentStockCategory &&
+      prod.name.toLowerCase().includes(searchTerm)
+    );
+    // Tri personnalisé : extraire le premier mot et lui attribuer un rang
+    filteredProducts.sort((a, b) => {
+      const firstA = a.name.split(" ")[0].toLowerCase();
+      const firstB = b.name.split(" ")[0].toLowerCase();
+      // Définition de l'ordre souhaité
+      const ordre = { "tecno": 1, "infinix": 2, "itel": 3, "redmi": 4 };
+      const rankA = ordre[firstA] || 5; // Les autres auront la valeur 5
+      const rankB = ordre[firstB] || 5;
+      if (rankA !== rankB) {
+        return rankA - rankB;
       }
-      const searchTerm = searchInput.value.toLowerCase();
-      getAllStockFirestore().then(stocks => {
-        const filteredProducts = stocks.filter(prod => prod.category === currentStockCategory && prod.name.toLowerCase().includes(searchTerm));
-        const container = document.getElementById("category-container");
-        container.innerHTML = "";
-        if(filteredProducts.length === 0) {
-          container.innerHTML = "<p>Aucun produit trouvé.</p>";
-          return;
-        }
-        filteredProducts.forEach(prod => {
-          const card = document.createElement("div");
-          card.className = "product-card";
-          card.innerHTML = 
-            `<div class="product-icon">${prod.icon}</div>
-            <div class="product-details">
-              <h3>${prod.name}</h3>
-              <p>🔹 Stock : ${prod.stock} unités</p>
-              <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-            </div>`;
-          container.appendChild(card);
-        });
-      }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
+      // En cas d'égalité de rang, trier alphabétiquement par nom complet
+      return a.name.localeCompare(b.name);
+    });
+    
+    const container = document.getElementById("category-container");
+    container.innerHTML = "";
+    if (filteredProducts.length === 0) {
+      container.innerHTML = "<p>Aucun produit trouvé.</p>";
+      return;
     }
+    filteredProducts.forEach(prod => {
+      const card = document.createElement("div");
+      card.className = "product-card";
+      card.innerHTML =
+        `<div class="product-icon">${prod.icon}</div>
+         <div class="product-details">
+           <h3>${prod.name}</h3>
+           <p>🔹 Stock : ${prod.stock} unités</p>
+           <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+         </div>`;
+      container.appendChild(card);
+    });
+  }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
+}
 
     // Importation du stock depuis un fichier TXT
     function importStockFile(event) {
