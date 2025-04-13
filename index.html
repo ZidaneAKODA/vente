@@ -1387,14 +1387,6 @@
   </header>
 
   <div class="depenses-container">
-    <div class="depenses-summary">
-      <div class="summary-item">
-        <!-- Ici, on affiche exclusivement la somme des dépenses du jour -->
-        <h2 id="depenses-today-dep">0 FCFA</h2>
-        <p>Dépenses aujourd'hui</p>
-      </div>
-    </div>
-
     <div class="actions">
       <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
         <i data-lucide="file-minus"></i> Dépense Fonctionnelle
@@ -1454,79 +1446,78 @@
      * Récupère l'ensemble des documents de "depenses" et "remboursements",
      * les fusionne, puis affiche un historique récent.
      */
-    function chargerHistoriqueDepenses() {
-      const depensesPromise = dbFirestore.collection("depenses")
-        .orderBy("timestamp", "desc")
-        .get()
-        .then(snapshot => {
-          let depensesArray = [];
-          snapshot.forEach(doc => {
-            let d = doc.data();
-            // Par défaut, si le champ type n'existe pas, on le considère comme "depense"
-            d.type = d.type || "depense";
-            depensesArray.push(d);
-          });
-          return depensesArray;
-        });
+     function chargerHistoriqueDepenses() {
+  const depensesPromise = dbFirestore.collection("depenses")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(snapshot => {
+      let depensesArray = [];
+      snapshot.forEach(doc => {
+        let d = doc.data();
+        // On utilise "depense" par défaut si aucun type n'est défini
+        d.type = d.type || "depense";
+        depensesArray.push(d);
+      });
+      return depensesArray;
+    });
 
-      const remboursementsPromise = dbFirestore.collection("remboursements")
-        .orderBy("timestamp", "desc")
-        .get()
-        .then(snapshot => {
-          let remboursementsArray = [];
-          snapshot.forEach(doc => {
-            let r = doc.data();
-            r.type = "remboursement";
-            remboursementsArray.push(r);
-          });
-          return remboursementsArray;
-        });
+  const remboursementsPromise = dbFirestore.collection("remboursements")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(snapshot => {
+      let remboursementsArray = [];
+      snapshot.forEach(doc => {
+        let r = doc.data();
+        r.type = "remboursement";
+        remboursementsArray.push(r);
+      });
+      return remboursementsArray;
+    });
 
-      Promise.all([depensesPromise, remboursementsPromise])
-        .then(([depenses, remboursements]) => {
-          let combined = depenses.concat(remboursements);
-          // On trie par timestamp décroissant
-          combined.sort((a, b) => b.timestamp - a.timestamp);
+  Promise.all([depensesPromise, remboursementsPromise])
+    .then(([depenses, remboursements]) => {
+      let combined = depenses.concat(remboursements);
+      combined.sort((a, b) => b.timestamp - a.timestamp);
 
-          const container = document.getElementById("recent-depenses");
-          container.innerHTML = "";
+      const container = document.getElementById("recent-depenses");
+      container.innerHTML = "";
 
-          combined.forEach(item => {
-            let iconHtml = "";
-            let montantDisplay = "";
-            
-            if (item.type === "depense" || item.type === "papa") {
-              // Icône si c'est une "dépense papa"
-              iconHtml = item.type === "papa" 
-                ? `<i data-lucide="user-minus"></i>` 
-                : `<i data-lucide="file-minus"></i>`;
-              montantDisplay = `<div class="amount out">-XOF ${item.montant.toLocaleString()}</div>`;
-            } 
-            else if (item.type === "remboursement") {
-              // Icône pour un "remboursement"
-              iconHtml = `<i data-lucide="user-check"></i>`;
-              montantDisplay = `<div class="amount in">+XOF ${item.montant.toLocaleString()}</div>`;
-            }
+      combined.forEach(item => {
+        let iconHtml = "";
+        let montantDisplay = "";
+        
+        // On considère "depense fonctionnelle" comme une dépense classique pour l'affichage
+        if (item.type === "depense" ||
+            item.type === "depense fonctionnelle" ||
+            item.type === "papa") {
+          iconHtml = (item.type === "papa") 
+            ? `<i data-lucide="user-minus"></i>` 
+            : `<i data-lucide="file-minus"></i>`;
+          montantDisplay = `<div class="amount out">-XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+        } else if (item.type === "remboursement") {
+          iconHtml = `<i data-lucide="user-check"></i>`;
+          montantDisplay = `<div class="amount in">+XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+        }
 
-            container.innerHTML += `
-              <div class="history-item" style="display: flex; align-items: center;">
-                <div class="depense-icon" style="margin-right: 10px;">
-                  ${iconHtml}
-                </div>
-                <div class="depense-info" style="flex-grow: 1;">
-                  ${item.description || "Aucune description"}<br>
-                  <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
-                </div>
-                ${montantDisplay}
-              </div>
-            `;
-          });
+        container.innerHTML += `
+          <div class="history-item" style="display: flex; align-items: center;">
+            <div class="depense-icon" style="margin-right: 10px;">
+              ${iconHtml}
+            </div>
+            <div class="depense-info" style="flex-grow: 1;">
+              ${item.description || "Aucune description"}<br>
+              <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
+            </div>
+            ${montantDisplay}
+          </div>
+        `;
+      });
+      // Recharge les icônes Lucide
+      lucide.createIcons();
+    })
+    .catch(error => console.error("Erreur lors du chargement des dépenses et remboursements :", error));
+}
 
-          // Recharge les icônes Lucide
-          lucide.createIcons();
-        })
-        .catch(error => console.error("Erreur lors du chargement des dépenses et remboursements :", error));
-    }
 
     /**
      * On met à jour le total des dépenses du jour + l'historique
@@ -2597,39 +2588,70 @@ function updateProfitScreen() {
     updatePanierApprovisionnement();
   }
 
-  // Finalise l'approvisionnement en enregistrant la commande et en mettant à jour le stock
   function finaliserApprovisionnement() {
-    if (currentApproItems.length === 0) {
-      alert("Le panier est vide.");
-      return;
-    }
-    // Supposons que tous les articles proviennent du même fournisseur
-    const fournisseur = currentApproItems[0].fournisseur;
-    const approvisionnement = {
-      fournisseur,
-      items: currentApproItems,
-      timestamp: Date.now()
-    };
-    dbFirestore.collection("approvisionnement").add(approvisionnement)
-      .then(() => {
-        // Met à jour le stock pour chaque article (ici, la catégorie est "telephones")
-        const updatePromises = currentApproItems.map(item => {
-          return ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, "telephones");
-        });
-        return Promise.all(updatePromises);
-      })
-      .then(() => {
-        alert("Approvisionnement enregistré avec succès !");
-        currentApproItems = [];
-        updatePanierApprovisionnement();
-        document.getElementById("fournisseurAppro").value = "";
-        chargerApprovisionnements();
-        updateStockSummary();
-      })
-      .catch(error => {
-        alert("Erreur lors de l'ajout de l'approvisionnement : " + error.message);
-      });
+  if (currentApproItems.length === 0) {
+    alert("Le panier est vide.");
+    return;
   }
+
+  // Supposons que tous les articles proviennent du même fournisseur
+  const fournisseur = currentApproItems[0].fournisseur;
+
+  // Calculer le coût total en sommant "coutTotal" de chaque article dans le panier
+  const totalCost = currentApproItems.reduce((acc, item) => {
+    return acc + parseFloat(item.coutTotal);
+  }, 0);
+
+  // Créer l'objet approvisionnement
+  const approvisionnement = {
+    fournisseur,
+    items: currentApproItems,
+    timestamp: Date.now()
+  };
+
+  // Enregistrer l'approvisionnement dans Firestore
+  dbFirestore.collection("approvisionnement").add(approvisionnement)
+    .then(() => {
+      // Mettre à jour le stock pour chaque article
+      const updatePromises = currentApproItems.map(item => {
+        return ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, "telephones");
+      });
+      return Promise.all(updatePromises);
+    })
+    .then(() => {
+      // Déduire le montant total d'approvisionnement du solde de la trésorerie
+      return getRunningBalance().then(soldeActuel => {
+        const nouveauSolde = soldeActuel - totalCost;
+        return setRunningBalance(nouveauSolde).then(() => totalCost);
+      });
+    })
+    .then((totalCost) => {
+      // Enregistrer la dépense fonctionnelle avec le libellé "Achats de m/ses de <fournisseur> - <montant>"
+      const depense = {
+        montant: totalCost,
+        description: "Achats de m/ses de " + fournisseur + " - " + totalCost.toLocaleString() + " FCFA",
+        type: "depense fonctionnelle",
+        date: new Date().toISOString(),
+        timestamp: Date.now()
+      };
+      return dbFirestore.collection("depenses").add(depense);
+    })
+    .then(() => {
+  alert("Approvisionnement enregistré avec succès !");
+  currentApproItems = [];
+  updatePanierApprovisionnement();
+  document.getElementById("fournisseurAppro").value = "";
+  chargerApprovisionnements();
+  updateStockSummary();
+  // Ajout de l'actualisation du total des dépenses aujourd'hui
+  updateBalanceDisplay();
+})
+
+    .catch(error => {
+      alert("Erreur lors de l'ajout de l'approvisionnement : " + error.message);
+    });
+}
+
 
   // Charger l'historique dès l'accès à la page Approvisionnement
   window.addEventListener('load', function() {
@@ -3297,6 +3319,8 @@ function updateProfitScreen() {
   });
     const dbFirestore = firebase.firestore();
 
+    
+
     // Déclaration globale
 let cachedStock = [];
 
@@ -3464,30 +3488,33 @@ function updateDepensePapaBalance() {
     }
 
     function calculateDepensesToday() {
-      const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
 
-      return dbFirestore.collection("depenses")
-        .where("timestamp", ">=", startOfToday)
-        .where("timestamp", "<=", endOfToday)
-        .get()
-        .then(snapshot => {
-          let totalDepenses = 0;
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            // On somme les dépenses de type "depense", "papa" ou non défini
-            if (data.type === "depense" || data.type === "papa" || !data.type) {
-              totalDepenses += parseFloat(data.montant) || 0;
-            }
-          });
-          return totalDepenses;
-        })
-        .catch(error => {
-          console.error("Erreur dans calculateDepensesToday : " + error.message);
-          return 0;
-        });
-    }
+  return dbFirestore.collection("depenses")
+    .where("timestamp", ">=", startOfToday)
+    .where("timestamp", "<=", endOfToday)
+    .get()
+    .then(snapshot => {
+      let totalDepenses = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        // On inclut "depense fonctionnelle" dans le calcul
+        if (data.type === "depense" ||
+            data.type === "depense fonctionnelle" ||
+            data.type === "papa" ||
+            !data.type) {
+          totalDepenses += parseFloat(data.montant) || 0;
+        }
+      });
+      return totalDepenses;
+    })
+    .catch(error => {
+      console.error("Erreur dans calculateDepensesToday : " + error.message);
+      return 0;
+    });
+}
 
     function updateBalanceDisplay() {
       Promise.all([
@@ -3846,30 +3873,45 @@ window.addEventListener("load", () => {
 
     // Ajout d'un article au panier
     function ajouterArticle() {
-      const produit = document.getElementById("produit").value.trim();
-      const prix = parseFloat(document.getElementById("prix").value);
-      const quantite = parseInt(document.getElementById("quantite").value);
-      const total = document.getElementById("totalArticle").value;
-      if(!produit) {
-        alert("Veuillez sélectionner un article.");
-        return;
-      }
-      if(!prix || prix <= 0) {
-        alert("Veuillez entrer un prix unitaire valide.");
-        return;
-      }
-      if(!quantite || quantite <= 0) {
-        alert("Veuillez entrer une quantité valide.");
-        return;
-      }
-      const article = { produit, prix, quantite, total };
-      currentItems.push(article);
-      document.getElementById("produit").value = "";
-      document.getElementById("prix").value = "";
-      document.getElementById("quantite").value = 1;
-      document.getElementById("totalArticle").value = "";
-      showToast("Article ajouté au panier !");
-    }
+  const produit = document.getElementById("produit").value.trim();
+  const prix = parseFloat(document.getElementById("prix").value);
+  const quantite = parseInt(document.getElementById("quantite").value);
+  const total = document.getElementById("totalArticle").value;
+
+  if (!produit) {
+    alert("Veuillez sélectionner un article.");
+    return;
+  }
+  if (!prix || prix <= 0) {
+    alert("Veuillez entrer un prix unitaire valide.");
+    return;
+  }
+  if (!quantite || quantite <= 0) {
+    alert("Veuillez entrer une quantité valide.");
+    return;
+  }
+
+  // Vérifier la disponibilité en stock via le cache (assurez-vous que 'cachedStock' a été préalablement rempli)
+  const stockItem = cachedStock.find(item => item.name.toLowerCase() === produit.toLowerCase());
+  if (!stockItem) {
+    alert("Produit non trouvé dans le stock.");
+    return;
+  }
+  if (quantite > stockItem.stock) {
+    alert("La quantité demandée dépasse la quantité disponible (" + stockItem.stock + ").");
+    return;
+  }
+
+  // Si tout est correct, on ajoute l'article au panier
+  const article = { produit, prix, quantite, total };
+  currentItems.push(article);
+  document.getElementById("produit").value = "";
+  document.getElementById("prix").value = "";
+  document.getElementById("quantite").value = 1;
+  document.getElementById("totalArticle").value = "";
+  showToast("Article ajouté au panier !");
+}
+
     function calculerTotalArticle() {
       const prix = parseFloat(document.getElementById("prix").value) || 0;
       const quantite = parseInt(document.getElementById("quantite").value) || 0;
