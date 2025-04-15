@@ -658,6 +658,10 @@
       <header>
         <!-- Entête retiré selon la demande -->
       </header>
+      <button id="installBtn" style="display: none;">
+  📲 Installer l'application
+</button>
+
       <div id="saleSteps">
         <div class="progress-container">
           <div class="progress-bar" id="progressBar"></div>
@@ -4947,6 +4951,32 @@ window.addEventListener("load", () => {
       });
     }
   </script>
+
+  <script>
+  let deferredPrompt;
+  const installBtn = document.getElementById('installBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+
+    installBtn.addEventListener('click', () => {
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        deferredPrompt = null;
+      });
+    });
+  });
+</script>
+
   
 </body>
 </html>
