@@ -20,6 +20,11 @@
 <meta name="theme-color" content="#006064">
 
   <style>
+        /* Masquage automatique des prix pour les employés */
+    body.role-employe .price-label {
+      display: none !important;
+    }
+
     /* Désactivation globale de la sélection de texte (sauf input et textarea) */
     body *:not(input):not(textarea) {
       user-select: none;
@@ -628,6 +633,9 @@
     .suggestion-item:hover {
       background: #f0f0f0;
     }
+
+    
+    
 
     
   </style>
@@ -3859,20 +3867,34 @@ window.addEventListener("load", () => {
 
     // Gestion du Panier (Vente)
     let currentItems = [];
-    function updatePanier() {
-      const panierContainer = document.getElementById("panierContent");
-      panierContainer.innerHTML = "";
-      if(currentItems.length === 0) {
-        panierContainer.innerHTML = "<p>Le panier est vide.</p>";
-        return;
-      }
-      currentItems.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "panier-item";
-        div.innerHTML = `<strong>${item.produit}</strong><br>Prix: ${item.prix} | Qté: ${item.quantite} | Total: ${item.total}`;
-        panierContainer.appendChild(div);
-      });
-    }
+    // Remplacez l’ancienne version de updatePanier() par celle‑ci :
+function updatePanier() {
+  const panierContainer = document.getElementById("panierContent");
+  panierContainer.innerHTML = "";
+
+  if (currentItems.length === 0) {
+    panierContainer.innerHTML = "<p>Le panier est vide.</p>";
+    return;
+  }
+
+  currentItems.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.className = "panier-item";
+    div.innerHTML = `
+      <span class="remove-item" onclick="retirerArticle(${index})">&times;</span>
+      <strong>${item.produit}</strong><br>
+      Prix: ${item.prix} | Qté: ${item.quantite} | Total: ${item.total}
+    `;
+    panierContainer.appendChild(div);
+  });
+}
+
+// Fonction pour enlever l’article sélectionné
+function retirerArticle(index) {
+  currentItems.splice(index, 1);
+  updatePanier();
+}
+
     function ouvrirPanier() {
       updatePanier();
       document.getElementById("modalPanier").style.display = "flex";
@@ -4481,7 +4503,7 @@ window.addEventListener("load", () => {
           filteredProducts.forEach(prod => {
             const div = document.createElement("div");
             div.className = "price-item";
-            div.innerHTML = `<p><strong>${prod.name}</strong> - 💰 Prix : ${prod.price.toLocaleString()} FCFA</p>`;
+            div.innerHTML = `<p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>`;
             container.appendChild(div);
           });
         } else {
@@ -4493,7 +4515,7 @@ window.addEventListener("load", () => {
               <div class="product-details">
                 <h3>${prod.name}</h3>
                 <p>🔹 Stock : ${prod.stock} unités</p>
-                <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+                <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
               </div>`;
             container.appendChild(card);
           });
@@ -4568,7 +4590,7 @@ window.addEventListener("load", () => {
          <div class="product-details">
            <h3>${prod.name}</h3>
            <p>🔹 Stock : ${prod.stock} unités</p>
-           <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+           <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
          </div>`;
       container.appendChild(card);
     });
@@ -4810,6 +4832,12 @@ window.addEventListener("load", () => {
     });
 
     function ajusterInterfaceSelonRole(role) {
+
+      // applique une classe sur <body> selon le rôle
+      document.body.classList.toggle('role-employe', role === 'employe');
+
+
+
       // Pour le menu de navigation
       if (role === "employe") {
         // Les employés ne voient pas le bouton Menu
@@ -4841,6 +4869,9 @@ window.addEventListener("load", () => {
         sections.forEach(section => {
           section.style.display = "flex";
         });
+
+  
+
       }
     }
 
@@ -4897,7 +4928,7 @@ window.addEventListener("load", () => {
             <div class="product-details">
               <h3>${prod.name}</h3>
               <p>🔹 Stock : ${prod.stock} unités</p>
-              <p>💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+              <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
             </div>`;
           card.onclick = function() {
             selectProduct(prod);
@@ -4911,9 +4942,7 @@ window.addEventListener("load", () => {
     }
     function selectProduct(prod) {
       document.getElementById("produit").value = prod.name;
-      document.getElementById("prix").value = prod.price;
-      document.getElementById("quantite").value = 1;
-      calculerTotalArticle();
+
       window.location.hash = 'vendre';
     }
     document.addEventListener("input", function(e) {
