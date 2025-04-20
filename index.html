@@ -3019,7 +3019,36 @@ function updateProfitScreen() {
 
             </script>
           </section>
-    <!-- Screen: Remboursements -->
+
+
+<!-- Screen X : Panier -->
+<section id="screen-panier" class="screen">
+  <header>
+    <button class="back-btn" onclick="window.location.hash='vendre'">
+      <i data-lucide="arrow-left"></i> Retour
+    </button>
+    <h1>Mon Panier</h1>
+  </header>
+
+  <div style="padding: 15px;">
+    <!-- articles injectés par JS -->
+    <div id="panierContainer" class="list-container"></div>
+
+    <!-- TOTAL PANIER -->
+    <div id="panierTotal"
+         style="text-align:right;font-size:18px;font-weight:bold;margin:12px 0;">
+      Total : 0 FCFA
+    </div>
+
+    <!-- BOUTON SUIVANT -->
+    <button id="btnPanierSuivant" class="btn-modern"
+            onclick="continuerDepuisPanier()" disabled>
+      Suivant <i data-lucide="arrow-right"></i>
+    </button>
+  </div>
+</section>
+
+
 <!-- Screen: Remboursement Papa -->
 <section id="screen-remboursement-papa" class="screen">
   <style>
@@ -3175,6 +3204,11 @@ function updateProfitScreen() {
         <i data-lucide="shopping-cart"></i>
         <span>Vente</span>
       </div>
+      <div class="nav-item" id="nav-panier" onclick="window.location.hash='panier'">
+        <i data-lucide="shopping-bag"></i>
+        <span>Panier</span>
+      </div>
+      
       <div class="nav-item" id="nav-stock" onclick="window.location.hash='stock'">
         <i data-lucide="package"></i>
         <span>Stock</span>
@@ -3203,14 +3237,7 @@ function updateProfitScreen() {
     </div>
   </div>
   
-  <!-- Modal: Panier des Articles -->
-  <div id="modalPanier" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="fermerPanier()">&times;</span>
-      <h2>Panier d'Articles</h2>
-      <div id="panierContent"></div>
-    </div>
-  </div>
+
   
   <!-- Modal pour ajouter une opération -->
   <div id="modalAjoutOperation" class="modal">
@@ -3850,6 +3877,11 @@ window.addEventListener("load", () => {
     case 'advance':  // Ajout du cas pour la section avance
       // Vous pouvez ajouter des actions spécifiques si besoin
       break;
+
+      case 'panier':
+  updatePanierPage();
+  break;
+
   }
 }
 
@@ -3867,81 +3899,88 @@ window.addEventListener("load", () => {
 
     // Gestion du Panier (Vente)
     let currentItems = [];
-    // Remplacez l’ancienne version de updatePanier() par celle‑ci :
-function updatePanier() {
-  const panierContainer = document.getElementById("panierContent");
-  panierContainer.innerHTML = "";
+ /* ========== PANIER ========== */
+
+/* Affiche le contenu du panier, calcule le total,
+   active/désactive le bouton “Suivant” */
+function updatePanierPage() {
+  const container  = document.getElementById("panierContainer");
+  const totalLabel = document.getElementById("panierTotal");
+  const btnSuivant = document.getElementById("btnPanierSuivant");
+
+  container.innerHTML = "";
 
   if (currentItems.length === 0) {
-    panierContainer.innerHTML = "<p>Le panier est vide.</p>";
+    container.innerHTML = "<p>Votre panier est vide.</p>";
+    totalLabel.textContent = "Total : 0 FCFA";
+    btnSuivant.disabled = true;
     return;
   }
 
+  let total = 0;
   currentItems.forEach((item, index) => {
-    const div = document.createElement("div");
-    div.className = "panier-item";
-    div.innerHTML = `
-      <span class="remove-item" onclick="retirerArticle(${index})">&times;</span>
-      <strong>${item.produit}</strong><br>
-      Prix: ${item.prix} | Qté: ${item.quantite} | Total: ${item.total}
-    `;
-    panierContainer.appendChild(div);
+    total += parseFloat(item.total);
+    container.innerHTML += `
+      <div class="panier-item">
+        <span class="remove-item" onclick="retirerArticle(${index})">&times;</span>
+        <strong>${item.produit}</strong><br>
+        Prix : ${item.prix} | Qté : ${item.quantite} | Total : ${item.total}
+      </div>`;
   });
+
+  totalLabel.textContent = "Total : " + total.toLocaleString() + " FCFA";
+  btnSuivant.disabled = false;
 }
 
-// Fonction pour enlever l’article sélectionné
-function retirerArticle(index) {
-  currentItems.splice(index, 1);
-  updatePanier();
+/* Supprime un article puis rafraîchit la vue courante */
+function retirerArticle(index){
+  currentItems.splice(index,1);
+  if (window.location.hash === '#panier'){
+    updatePanierPage();
+  } else {
+    updatePanier();                 // votre mini‑aperçu étape 1
+  }
 }
 
-    function ouvrirPanier() {
-      updatePanier();
-      document.getElementById("modalPanier").style.display = "flex";
-    }
-    function fermerPanier() {
-      document.getElementById("modalPanier").style.display = "none";
-    }
+/* Passe du panier à l’étape 2 “Informations Client” */
+function continuerDepuisPanier(){
+  if (currentItems.length === 0){ return; }
+  window.location.hash = 'vendre';  // revient au wizard
+  currentStep = 1;                  // 0 = Étape 1, 1 = Étape 2
+  showStep(currentStep);
+}
 
-    // Ajout d'un article au panier
-    function ajouterArticle() {
-  const produit = document.getElementById("produit").value.trim();
-  const prix = parseFloat(document.getElementById("prix").value);
+/* Ouvre la page panier depuis l’étape 1 */
+function ouvrirPanier(){
+  window.location.hash = 'panier';
+  updatePanierPage();
+}
+function ajouterArticle() {
+  const produit  = document.getElementById("produit").value.trim();
+  const prix     = parseFloat(document.getElementById("prix").value);
   const quantite = parseInt(document.getElementById("quantite").value);
-  const total = document.getElementById("totalArticle").value;
+  const total    = document.getElementById("totalArticle").value;
 
-  if (!produit) {
-    alert("Veuillez sélectionner un article.");
-    return;
-  }
-  if (!prix || prix <= 0) {
-    alert("Veuillez entrer un prix unitaire valide.");
-    return;
-  }
-  if (!quantite || quantite <= 0) {
-    alert("Veuillez entrer une quantité valide.");
-    return;
-  }
+  if (!produit)                { alert("Veuillez sélectionner un article."); return; }
+  if (!prix || prix <= 0)      { alert("Prix unitaire invalide.");          return; }
+  if (!quantite || quantite<=0){ alert("Quantité invalide.");               return; }
 
-  // Vérifier la disponibilité en stock via le cache (assurez-vous que 'cachedStock' a été préalablement rempli)
-  const stockItem = cachedStock.find(item => item.name.toLowerCase() === produit.toLowerCase());
-  if (!stockItem) {
-    alert("Produit non trouvé dans le stock.");
-    return;
-  }
-  if (quantite > stockItem.stock) {
-    alert("La quantité demandée dépasse la quantité disponible (" + stockItem.stock + ").");
-    return;
-  }
+  /* vérif stock via le cache */
+  const stockItem = cachedStock.find(s => s.name.toLowerCase() === produit.toLowerCase());
+  if (!stockItem)                    { alert("Article absent du stock.");   return; }
+  if (quantite > stockItem.stock)    { alert("Stock insuffisant ("+stockItem.stock+")."); return; }
 
-  // Si tout est correct, on ajoute l'article au panier
-  const article = { produit, prix, quantite, total };
-  currentItems.push(article);
-  document.getElementById("produit").value = "";
-  document.getElementById("prix").value = "";
+  /* ajout dans le panier */
+  currentItems.push({ produit, prix, quantite, total });
+
+  /* reset champs saisie */
+  document.getElementById("produit").value  = "";
+  document.getElementById("prix").value     = "";
   document.getElementById("quantite").value = 1;
   document.getElementById("totalArticle").value = "";
+
   showToast("Article ajouté au panier !");
+  updatePanierPage();   // rafraîchit instantanément le total & le bouton
 }
 
     function calculerTotalArticle() {
