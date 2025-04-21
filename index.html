@@ -3267,22 +3267,7 @@ function updateProfitScreen() {
     </div>
   </div>
 
-  <!-- Overlay affiché lorsqu'on est hors ligne -->
-<div id="offlineOverlay" style="
-display: none;
-position: fixed;
-top: 0; left: 0; right: 0; bottom: 0;
-background: rgba(0,0,0,0.6);
-color: white;
-font-size: 18px;
-display: flex;
-align-items: center;
-justify-content: center;
-z-index: 10000;
-">
-Pas de connexion. Veuillez vous reconnecter.
-</div>
-
+  
   
   <script>
     // Préloader
@@ -3918,25 +3903,6 @@ window.addEventListener("load", () => {
 
       updateDepensePapaBalance();
     });
-
-    // Récupération de l’overlay
-const offlineOverlay = document.getElementById('offlineOverlay');
-
-// Quand on passe hors‑ligne…
-window.addEventListener('offline', () => {
-  offlineOverlay.style.display = 'flex';
-});
-
-// …et quand on revient en ligne
-window.addEventListener('online', () => {
-  offlineOverlay.style.display = 'none';
-});
-
-// Au chargement de la page, si on est déjà hors‑ligne
-if (!navigator.onLine) {
-  offlineOverlay.style.display = 'flex';
-}
-
 
     // Gestion du Panier (Vente)
     let currentItems = [];
