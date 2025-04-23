@@ -1453,7 +1453,8 @@
             }
           });
           // Mise à jour de l'affichage
-          document.getElementById("depenses-today-dep").textContent = `${totalDepenses.toLocaleString()} FCFA`;
+          document.getElementById("depenses-today").textContent = `-XOF ${totalDepenses.toLocaleString()}`;
+
         })
         .catch(error => {
           console.error("Erreur lors de la récupération des dépenses du jour : " + error.message);
@@ -1464,76 +1465,72 @@
      * Récupère l'ensemble des documents de "depenses" et "remboursements",
      * les fusionne, puis affiche un historique récent.
      */
-     function chargerHistoriqueDepenses() {
-  const depensesPromise = dbFirestore.collection("depenses")
+    // 1️⃣ Fonction d’affichage de chaque lot de documents
+function renderDepenses(docs) {
+  const container = document.getElementById("recent-depenses");
+  docs.forEach(doc => {
+    const item = doc.data();
+    // … recopiez ici votre code HTML pour each history-item …
+    let iconHtml = "";
+    let montantDisplay = "";
+    if (item.type === "depense" || item.type === "depense fonctionnelle" || item.type === "papa") {
+      iconHtml = (item.type === "papa") 
+        ? `<i data-lucide="user-minus"></i>` 
+        : `<i data-lucide="file-minus"></i>`;
+      montantDisplay = `<div class="amount out">-XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+    } else if (item.type === "remboursement") {
+      iconHtml = `<i data-lucide="user-check"></i>`;
+      montantDisplay = `<div class="amount in">+XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+    }
+    const div = document.createElement("div");
+    div.className = "history-item";
+    div.innerHTML = `
+      <div class="depense-icon">${iconHtml}</div>
+      <div class="depense-info" style="flex-grow:1;">
+        ${item.description || "Aucune description"}<br>
+        <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
+      </div>
+      ${montantDisplay}
+    `;
+    container.appendChild(div);
+  });
+  lucide.createIcons();
+}
+
+// 2️⃣ Charge les 10 premières
+function chargerHistoriqueDepensesInitial() {
+  loadingDepenses = true;
+  document.getElementById("recent-depenses").innerHTML = ""; 
+  lastVisibleDepenses = null;
+  dbFirestore.collection("depenses")
     .orderBy("timestamp", "desc")
+    .limit(10)
     .get()
     .then(snapshot => {
-      let depensesArray = [];
-      snapshot.forEach(doc => {
-        let d = doc.data();
-        // On utilise "depense" par défaut si aucun type n'est défini
-        d.type = d.type || "depense";
-        depensesArray.push(d);
-      });
-      return depensesArray;
-    });
-
-  const remboursementsPromise = dbFirestore.collection("remboursements")
-    .orderBy("timestamp", "desc")
-    .get()
-    .then(snapshot => {
-      let remboursementsArray = [];
-      snapshot.forEach(doc => {
-        let r = doc.data();
-        r.type = "remboursement";
-        remboursementsArray.push(r);
-      });
-      return remboursementsArray;
-    });
-
-  Promise.all([depensesPromise, remboursementsPromise])
-    .then(([depenses, remboursements]) => {
-      let combined = depenses.concat(remboursements);
-      combined.sort((a, b) => b.timestamp - a.timestamp);
-
-      const container = document.getElementById("recent-depenses");
-      container.innerHTML = "";
-
-      combined.forEach(item => {
-        let iconHtml = "";
-        let montantDisplay = "";
-        
-        // On considère "depense fonctionnelle" comme une dépense classique pour l'affichage
-        if (item.type === "depense" ||
-            item.type === "depense fonctionnelle" ||
-            item.type === "papa") {
-          iconHtml = (item.type === "papa") 
-            ? `<i data-lucide="user-minus"></i>` 
-            : `<i data-lucide="file-minus"></i>`;
-          montantDisplay = `<div class="amount out">-XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
-        } else if (item.type === "remboursement") {
-          iconHtml = `<i data-lucide="user-check"></i>`;
-          montantDisplay = `<div class="amount in">+XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
-        }
-
-        container.innerHTML += `
-          <div class="history-item" style="display: flex; align-items: center;">
-            <div class="depense-icon" style="margin-right: 10px;">
-              ${iconHtml}
-            </div>
-            <div class="depense-info" style="flex-grow: 1;">
-              ${item.description || "Aucune description"}<br>
-              <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
-            </div>
-            ${montantDisplay}
-          </div>
-        `;
-      });
-      // Recharge les icônes Lucide
-      lucide.createIcons();
+      renderDepenses(snapshot.docs);
+      lastVisibleDepenses = snapshot.docs[snapshot.docs.length - 1];
+      loadingDepenses = false;
     })
-    .catch(error => console.error("Erreur lors du chargement des dépenses et remboursements :", error));
+    .catch(err => console.error(err));
+}
+
+// 3️⃣ Charge 10 de plus lors du scroll
+function chargerHistoriqueDepensesSuivant() {
+  if (loadingDepenses || !lastVisibleDepenses) return;
+  loadingDepenses = true;
+  dbFirestore.collection("depenses")
+    .orderBy("timestamp", "desc")
+    .startAfter(lastVisibleDepenses)
+    .limit(10)
+    .get()
+    .then(snapshot => {
+      if (!snapshot.empty) {
+        renderDepenses(snapshot.docs);
+        lastVisibleDepenses = snapshot.docs[snapshot.docs.length - 1];
+      }
+      loadingDepenses = false;
+    })
+    .catch(err => console.error(err));
 }
 
 
@@ -1543,15 +1540,17 @@
      */
     window.addEventListener('hashchange', function(){
       if(window.location.hash === '#depenses') {
-        afficherDepensesAujourdhui();    // ← pour afficher la somme des dépenses du jour
-        chargerHistoriqueDepenses();     // ← pour lister toutes les dépenses/remboursements
-      }
-    });
-    // Si on arrive directement sur "#depenses" après chargement...
-    if(window.location.hash === '#depenses') {
-      afficherDepensesAujourdhui();
-      chargerHistoriqueDepenses();
+  afficherDepensesAujourdhui();
+  chargerHistoriqueDepensesInitial();
+  // mettre en place l’infinite scroll
+  const container = document.getElementById("recent-depenses");
+  container.addEventListener("scroll", () => {
+    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+      chargerHistoriqueDepensesSuivant();
     }
+  });
+} })
+
   </script>
 </section>
 
@@ -2636,13 +2635,17 @@ function updateProfitScreen() {
       });
       return Promise.all(updatePromises);
     })
-    .then(() => {
-      // Déduire le montant total d'approvisionnement du solde de la trésorerie
-      return getRunningBalance().then(soldeActuel => {
-        const nouveauSolde = soldeActuel - totalCost;
-        return setRunningBalance(nouveauSolde).then(() => totalCost);
-      });
-    })
+    // …
+.then(() => {
+  // 🔁 écriture atomique : on décrémente le champ montant du doc tresorerie/balance
+  const balanceRef = dbFirestore.collection("tresorerie").doc("balance");
+  return balanceRef.set(
+    { montant: firebase.firestore.FieldValue.increment(-totalCost) },
+    { merge: true }                 // crée le doc s'il n'existe pas
+  ).then(() => totalCost);          // on renvoie totalCost pour la suite de la chaîne
+})
+// …
+
     .then((totalCost) => {
       // Enregistrer la dépense fonctionnelle avec le libellé "Achats de m/ses de <fournisseur> - <montant>"
       const depense = {
@@ -3390,6 +3393,9 @@ function updateProfitScreen() {
 
     // Déclaration globale
 let cachedStock = [];
+// Pagination dépenses
+let lastVisibleDepenses = null;
+let loadingDepenses = false;
 
 // Fonction pour charger le stock depuis Firestore et le mettre en cache
 function fetchAndCacheStock() {
@@ -3873,10 +3879,11 @@ window.addEventListener("load", () => {
     case 'historique':
          filterHistory();
       break;
-    case 'depenses':
-      chargerHistoriqueDepenses();
-      updateBalanceDisplay();
-      break;
+      case 'depenses':
+        chargerHistoriqueDepensesInitial();
+        updateBalanceDisplay();
+        break;
+
     case 'tresorerie':
       updateBalanceDisplay();
       break;
