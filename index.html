@@ -16,9 +16,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
   <!-- Link to the manifest -->
 <link rel="manifest" href="manifest.json">
+<!-- Charger SheetJS pour générer des .xlsx -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
 <!-- Set the theme color (should match the one in your manifest) -->
 <meta name="theme-color" content="#006064">
-
   <style>
         /* Masquage automatique des prix pour les employés */
     body.role-employe .price-label {
@@ -954,14 +956,19 @@
           <p><strong>Total Téléphones :</strong> <span id="total-telephones">0</span></p>
           <p><strong>Total Accessoires :</strong> <span id="total-accessoires">0</span></p>
         </div>
-        <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
           <button class="btn-modern" onclick="showStockCategory('telephones')">
             <i data-lucide="package"></i> Téléphones
           </button>
           <button class="btn-modern" onclick="showStockCategory('accessoires')">
             <i data-lucide="headphones"></i> Accessoires
           </button>
+          <!-- NOUVEAU BOUTON -->
+          <button id="exportStockBtn" class="btn-modern secondary">
+            <i data-lucide="download"></i> Exporter stock Excel
+          </button>
         </div>
+        
       </div>
       <div id="stock-category" style="display: none;">
         <button class="btn-modern secondary" onclick="backToStockHome()">
@@ -5296,6 +5303,52 @@ function initEcranDepenses() {
 }
 
 </script>
+
+<script>
+  document.getElementById('exportStockBtn')
+    .addEventListener('click', () => {
+      // 1. Récupérer tout le stock depuis Firestore
+      getAllStockFirestore()
+        .then(stocks => {
+          // 2. Ne garder que les mobiles
+          const phones = stocks.filter(s => s.category === 'telephones');
+
+          // 3. Calculer les totaux pour les mobiles
+          const totalPhones = phones
+            .reduce((sum, s) => sum + parseInt(s.stock || 0), 0);
+          const valeurPhones = phones
+            .reduce((sum, s) => sum + (parseFloat(s.stock) * parseFloat(s.price)), 0);
+
+          // 4. Préparer les données Excel
+          const data = phones.map(s => ({
+            Produit           : s.name,
+            Stock             : s.stock,
+            'Prix unitaire'   : s.price,
+            'Valeur du stock' : (s.stock * s.price).toFixed(2)
+          }));
+
+          // 5. Ajouter la ligne de synthèse
+          data.push({});
+          data.push({
+            Produit           : 'Total Téléphones',
+            Stock             : totalPhones,
+            'Valeur du stock' : valeurPhones.toFixed(2)
+          });
+
+          // 6. Générer et télécharger le fichier XLSX
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Portables');
+          XLSX.writeFile(wb, 'stock_portables.xlsx');
+        })
+        .catch(err => {
+          console.error('Erreur export stock mobiles :', err);
+          alert('Impossible d\'exporter le stock de portables : ' + err.message);
+        });
+    });
+</script>
+
+
 
   
 </body>
