@@ -774,6 +774,11 @@
             <select id="vendeurSelect">
               <!-- Options générées via Firestore -->
             </select>
+            <!-- ====== NOUVEAU : choix du compte ====== -->
+<label for="compteSelectVente">Compte de trésorerie</label>
+<select id="compteSelectVente"></select>
+<!-- ======================================= -->
+
             <label for="photoFacture">Photo de la facture</label>
             <input type="file" accept="image/*" capture="camera" id="photoFacture" />
             <label for="observationsVendeur">Observations</label>
@@ -1469,6 +1474,8 @@
   </div>
 
   <script>
+
+    
     /**
      * Récupère et affiche la somme de toutes les dépenses (type "depense" ou "papa")
      * pour la journée en cours, puis met à jour le champ #depenses-today.
@@ -1667,6 +1674,16 @@ function renderDepenses(docs) {
     <label for="endDate">Au :</label>
     <input type="date" id="endDate" onchange="updateRapports()" />
   </div>
+
+  <!-- ===== AJOUT BOUTON EXPORT PDF JOURNALIER ===== -->
+<button id="btnExportRapportPDF"
+class="btn-modern secondary"
+style="margin-top:12px;"
+onclick="exportDailyReportPDF()">
+<i data-lucide="download"></i> Exporter le rapport PDF du jour
+</button>
+<!-- ============================================== -->
+
 
   <div class="reports-container">
     <!-- Carte Résumé des Ventes -->
@@ -2730,27 +2747,32 @@ function updateProfitScreen() {
       return Promise.all(updatePromises);
     })
     // …
+/* --- nouveau code : enregistrement du mouvement + dépense --- */
 .then(() => {
-  // 🔁 écriture atomique : on décrémente le champ montant du doc tresorerie/balance
-  const balanceRef = dbFirestore.collection("tresorerie").doc("balance");
-  return balanceRef.set(
-    { montant: firebase.firestore.FieldValue.increment(-totalCost) },
-    { merge: true }                 // crée le doc s'il n'existe pas
-  ).then(() => totalCost);          // on renvoie totalCost pour la suite de la chaîne
+  // mouvement de trésorerie : sortie d'argent
+  return enregistrerMouvementTresorerie({
+    type: 'appro',
+    sens: 'out',
+    montant: totalCost,
+    description: `Approvisionnement ${fournisseur}`
+  });
 })
-// …
+// Remplace par ceci
+.then(() => {
+  const now = new Date();
+  const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
+  const depense = {
+    montant     : totalCost,
+    description : `Approvisionnement ${fournisseur}`,
+    type        : "depense fonctionnelle",
+    timestamp   : now.getTime(),
+    date        : now.toISOString(),
+    dateString  : `${dd}/${mm}/${yyyy}`
+  };
+  return dbFirestore.collection("depenses").add(depense);
+})
 
-    .then((totalCost) => {
-      // Enregistrer la dépense fonctionnelle avec le libellé "Achats de m/ses de <fournisseur> - <montant>"
-      const depense = {
-        montant: totalCost,
-        description: "Achats de m/ses de " + fournisseur + " - " + totalCost.toLocaleString() + " FCFA",
-        type: "depense fonctionnelle",
-        date: new Date().toISOString(),
-        timestamp: Date.now()
-      };
-      return dbFirestore.collection("depenses").add(depense);
-    })
+
     .then(() => {
   alert("Approvisionnement enregistré avec succès !");
   currentApproItems = [];
@@ -2927,13 +2949,18 @@ function updateProfitScreen() {
     return;
   }
 
-  const depense = {
-    montant: montant,
-    description: description,
-    type: "depense", // ou "papa", selon le cas
-    date: new Date().toISOString(),
-    timestamp: Date.now()
-  };
+  // Nouveau
+// Remplace par ceci
+const now = new Date();
+const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
+const depense = {
+  montant     : montant,
+  description : description,
+  type        : "depense",
+  timestamp   : now.getTime(),
+  date        : now.toISOString(),
+  dateString  : `${dd}/${mm}/${yyyy}`    // ← champ UTC “jj/mm/aaaa”
+};
 
   dbFirestore.collection("depenses").add(depense)
     .then(() => {
@@ -3079,13 +3106,19 @@ function updateProfitScreen() {
           return;
         }
         
-        const depensePapa = {
-          montant: montant,
-          description: description,
-          type: "papa",  // Pour identifier ce type de dépense
-          date: new Date().toISOString(),
-          timestamp: Date.now()
-        };
+// Remplace par ceci
+const now = new Date();
+const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
+const depensePapa = {
+  montant     : montant,
+  description : description,
+  type        : "papa",
+  timestamp   : now.getTime(),
+  date        : now.toISOString(),
+  dateString  : `${dd}/${mm}/${yyyy}`
+};
+
+
         
         dbFirestore.collection("depenses").add(depensePapa)
           .then(() => {
@@ -3722,19 +3755,7 @@ function updateDepensePapaBalance() {
         });
     }
 
-    /**
-     * Met à jour (ou crée) le document "tresorerie/balance" 
-     * avec le nouveau solde passé en paramètre.
-     */
-    function setRunningBalance(nouveauSolde) {
-      return dbFirestore.collection("tresorerie").doc("balance").set({
-        montant: nouveauSolde
-      })
-      .catch(error => {
-        console.error("Erreur setRunningBalance:", error.message);
-      });
-    }
-    
+  
     
 
     // Fonctions Firestore pour les ventes
@@ -4323,13 +4344,20 @@ function continuerDepuisPanier(){
       timestamp: Date.now()
     };
     
-    addSaleFirestore(vente)
-      .then(() => updateStockAfterSaleFirestore(currentItems))
-      .then(() => getRunningBalance())
-      .then(soldeActuel => {
-        const nouveauSolde = soldeActuel + parseFloat(overallTotal);
-        return setRunningBalance(nouveauSolde);
-      })
+    const compteId = document.getElementById("compteSelectVente").value;
+
+addSaleFirestore({ ...vente, compteId })          // on stocke aussi le compte
+  .then(() => updateStockAfterSaleFirestore(currentItems))
+  .then(() => enregistrerMouvementTresorerie({
+  type: 'vente',
+  sens: 'in',
+  montant: +overallTotal,
+  description: `Vente ${clientNom}`,
+  refId: null
+}))
+.then(() => updateBalanceDisplay())
+                     // rafraîchit l’UI
+
       .then(() => {
         hideSaleLoader();
         alert(isDelivery ? "Livraison validée !" : "Vente validée !");
@@ -5056,9 +5084,35 @@ function continuerDepuisPanier(){
     window.addEventListener('load', () => {
       lucide.createIcons();
     });
+    let comptesCache = [];   // [{id:'caisse', nom:'Caisse', solde:…}, …]
 
+function loadComptes() {
+  return dbFirestore
+    .collection("tresorerie")
+    .doc("balance")
+    .collection("comptesTresorerie")
+    .onSnapshot(snap => {
+      comptesCache = [];
+      snap.forEach(doc => comptesCache.push({ id: doc.id, ...doc.data() }));
+      remplirSelectCompte();   // met à jour le <select> de la vente
+      majCartesTresorerie();   // (facultatif) met à jour l’écran Trésorerie
+    });
+}
+
+function remplirSelectCompte() {
+  const sel = document.getElementById("compteSelectVente");
+  if (!sel) return;
+  sel.innerHTML = "";
+  comptesCache.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`;
+    sel.appendChild(opt);
+  });
+}
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
+        loadComptes();
         user.getIdTokenResult().then(idTokenResult => {
           // Récupère le rôle depuis les Custom Claims (par défaut "employe")
           window.userRole = idTokenResult.claims.role || "employe";
@@ -5084,6 +5138,8 @@ function continuerDepuisPanier(){
         window.location.href = 'login.html';
       }
     });
+
+
 
     function ajusterInterfaceSelonRole(role) {
 
@@ -5346,10 +5402,180 @@ function initEcranDepenses() {
           alert('Impossible d\'exporter le stock de portables : ' + err.message);
         });
     });
+/* ============================================================
+   MOUVEMENT DE TRESORERIE  (copier-coller)
+   ------------------------------------------------------------
+   - type : 'vente' | 'depense' | 'papa' | 'remboursement' | ...
+   - sens : 'in' (crédit) ou 'out' (débit)
+   - montant : nombre positif
+   - description : texte facultatif
+   - refId : id du doc source (facultatif)
+   ============================================================ */
+   async function enregistrerMouvementTresorerie({type,sens,montant,description='',refId=null}) {
+
+const balanceRef = dbFirestore.collection('tresorerie').doc('balance');
+
+await dbFirestore.runTransaction(async tx=>{
+  const snap   = await tx.get(balanceRef);
+  const oldBal = snap.exists ? (snap.data().montant||0) : 0;
+  const newBal = sens === 'in' ? oldBal + montant : oldBal - montant;
+
+  // 1.  met à jour le solde courant
+  if (snap.exists){
+    tx.update(balanceRef,{ montant:newBal });
+  }else{
+    tx.set(balanceRef,{ montant:newBal });
+  }
+
+  // 2.  inscrit le mouvement
+  const mvtRef = balanceRef.collection('mouvements').doc();
+  tx.set(mvtRef,{
+    timestamp : Date.now(),
+    dateString: new Date().toLocaleDateString('fr-FR'),
+    type, sens, montant,
+    description, refId,
+    newBalance : newBal
+  });
+});
+
+return true;        // pour chaîner si besoin
+}
+
+/**
+ * Exporte un rapport PDF pour une date donnée.
+ * Ventes filtrées sur `dateVente`,
+ * Dépenses et Remboursements filtrés sur `dateString`.
+ */
+ function exportDailyReportPDF() {
+  // 1) Demande de la date
+  const saisie = prompt(
+    "Date du rapport (AAAA-MM-JJ) :",
+    new Date().toISOString().slice(0, 10)
+  );
+  if (!saisie) return;
+  const jsDate     = new Date(saisie);
+  if (isNaN(jsDate)) { alert("Date invalide !"); return; }
+  const dateString = jsDate.toLocaleDateString("fr-FR");  // ex. "30/04/2025"
+
+  // 2) Requête VENTES (sur dateVente)
+  const ventesP = dbFirestore.collection("ventes")
+    .where("dateVente", "==", dateString)
+    .get()
+    .then(snap => {
+      const rows = [], qt = 0, total = 0;
+      let qty = 0, ca = 0;
+      snap.forEach(doc => {
+        (doc.data().items || []).forEach(it => {
+          if (!it.category || it.category.toLowerCase() === "telephones") {
+            rows.push([ it.produit, fmt(it.prix), it.quantite, fmt(it.total) ]);
+            qty += +it.quantite;
+            ca  += +it.total;
+          }
+        });
+      });
+      return { rows, qty, ca };
+    });
+
+  // 3) Requête DÉPENSES (sur dateString)
+  const depensesP = dbFirestore.collection("depenses")
+    .where("dateString", "==", dateString)
+    .get()
+    .then(snap => {
+      const papa = [], fonc = [];
+      let totPapa = 0, totFonc = 0;
+      snap.forEach(doc => {
+        const d = doc.data();
+        const ligne = [
+          new Date(d.timestamp).toLocaleTimeString("fr-FR"),
+          d.description || "—",
+          fmt(d.montant)
+        ];
+        if ((d.type || "").toLowerCase() === "papa") {
+          papa.push(ligne); totPapa += +d.montant;
+        } else {
+          fonc.push(ligne); totFonc += +d.montant;
+        }
+      });
+      return { papa, fonc, totPapa, totFonc };
+    });
+
+  // 4) Requête REMBOURSEMENTS (sur dateString)
+  const rembP = dbFirestore.collection("remboursements")
+    .where("dateString", "==", dateString)
+    .get()
+    .then(snap => {
+      let total = 0;
+      snap.forEach(doc => total += +doc.data().montant);
+      return total;
+    });
+
+  // 5) Génération du PDF
+  Promise.all([ventesP, depensesP, rembP]).then(([ventes, deps, totalRemb]) => {
+    const { jsPDF } = window.jspdf;
+    const doc       = new jsPDF({ unit: "pt", format: "a4" });
+    const autoTable = doc.autoTable;
+
+    // En-tête
+    doc.setFontSize(16);
+    doc.text(`Rapport du ${dateString}`, 40, 40);
+
+    // Table Ventes
+    doc.setFontSize(13);
+    doc.text("Téléphones vendus", 40, 70);
+    autoTable.call(doc, {
+      startY : 80,
+      head   : [["Modèle","Prix U.","Qté","Total"]],
+      body   : ventes.rows.length ? ventes.rows : [["—","—","0","0"]],
+      styles : { fontSize:9 }
+    });
+    let y = doc.lastAutoTable.finalY + 10;
+    doc.text(
+      `Total tél. : ${ventes.qty}  |  CA : ${fmt(ventes.ca)} FCFA`,
+      40, y
+    );
+
+    // Fonction pour ajouter une section dépenses/remboursements
+    function addTable(titre, body, total, yPos) {
+      doc.setFontSize(12);
+      doc.text(titre, 60, yPos);
+      autoTable.call(doc, {
+        startY : yPos + 5,
+        head   : [["Heure","Description","Montant"]],
+        body   : body.length ? body : [["—","—","0"]],
+        styles : { fontSize:8 }
+      });
+      const ny = doc.lastAutoTable.finalY + 5;
+      doc.text(`Sous-total : ${fmt(total)} FCFA`, 60, ny);
+      return ny + 15;
+    }
+
+    // Table Dépenses Papa
+    y = addTable("Dépenses Papa", deps.papa, deps.totPapa, y + 30);
+    // Table Dépenses Fonctionnelles
+    y = addTable("Dépenses fonctionnelles", deps.fonc, deps.totFonc, y);
+    // Remboursements Papa
+    doc.setFontSize(12);
+    doc.text(`Remboursements Papa : ${fmt(totalRemb)} FCFA`, 40, y + 10);
+    y += 25;
+
+    // Synthèse
+    const totalDep = deps.totPapa + deps.totFonc - totalRemb;
+    doc.setFontSize(12);
+    doc.text(`TOTAL DÉPENSÉ : ${fmt(totalDep)} FCFA`, 40, y);
+    y += 15;
+    doc.text(`MARGE BRUTE : ${fmt(ventes.ca - totalDep)} FCFA`, 40, y);
+
+    // Enregistrement
+    doc.save(`Rapport_${dateString.replace(/\//g,"-")}.pdf`);
+  });
+}
+
+/** Helper : formate 25000 → "25 000" **/
+function fmt(x) {
+  return Number(x).toLocaleString("fr-FR").replace(/\u202F/g," ");
+}
+
 </script>
 
-
-
-  
 </body>
 </html>
