@@ -2317,6 +2317,21 @@ onclick="exportDailyReportPDF()">
 function updateProfitScreen() {
   updateProfitDetails();
 }
+
+/**  Enregistre un document dans la bonne collection  */
+function logDepenseRemboursement({ collection, montant, description, type = "", timestamp = Date.now() }) {
+  const d   = new Date(timestamp);
+  const ref = dbFirestore.collection(collection);
+  return ref.add({
+    montant,
+    description,
+    type,                     // “depense fonctionnelle”, “papa”, …
+    timestamp,
+    date        : d.toISOString(),
+    dateString  : d.toLocaleDateString("fr-FR")
+  });
+}
+
 </script>
 
 <!-- Section Approvisionnement -->
@@ -2365,6 +2380,9 @@ function updateProfitScreen() {
     <div id="panierApproContent" class="list-container">
       <p>Le panier est vide.</p>
     </div>
+    <label for="compteSelectAppro">Compte de trésorerie</label>
+    <select id="compteSelectAppro"></select>
+
     <button class="btn-modern" onclick="finaliserApprovisionnement()">Enregistrer Approvisionnement</button>
   </div>
 
@@ -2749,13 +2767,15 @@ function updateProfitScreen() {
     // …
 /* --- nouveau code : enregistrement du mouvement + dépense --- */
 .then(() => {
+  const compteId = document.getElementById("compteSelectAppro").value;
   // mouvement de trésorerie : sortie d'argent
   return enregistrerMouvementTresorerie({
-    type: 'appro',
-    sens: 'out',
-    montant: totalCost,
-    description: `Approvisionnement ${fournisseur}`
-  });
+  compteId,
+  type: 'appro',
+  sens: 'out',
+  montant: totalCost,
+  description: `Approvisionnement ${fournisseur}`
+});
 })
 // Remplace par ceci
 .then(() => {
@@ -2926,6 +2946,8 @@ function updateProfitScreen() {
             <label for="descriptionDepense">Description</label>
             <textarea id="descriptionDepense" placeholder="Ex: Achat matériel de bureau" required></textarea>
 
+            <label for="compteSelectDepenseFonctionnelle">Compte de trésorerie</label>
+            <select id="compteSelectDepenseFonctionnelle"></select>
             <button type="submit" class="btn-modern primary">
               <i data-lucide="plus"></i> Enregistrer Dépense
             </button>
@@ -2934,63 +2956,43 @@ function updateProfitScreen() {
       </div>
 
       <script>
-        document.getElementById("formDepenseFonctionnelle").addEventListener("submit", function (e) {
-  e.preventDefault();
-
-  const montant = parseFloat(document.getElementById("montantDepense").value.trim());
-  const description = document.getElementById("descriptionDepense").value.trim();
-
-  if (!montant || montant <= 0) {
-    alert("Veuillez entrer un montant valide.");
-    return;
-  }
-  if (!description) {
-    alert("Veuillez entrer une description.");
-    return;
-  }
-
-  // Nouveau
-// Remplace par ceci
-const now = new Date();
-const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
-const depense = {
-  montant     : montant,
-  description : description,
-  type        : "depense",
-  timestamp   : now.getTime(),
-  date        : now.toISOString(),
-  dateString  : `${dd}/${mm}/${yyyy}`    // ← champ UTC “jj/mm/aaaa”
-};
-
-  dbFirestore.collection("depenses").add(depense)
-    .then(() => {
-      // Récupérer le solde actuel
-      return getRunningBalance();
-    })
-    .then(soldeActuel => {
-      // Décrémenter le solde avec le montant de la dépense
-      const nouveauSolde = soldeActuel - montant;
-      return setRunningBalance(nouveauSolde);
-    })
-    .then(() => {
-      alert("Dépense Fonctionnelle enregistrée avec succès !");
-      document.getElementById("montantDepense").value = "";
-      document.getElementById("descriptionDepense").value = "";
-      updateBalanceDisplay(); // Rafraîchir l'affichage du solde
-    })
-    .catch(err => {
-      alert("Erreur lors de l'ajout de la dépense : " + err.message);
-    });
-});
-
-
-        window.addEventListener('hashchange', function () {
-          if (window.location.hash === '#depense-fonctionnelle') {
-            document.getElementById("montantDepense").value = "";
-            document.getElementById("descriptionDepense").value = "";
-          }
+        document.getElementById("formDepenseFonctionnelle")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
+        
+            const montant     = parseFloat(document.getElementById("montantDepense").value.trim());
+            const description = document.getElementById("descriptionDepense").value.trim();
+            const compteId    = document.getElementById("compteSelectDepenseFonctionnelle").value;
+        
+            if (!montant || montant <= 0 || !description) {
+              alert("Montant ou description invalide.");
+              return;
+            }
+        
+            enregistrerMouvementTresorerie({
+              compteId,
+              type   : "depense",
+              sens   : "out",
+              montant,
+              description
+            })
+            /* ➜ on consigne la dépense pour l’historique */
+            .then(() => logDepenseRemboursement({
+              collection  : "depenses",
+              montant,
+              description,
+              type        : "depense fonctionnelle"
+            }))
+            .then(() => {
+              alert("Dépense Fonctionnelle enregistrée !");
+              document.getElementById("montantDepense").value     = "";
+              document.getElementById("descriptionDepense").value = "";
+              updateBalanceDisplay();
+            })
+            .catch(err => alert("Erreur : " + err.message));
         });
-      </script>
+        </script>
+        
     </section>
     <!-- Screen: Dépense Papa -->
     <section id="screen-depense-papa" class="screen">
@@ -3085,6 +3087,10 @@ const depense = {
             <input type="number" id="montantDepensePapa" placeholder="Montant" required>
             <label for="descriptionDepensePapa">Description</label>
             <textarea id="descriptionDepensePapa" placeholder="Ex: Description de la dépense" required></textarea>
+
+            <label for="compteSelectDepensePapa">Compte de trésorerie</label>
+            <select id="compteSelectDepensePapa"></select>
+
             <button type="submit" class="btn-modern primary">
               <i data-lucide="plus"></i> Enregistrer Dépense Papa
             </button>
@@ -3093,61 +3099,44 @@ const depense = {
       </div>
 
       <script>
-       document.getElementById("formDepensePapa").addEventListener("submit", function(e) {e.preventDefault();
-        const montant = parseFloat(document.getElementById("montantDepensePapa").value.trim());
-        const description = document.getElementById("descriptionDepensePapa").value.trim();
+        document.getElementById("formDepensePapa")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
         
-        if (!montant || montant <= 0) {
-          alert("Veuillez entrer un montant valide.");
-          return;
-        }
-        if (!description) {
-          alert("Veuillez entrer une description.");
-          return;
-        }
+            const montant     = parseFloat(document.getElementById("montantDepensePapa").value.trim());
+            const description = document.getElementById("descriptionDepensePapa").value.trim();
+            const compteId    = document.getElementById("compteSelectDepensePapa").value;
         
-// Remplace par ceci
-const now = new Date();
-const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
-const depensePapa = {
-  montant     : montant,
-  description : description,
-  type        : "papa",
-  timestamp   : now.getTime(),
-  date        : now.toISOString(),
-  dateString  : `${dd}/${mm}/${yyyy}`
-};
-
-
+            if (!montant || montant <= 0 || !description) {
+              alert("Montant ou description invalide.");
+              return;
+            }
         
-        dbFirestore.collection("depenses").add(depensePapa)
-          .then(() => {
-            // Lancer en parallèle la mise à jour du solde des dépenses papa
-            // ET la mise à jour du solde global.
-            return Promise.all([
-              updateDepensePapaBalance(), // Met à jour le document "depensePapa/balance"
-              (function() {
-                return getRunningBalance().then(currentGlobal => {
-                  const nouveauGlobal = currentGlobal - montant;
-                  return setRunningBalance(nouveauGlobal);
-                });
-              })()
-            ]);
-          })
-          .then(() => {
-            // On peut ensuite rafraîchir l'affichage (les deux soldes)
-            updateBalanceDisplay();       // Pour le solde global
-            updateDepensePapaButton();    // Pour le bouton "Dépense Papa"
-            alert("Dépense Papa enregistrée avec succès !");
-            document.getElementById("montantDepensePapa").value = "";
-            document.getElementById("descriptionDepensePapa").value = "";
-          })
-          .catch(err => {
-            alert("Erreur lors de l'ajout de la dépense papa : " + err.message);
-          });
-      });
-
-            </script>
+            enregistrerMouvementTresorerie({
+              compteId,
+              type   : "papa",
+              sens   : "out",
+              montant,
+              description
+            })
+            /* ➜ on consigne la dépense pour l’historique */
+            .then(() => logDepenseRemboursement({
+              collection  : "depenses",
+              montant,
+              description,
+              type        : "papa"
+            }))
+            .then(() => {
+              alert("Dépense Papa enregistrée !");
+              document.getElementById("montantDepensePapa").value     = "";
+              document.getElementById("descriptionDepensePapa").value = "";
+              updateDepensePapaBalance();
+              updateBalanceDisplay();
+            })
+            .catch(err => alert("Erreur : " + err.message));
+        });
+        </script>
+        
           </section>
 
 
@@ -3275,6 +3264,10 @@ Suivant <i data-lucide="arrow-right"></i>
       <form id="formRemboursementPapa">
          <label for="montantRemboursementPapa">Montant (FCFA)</label>
          <input type="number" id="montantRemboursementPapa" placeholder="Montant" required>
+
+         <label for="compteSelectRemboursementPapa">Compte de trésorerie</label>
+        <select id="compteSelectRemboursementPapa"></select>
+
          <button type="submit" class="btn-modern primary">
            <i data-lucide="plus"></i> Enregistrer Remboursement Papa
          </button>
@@ -3283,55 +3276,41 @@ Suivant <i data-lucide="arrow-right"></i>
   </div>
 
   <script>
-    document.getElementById("formRemboursementPapa").addEventListener("submit", function(e) {
-  e.preventDefault();
-  
-  const montant = parseFloat(document.getElementById("montantRemboursementPapa").value.trim());
-  if (!montant || montant <= 0) {
-    alert("Veuillez entrer un montant valide.");
-    return;
-  }
-  
-  const remboursement = {
-    montant: montant,
-    description: "Remboursement", // ou une description dynamique si besoin
-    type: "remboursement",         // Permet d'identifier l'opération
-    date: new Date().toISOString(),
-    timestamp: Date.now()
-  };
-  
-  dbFirestore.collection("remboursements").add(remboursement)
-    .then(() => {
-      // Mise à jour du solde global de trésorerie (reste inchangé)
-      return getRunningBalance();
-    })
-    .then(soldeGlobal => {
-      const nouveauGlobal = soldeGlobal + montant;
-      return setRunningBalance(nouveauGlobal);
-    })
-    .then(() => {
-      // MàJ du solde des dépenses Papa
-      return getDepensePapaBalance();
-    })
-    .then(soldeDepPapa => {
-      // Comme le remboursement "récupère" une partie du montant dépensé,
-      // on soustrait ce montant du solde des dépenses Papa.
-      const nouveauDepPapa = soldeDepPapa - montant;
-      return setDepensePapaBalance(nouveauDepPapa);
-    })
-    .then(() => {
-      alert("Remboursement enregistré avec succès !");
-      document.getElementById("montantRemboursementPapa").value = "";
-      updateBalanceDisplay(); // Mise à jour du solde global affiché
-      updateDepensePapaButton(); // Mise à jour du bouton "Dépense Papa"
-    })
-    .catch(err => {
-      alert("Erreur lors de l'ajout du remboursement : " + err.message);
+    document.getElementById("formRemboursementPapa")
+      .addEventListener("submit", function (e) {
+        e.preventDefault();
+    
+        const montant  = parseFloat(document.getElementById("montantRemboursementPapa").value.trim());
+        const compteId = document.getElementById("compteSelectRemboursementPapa").value;
+    
+        if (!montant || montant <= 0) {
+          alert("Montant invalide.");
+          return;
+        }
+    
+        enregistrerMouvementTresorerie({
+          compteId,
+          type   : "remboursement",
+          sens   : "in",
+          montant,
+          description : "Remboursement Papa"
+        })
+        /* ➜ on consigne le remboursement pour l’historique */
+        .then(() => logDepenseRemboursement({
+          collection  : "remboursements",
+          montant,
+          description : "Remboursement Papa"
+        }))
+        .then(() => {
+          alert("Remboursement enregistré !");
+          document.getElementById("montantRemboursementPapa").value = "";
+          updateDepensePapaBalance();
+          updateBalanceDisplay();
+        })
+        .catch(err => alert("Erreur : " + err.message));
     });
-});
-
-
-  </script>
+    </script>
+    
 </section>
 
     <!-- Bottom Navigation Modernisée (Navigation par hash) -->
@@ -4349,12 +4328,14 @@ function continuerDepuisPanier(){
 addSaleFirestore({ ...vente, compteId })          // on stocke aussi le compte
   .then(() => updateStockAfterSaleFirestore(currentItems))
   .then(() => enregistrerMouvementTresorerie({
+  compteId,
   type: 'vente',
   sens: 'in',
   montant: +overallTotal,
   description: `Vente ${clientNom}`,
-  refId: null
-}))
+  refId: saleId
+})
+)
 .then(() => updateBalanceDisplay())
                      // rafraîchit l’UI
 
@@ -5094,22 +5075,26 @@ function loadComptes() {
     .onSnapshot(snap => {
       comptesCache = [];
       snap.forEach(doc => comptesCache.push({ id: doc.id, ...doc.data() }));
-      remplirSelectCompte();   // met à jour le <select> de la vente
+      remplirTousSelectComptes();   // met à jour le <select> de la vente
       majCartesTresorerie();   // (facultatif) met à jour l’écran Trésorerie
     });
 }
 
-function remplirSelectCompte() {
-  const sel = document.getElementById("compteSelectVente");
-  if (!sel) return;
-  sel.innerHTML = "";
-  comptesCache.forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`;
-    sel.appendChild(opt);
+// ── Commence ici ──
+function remplirTousSelectComptes() {
+  // Trouve tous les <select> dont l'id commence par "compteSelect"
+  document.querySelectorAll('[id^="compteSelect"]').forEach(sel => {
+    sel.innerHTML = "";
+    comptesCache.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`;
+      sel.appendChild(opt);
+    });
   });
 }
+// ── Termine ici ──
+
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
         loadComptes();
@@ -5411,34 +5396,56 @@ function initEcranDepenses() {
    - description : texte facultatif
    - refId : id du doc source (facultatif)
    ============================================================ */
-   async function enregistrerMouvementTresorerie({type,sens,montant,description='',refId=null}) {
+/**
+ * Enregistre un mouvement de trésorerie.
+ *   - compteId   : id du sous-compte (ex. "caisse")
+ *   - type       : 'vente' | 'depense' | 'papa' | 'remboursement' | …
+ *   - sens       : 'in' (crédit) ou 'out' (débit)
+ *   - montant    : nombre positif
+ *   - description: texte facultatif
+ *   - refId      : id de la pièce source (facultatif)
+ */
+ async function enregistrerMouvementTresorerie({
+  compteId, type, sens, montant, description = '', refId = null
+}) {
 
-const balanceRef = dbFirestore.collection('tresorerie').doc('balance');
+  // Références
+  const balanceRef = dbFirestore.collection('tresorerie').doc('balance');
+  const compteRef  = balanceRef
+                       .collection('comptesTresorerie')
+                       .doc(compteId);
 
-await dbFirestore.runTransaction(async tx=>{
-  const snap   = await tx.get(balanceRef);
-  const oldBal = snap.exists ? (snap.data().montant||0) : 0;
-  const newBal = sens === 'in' ? oldBal + montant : oldBal - montant;
+  // Variation globale : +montant ou −montant
+  const deltaGlobal = sens === 'in' ?  montant : -montant;
 
-  // 1.  met à jour le solde courant
-  if (snap.exists){
-    tx.update(balanceRef,{ montant:newBal });
-  }else{
-    tx.set(balanceRef,{ montant:newBal });
-  }
+  await dbFirestore.runTransaction(async tx => {
 
-  // 2.  inscrit le mouvement
-  const mvtRef = balanceRef.collection('mouvements').doc();
-  tx.set(mvtRef,{
-    timestamp : Date.now(),
-    dateString: new Date().toLocaleDateString('fr-FR'),
-    type, sens, montant,
-    description, refId,
-    newBalance : newBal
+    /* 1️⃣  Solde du sous-compte ----------------------------------------- */
+    const snapCompte = await tx.get(compteRef);
+    const oldSolde   = snapCompte.exists ? (snapCompte.data().solde || 0) : 0;
+    const newSolde   = oldSolde + deltaGlobal;             // deltaGlobal inclut le sens
+    snapCompte.exists
+      ? tx.update(compteRef, { solde: newSolde })
+      : tx.set   (compteRef, { solde: newSolde });
+
+    /* 2️⃣  Mouvement ----------------------------------------------------- */
+    tx.set(compteRef.collection('mouvements').doc(), {
+      timestamp  : Date.now(),
+      dateString : new Date().toLocaleDateString('fr-FR'),
+      type, sens, montant, description, refId,
+      newBalance : newSolde
+    });
+
+    /* 3️⃣  Solde global -------------------------------------------------- */
+    // On se contente d’un FieldValue.increment : pas besoin de relire
+    tx.set(
+      balanceRef,
+      { montant: firebase.firestore.FieldValue.increment(deltaGlobal) },
+      { merge: true }
+    );
   });
-});
 
-return true;        // pour chaîner si besoin
+  return true;          // tout s’est bien passé
 }
 
 /**
