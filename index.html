@@ -4325,40 +4325,30 @@ function continuerDepuisPanier(){
     
     const compteId = document.getElementById("compteSelectVente").value;
 
-addSaleFirestore({ ...vente, compteId })          // on stocke aussi le compte
-  .then(() => updateStockAfterSaleFirestore(currentItems))
-  .then(() => enregistrerMouvementTresorerie({
-  compteId,
-  type: 'vente',
-  sens: 'in',
-  montant: +overallTotal,
-  description: `Vente ${clientNom}`,
-  refId: saleId
-})
-)
-.then(() => updateBalanceDisplay())
-                     // rafraîchit l’UI
-
-      .then(() => {
-        hideSaleLoader();
-        alert(isDelivery ? "Livraison validée !" : "Vente validée !");
-        currentItems = [];
-        document.getElementById("clientNom").value = "";
-        document.getElementById("clientNumero").value = "";
-        document.getElementById("photoFacture").value = "";
-        document.getElementById("observationsVendeur").value = "";
-        document.getElementById("isDelivery").checked = false;
-        toggleDeliveryFields();
-        afficherVentes();
-        if(isDelivery) {
-          afficherLivraisons();
-        }
-        updateBalanceDisplay();
-      })
-      .catch(error => {
-        hideSaleLoader();
-        alert("Erreur lors de l'ajout de la vente : " + error.message);
-      });
+    addSaleFirestore({ ...vente, compteId })
+  .then((newSaleId) => {
+    // 1️⃣ on met d’abord à jour le stock
+    return updateStockAfterSaleFirestore(currentItems)
+      // 2️⃣ puis on crée le mouvement en passant bien l’ID de la vente (newSaleId)
+      .then(() => enregistrerMouvementTresorerie({
+        compteId,
+        type: 'vente',
+        sens: 'in',
+        montant: +overallTotal,
+        description: `Vente ${clientNom}`,
+        refId: newSaleId
+      }));
+  })
+  .then(() => updateBalanceDisplay())
+  .then(() => {
+    hideSaleLoader();
+    alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+    // … le reste de ton code de nettoyage d’UI …
+  })
+  .catch(error => {
+    hideSaleLoader();
+    alert("Erreur lors de l'ajout de la vente : " + error.message);
+    });
   });
 }
 
