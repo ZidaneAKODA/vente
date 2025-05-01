@@ -1340,12 +1340,11 @@
       <p>Solde actuel</p>
     </div>
 
-      <!-- ↓ LIGNE À AJOUTER ↓ -->
-  <div id="accounts-balances"
-  class="accounts-container"
-  style="display:flex; gap:10px; margin-bottom:15px;">
+    <div id="accounts-balances"
+    class="accounts-container"
+    style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
 </div>
-<!-- ↑ FIN DE LIGNE À AJOUTER ↑ -->
+
 
 
     <!-- Total des entrées d'aujourd'hui -->
@@ -5118,6 +5117,14 @@ function majCartesTresorerie() {
   const container = document.getElementById('accounts-balances');
   if (!container) return;
   container.innerHTML = '';
+
+  // Trie les comptes dans l'ordre : caisse → momo → banque
+  comptesCache.sort((a, b) => {
+    const ordre = ['caisse', 'momo', 'banque'];
+    return ordre.indexOf(a.nom.toLowerCase())
+         - ordre.indexOf(b.nom.toLowerCase());
+  });
+
   comptesCache.forEach(c => {
     const card = document.createElement('div');
     card.className = 'account-card';
@@ -5128,6 +5135,7 @@ function majCartesTresorerie() {
     container.appendChild(card);
   });
 }
+
 
     firebase.auth().onAuthStateChanged(user => {
       if (user) {
