@@ -3970,11 +3970,6 @@ function enregistrerSnapshotDaily() {
     });
 }
 
-// Appel de la fonction lors du chargement de la page
-window.addEventListener("load", () => {
-  enregistrerSnapshotDaily();
-});
-
 
   function showScreenByHash(hash) {
   // Masquer tous les écrans
@@ -5108,17 +5103,27 @@ function loadComptes() {
 
 // ── Commence ici ──
 function remplirTousSelectComptes() {
-  // Trouve tous les <select> dont l'id commence par "compteSelect"
   document.querySelectorAll('[id^="compteSelect"]').forEach(sel => {
-    sel.innerHTML = "";
+    sel.innerHTML = '';
+
+    /* ➜ option “vide” d’abord */
+    const placeholder = document.createElement('option');
+    placeholder.value      = '';
+    placeholder.textContent = '— Choisir un compte —';
+    placeholder.disabled    = true;
+    placeholder.selected    = true;          // rien n’est choisi par défaut
+    sel.appendChild(placeholder);
+
+    /* ➜ puis les comptes réels */
     comptesCache.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
+      const opt   = document.createElement('option');
+      opt.value   = c.id;                    // caisse | momo | banque
       opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`;
       sel.appendChild(opt);
     });
   });
 }
+
 // ── Termine ici ──
 /** Met à jour l'affichage des soldes de chaque compte dans #accounts-balances */
 function majCartesTresorerie() {
@@ -5438,281 +5443,325 @@ function initEcranDepenses() {
         });
     });
 /* ============================================================
-   MOUVEMENT DE TRESORERIE  (copier-coller)
-   ------------------------------------------------------------
-   - type : 'vente' | 'depense' | 'papa' | 'remboursement' | ...
-   - sens : 'in' (crédit) ou 'out' (débit)
-   - montant : nombre positif
-   - description : texte facultatif
-   - refId : id du doc source (facultatif)
+   MOUVEMENT DE TRESORERIE – NOUVELLE VERSION COMPLÈTE
+   (gère aussi le snapshot quotidien avec les soldes d’ouverture
+    caisse / momo / banque + solde global)
    ============================================================ */
-/**
- * Enregistre un mouvement de trésorerie.
- *   - compteId   : id du sous-compte (ex. "caisse")
- *   - type       : 'vente' | 'depense' | 'papa' | 'remboursement' | …
- *   - sens       : 'in' (crédit) ou 'out' (débit)
- *   - montant    : nombre positif
- *   - description: texte facultatif
- *   - refId      : id de la pièce source (facultatif)
- */
- async function enregistrerMouvementTresorerie({
-  compteId, type, sens, montant, description = '', refId = null
+   async function enregistrerMouvementTresorerie({
+  compteId,      // 'caisse' | 'momo' | 'banque'
+  type,          // 'vente' | 'depense' | 'papa' | 'remboursement' | ...
+  sens,          // 'in' (entrée) ou 'out' (sortie)
+  montant,       // nombre positif
+  description = '',
+  refId = null
 }) {
   await dbFirestore.runTransaction(async tx => {
-    // 1) Préparation des références
-    const today      = new Date();
-    const dd         = String(today.getDate()).padStart(2,'0');
-    const mm         = String(today.getMonth()+1).padStart(2,'0');
-    const yyyy       = today.getFullYear();
-    const dateString = `${yyyy}-${mm}-${dd}`;
 
-    const balanceDocRef  = dbFirestore.collection('tresorerie').doc('balance');
-    const compteDocRef   = balanceDocRef
-                             .collection('comptesTresorerie')
-                             .doc(compteId);
-    const snapshotDocRef = dbFirestore
-                             .collection('tresorerieSnapshots')
-                             .doc(dateString);
+    /* 1) Préparation des références ---------------------------------------- */
+    const today        = new Date();
+    const yyyy_mm_dd   = today.toISOString().slice(0, 10);          // AAAA-MM-JJ
 
-    // 2) Toutes les lectures en parallèle
-    const [ snapDoc, balanceSnap, compteSnap ] = await Promise.all([
-      tx.get(snapshotDocRef),
-      tx.get(balanceDocRef),
-      tx.get(compteDocRef)
+    const balanceDoc   = dbFirestore.collection('tresorerie').doc('balance');
+    const comptesCol   = balanceDoc.collection('comptesTresorerie');
+
+    const compteDoc    = comptesCol.doc(compteId);    // compte concerné
+    const compteCaisse = comptesCol.doc('caisse');
+    const compteMomo   = comptesCol.doc('momo');
+    const compteBanque = comptesCol.doc('banque');
+
+    const snapshotDoc  = dbFirestore
+                           .collection('tresorerieSnapshots')
+                           .doc(yyyy_mm_dd);
+
+    /* 2) Lectures en parallèle --------------------------------------------- */
+    const [
+      snapSnap,
+      globalSnap,
+      compteSnap,
+      caisseSnap,
+      momoSnap,
+      banqueSnap
+    ] = await Promise.all([
+      tx.get(snapshotDoc),
+      tx.get(balanceDoc),
+      tx.get(compteDoc),
+      tx.get(compteCaisse),
+      tx.get(compteMomo),
+      tx.get(compteBanque)
     ]);
 
-    // 3) Calculs basés sur les lectures
-    const openingBalance = balanceSnap.exists
-      ? balanceSnap.data().montant
-      : 0;
+    /* 3) Soldes d’ouverture ------------------------------------------------- */
+    const openingCaisse = caisseSnap.exists ? (caisseSnap.data().solde || 0) : 0;
+    const openingMomo   = momoSnap.exists   ? (momoSnap.data().solde   || 0) : 0;
+    const openingBanque = banqueSnap.exists ? (banqueSnap.data().solde || 0) : 0;
+    const openingGlobal = openingCaisse + openingMomo + openingBanque;
 
-    const deltaGlobal = (sens === 'in' ?  montant : -montant);
+    /* 4) Calcul du nouveau solde du compte touché --------------------------- */
+    const delta          = sens === 'in' ?  montant : -montant;
+    const oldSoldeCompte = compteSnap.exists ? (compteSnap.data().solde || 0) : 0;
+    const newSoldeCompte = oldSoldeCompte + delta;
 
-    const oldSolde = compteSnap.exists
-      ? (compteSnap.data().solde || 0)
-      : 0;
-    const newSolde = oldSolde + deltaGlobal;
+    /* 5) Écritures ---------------------------------------------------------- */
 
-    // 4) Écritures **après** avoir tout lu
-    // 4a) Enregistrer le snapshot d’ouverture si nécessaire
-    if (!snapDoc.exists) {
-      tx.set(snapshotDocRef, {
-        openingBalance,
-        dateString,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    /* 5a) Snapshot quotidien : créé UNE fois par jour */
+    if (!snapSnap.exists) {
+      tx.set(snapshotDoc, {
+        dateString           : yyyy_mm_dd,
+        openingCaisse,
+        openingMomo,
+        openingBanque,
+        openingBalanceGlobal : openingGlobal,
+        createdAt            : firebase.firestore.FieldValue.serverTimestamp()
       });
     }
 
-    // 4b) Mettre à jour le solde du sous-compte
-    tx.set(compteDocRef, { solde: newSolde }, { merge: true });
+    /* 5b) Mise à jour du solde du sous-compte concerné */
+    tx.set(compteDoc, { solde: newSoldeCompte }, { merge: true });
 
-    // 4c) Enregistrer le mouvement dans la sous-collection `mouvements`
+    /* 5c) Enregistrement du mouvement dans la sous-collection */
     tx.set(
-      compteDocRef.collection('mouvements').doc(),
+      compteDoc.collection('mouvements').doc(),
       {
-        timestamp: Date.now(),
-        dateString,
+        timestamp  : Date.now(),
+        dateString : yyyy_mm_dd,
         type,
         sens,
         montant,
         description,
         refId,
-        newBalance: newSolde
+        newBalance : newSoldeCompte
       }
     );
 
-    // 4d) Mettre à jour le solde global avec un FieldValue.increment
+    /* 5d) Mise à jour du solde global (document “tresorerie/balance”) */
     tx.set(
-      balanceDocRef,
-      { montant: firebase.firestore.FieldValue.increment(deltaGlobal) },
+      balanceDoc,
+      { montant: firebase.firestore.FieldValue.increment(delta) },
       { merge: true }
     );
   });
 
-  return true;
+  return true;   // succès
 }
 
-/** Helper : formate 25000 → "25 000" **/
-function fmt(x) {
-  return Number(x)
-    .toLocaleString("fr-FR")
-    .replace(/\u202F/g, " ");
+/* Helper ------------------------------------------------------ */
+function fmt(x){
+  return Number(x).toLocaleString("fr-FR").replace(/\u202F/g," ");
 }
-function exportDailyReportPDF() {
-  // 1) Choix de la date
+
+/* =============================================================
+   EXPORT PDF – Profit • Valeur stock téléphones • Dette Papa
+==============================================================*/
+function exportDailyReportPDF(){
+
+  /* ── 1) Choix de la date ─────────────────────────────────── */
   const saisie = prompt(
     "Date du rapport (AAAA-MM-JJ) :",
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0,10)
   );
-  if (!saisie) return;
+  if(!saisie) return;
   const jsDate = new Date(saisie);
-  if (isNaN(jsDate)) { alert("Date invalide !"); return; }
+  if(isNaN(jsDate)){ alert("Date invalide !"); return; }
 
-  // Bornes du jour
-  const startOfDay = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate()).getTime();
-  const endOfDay   = startOfDay + 24*60*60*1000 - 1;
+  const startOfDay = new Date(jsDate.getFullYear(),jsDate.getMonth(),jsDate.getDate()).getTime();
+  const endOfDay   = startOfDay + 86_399_999;
 
-  // 2) Téléphones vendus
+  /* ── 2) VENTES : CA + Profit ─────────────────────────────── */
   const ventesP = dbFirestore.collection("ventes")
-    .where("dateVente", "==", saisie.split("-").reverse().join("/"))
+    .where("dateVente","==",saisie.split("-").reverse().join("/"))
     .get()
-    .then(snap => {
-      const rows = []; let qty = 0, ca = 0;
-      snap.forEach(doc => {
-        (doc.data().items||[]).forEach(it => {
-          rows.push([
-            it.produit,
-            fmt(it.prix),
-            it.quantite.toString(),
-            fmt(it.total)
-          ]);
-          qty += it.quantite;
-          ca  += +it.total;
+    .then(snap=>{
+      const rows=[]; let qty=0, ca=0, profit=0;
+      snap.forEach(doc=>{
+        (doc.data().items||[]).forEach(it=>{
+          const pTot = it.profitTotal !== undefined
+                     ? parseFloat(it.profitTotal)
+                     : ((parseFloat(it.prix) - (parseFloat(it.prixAchat)||0)) * it.quantite);
+          rows.push([it.produit, fmt(it.prix), it.quantite.toString(), fmt(it.total)]);
+          qty    += it.quantite;
+          ca     += +it.total;
+          profit += pTot;
         });
       });
-      return { rows, qty, ca };
+      return { rows, qty, ca, profit };
     });
 
-  // 3) Dépenses (Papa + fonctionnelles, sans les approvisionnements)
+  /* ── 3) DÉPENSES ─────────────────────────────────────────── */
   const depensesP = dbFirestore.collection("depenses")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
+    .where("timestamp",">=",startOfDay)
+    .where("timestamp","<=",endOfDay)
     .get()
-    .then(snap => {
-      const papa = [], fonc = [];
-      let totPapa = 0, totFonc = 0;
-      snap.forEach(doc => {
-        const d    = doc.data();
-        const desc = d.description || "";
+    .then(snap=>{
+      const papa=[], fonc=[]; let totPapa=0, totFonc=0;
+      snap.forEach(doc=>{
+        const d   = doc.data();
+        const desc= d.description||"";
         const isAppro = desc.toLowerCase().startsWith("approvisionnement");
-        const ligne = [
-          new Date(d.timestamp).toLocaleTimeString("fr-FR"),
-          desc,
-          fmt(d.montant)
-        ];
-        if ((d.type||"").toLowerCase()==="papa") {
-          papa.push(ligne);
-          totPapa += +d.montant;
-        } else if (!isAppro) {
-          fonc.push(ligne);
-          totFonc += +d.montant;
+        const ligne=[ new Date(d.timestamp).toLocaleTimeString("fr-FR"), desc, fmt(d.montant) ];
+        if((d.type||"").toLowerCase()==="papa"){
+          papa.push(ligne);  totPapa += +d.montant;
+        }else if(!isAppro){
+          fonc.push(ligne);  totFonc += +d.montant;
         }
       });
       return { papa, fonc, totPapa, totFonc };
     });
 
-  // 4) Remboursements
-  const rembP = dbFirestore.collection("remboursements")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
+  /* ── 4) INJECTION (ex-remboursements) ────────────────────── */
+  const injectionP = dbFirestore.collection("remboursements")
+    .where("timestamp",">=",startOfDay)
+    .where("timestamp","<=",endOfDay)
     .get()
-    .then(snap => {
-      let total = 0;
-      snap.forEach(doc => total += +doc.data().montant);
+    .then(snap=>{
+      let total=0; snap.forEach(d=> total+= +d.data().montant);
       return total;
     });
 
-  // 5) Approvisionnements → on en extrait chaque item
+  /* ── 5) APPROVISIONNEMENTS ───────────────────────────────── */
   const approP = dbFirestore.collection("approvisionnement")
-    .where("timestamp", ">=", startOfDay)
-    .where("timestamp", "<=", endOfDay)
+    .where("timestamp",">=",startOfDay)
+    .where("timestamp","<=",endOfDay)
     .get()
-    .then(snap => {
-      const rows = []; let tot = 0;
-      snap.forEach(doc => {
-        const a    = doc.data();
-        const time = new Date(a.timestamp).toLocaleTimeString("fr-FR");
-        (a.items||[]).forEach(item => {
-          rows.push([
-            time,
-            item.produit,
-            item.quantite.toString(),
-            fmt(item.prixAchat)
-          ]);
-          tot += parseFloat(item.quantite) * parseFloat(item.prixAchat);
+    .then(snap=>{
+      const rows=[]; let tot=0;
+      snap.forEach(doc=>{
+        const a=doc.data();
+        const time=new Date(a.timestamp).toLocaleTimeString("fr-FR");
+        (a.items||[]).forEach(it=>{
+          rows.push([time,it.produit,it.quantite.toString(),fmt(it.prixAchat)]);
+          tot += parseFloat(it.quantite)*parseFloat(it.prixAchat);
         });
       });
       return { rows, tot };
     });
 
-  // 6) Génération du PDF
-  Promise.all([ ventesP, depensesP, rembP, approP ]).then(
-    ([ ventes, deps, remb, appro ]) => {
+  /* ── 6) SOLDE INITIAL ────────────────────────────────────── */
+  const snapshotP = dbFirestore.collection("tresorerieSnapshots")
+    .doc(saisie)
+    .get()
+    .then(snap=> snap.exists ? snap.data().openingBalanceGlobal||0 : 0);
+
+  /* ── 7) VALEUR STOCK TÉLÉPHONES ──────────────────────────── */
+  const stockPhonesP = dbFirestore.collection("stock")
+    .where("category","==","telephones")
+    .get()
+    .then(snap=>{
+      let tot=0;
+      snap.forEach(doc=>{
+        const d=doc.data();
+        tot += (parseFloat(d.stock)||0)*(parseFloat(d.price)||0);
+      });
+      return tot;
+    });
+
+  /* ── 8) DETTE PAPA ───────────────────────────────────────── */
+  const papaBalanceP = dbFirestore.collection("depensePapa")
+    .doc("balance")
+    .get()
+    .then(doc=> doc.exists ? doc.data().montant||0 : 0);
+
+  /* ── 9) GÉNÉRATION PDF ───────────────────────────────────── */
+  Promise.all([ventesP,depensesP,injectionP,approP,snapshotP,stockPhonesP,papaBalanceP])
+    .then(([ventes,deps,injection,appro,soldeInitial,valeurStockPhones,dettePapa])=>{
+
+      const totalEntrees   = ventes.ca;
+      const totalInjection = injection;
+      const totalDepenses  = deps.totPapa + deps.totFonc;
+      const totalAppro     = appro.tot;
+      const totalProfit    = ventes.profit;
+
+      const soldeFinal     = soldeInitial
+                           + totalEntrees
+                           + totalInjection
+                           - totalDepenses
+                           - totalAppro;
+
+      const valeurBusiness = soldeFinal + valeurStockPhones + dettePapa;
+
+      /* === PDF === */
       const { jsPDF } = window.jspdf;
-      const doc       = new jsPDF({ unit: "pt", format: "a4" });
+      const doc       = new jsPDF({unit:"pt",format:"a4"});
       const autoTable = doc.autoTable;
 
-      // Titre
       doc.setFontSize(16);
-      doc.text(`Rapport du ${jsDate.toLocaleDateString("fr-FR")}`, 40, 40);
+      doc.text(`Rapport du ${jsDate.toLocaleDateString("fr-FR")}`,40,40);
 
-      // — Téléphones vendus —
-      doc.setFontSize(14);
-      doc.text("Téléphones vendus", 40, 60);
-      autoTable.call(doc, {
-        startY:   70,
-        head:     [["Modèle","Prix U.","Qté","Total"]],
-        body:     ventes.rows.length ? ventes.rows : [["—","—","0","0"]],
-        foot:     [['','',ventes.qty.toString(),fmt(ventes.ca)+" FCFA"]],
-        footStyles:{ fontStyle:"bold" },
-        styles:   { fontSize:9 }
+      /* ---- VENTES ---- */
+      doc.setFontSize(14); doc.text("Téléphones vendus",40,60);
+      autoTable.call(doc,{
+        startY : 70,
+        head   : [["Modèle","Prix U.","Qté","Total"]],
+        body   : ventes.rows.length ? ventes.rows : [["—","—","0","0"]],
+        foot   : [['','',ventes.qty.toString(),fmt(totalEntrees)+" FCFA"]],
+        footStyles:{fontStyle:"bold"},
+        styles : {fontSize:9}
       });
 
-      // — Dépenses Papa —
+      /* ---- Dépenses Papa ---- */
       let y = doc.lastAutoTable.finalY + 30;
-      doc.setFontSize(14);
-      doc.text("Dépenses Papa", 40, y);
-      autoTable.call(doc, {
-        startY:   y + 10,
-        head:     [["Heure","Description","Montant"]],
-        body:     deps.papa.length ? deps.papa : [["—","—","0"]],
-        foot:     [['','Sous-total',fmt(deps.totPapa)+" FCFA"]],
-        footStyles:{ fontStyle:"bold" },
-        styles:   { fontSize:8 }
+      doc.setFontSize(14); doc.text("Dépenses Papa",40,y);
+      autoTable.call(doc,{
+        startY : y+10,
+        head   : [["Heure","Description","Montant"]],
+        body   : deps.papa.length ? deps.papa : [["—","—","0"]],
+        foot   : [['','Sous-total',fmt(deps.totPapa)+" FCFA"]],
+        footStyles:{fontStyle:"bold"},
+        styles : {fontSize:8}
       });
 
-      // — Dépenses fonctionnelles —
+      /* ---- Dépenses fonctionnelles ---- */
       y = doc.lastAutoTable.finalY + 20;
-      doc.setFontSize(14);
-      doc.text("Dépenses fonctionnelles", 40, y);
-      autoTable.call(doc, {
-        startY:   y + 10,
-        head:     [["Heure","Description","Montant"]],
-        body:     deps.fonc.length ? deps.fonc : [["—","—","0"]],
-        foot:     [['','Sous-total',fmt(deps.totFonc)+" FCFA"]],
-        footStyles:{ fontStyle:"bold" },
-        styles:   { fontSize:8 }
+      doc.setFontSize(14); doc.text("Dépenses fonctionnelles",40,y);
+      autoTable.call(doc,{
+        startY : y+10,
+        head   : [["Heure","Description","Montant"]],
+        body   : deps.fonc.length ? deps.fonc : [["—","—","0"]],
+        foot   : [['','Sous-total',fmt(deps.totFonc)+" FCFA"]],
+        footStyles:{fontStyle:"bold"},
+        styles : {fontSize:8}
       });
 
-      // — Achats de marchandises (par article) —
+      /* ---- Approvisionnements ---- */
       y = doc.lastAutoTable.finalY + 30;
-      doc.setFontSize(14);
-      doc.text("Achats de marchandises", 40, y);
-      autoTable.call(doc, {
-        startY:   y + 20,
-        head:     [["Heure","Article","Qté","Prix U."]],
-        body:     appro.rows.length ? appro.rows : [["—","—","0","0"]],
-        foot:     [['','', 'Sous-total', fmt(appro.tot)+" FCFA"]],
-        footStyles:{ fontStyle:"bold" },
-        styles:   { fontSize:8 }
+      doc.setFontSize(14); doc.text("Achats de marchandises",40,y);
+      autoTable.call(doc,{
+        startY : y+20,
+        head   : [["Heure","Article","Qté","Prix U."]],
+        body   : appro.rows.length ? appro.rows : [["—","—","0","0"]],
+        foot   : [['','', 'Sous-total', fmt(totalAppro)+" FCFA"]],
+        footStyles:{fontStyle:"bold"},
+        styles : {fontSize:8}
       });
 
-      // — Synthèse finale —
+      /* ---- Synthèse verticale ---- */
       y = doc.lastAutoTable.finalY + 30;
-      doc.setFontSize(14);
-      doc.text("Synthèse finale", 40, y);
-      y += 20;
-      const totalDep = deps.totPapa + deps.totFonc + appro.tot;
-      doc.setFontSize(12);
-      doc.text(`Total dépensé : ${fmt(totalDep)} FCFA`, 40, y);
-      y += 15;
-      doc.text(`Marge brute   : ${fmt(ventes.ca - totalDep)} FCFA`, 40, y);
+      doc.setFontSize(14); doc.text("Synthèse journalière",40,y);
+      autoTable.call(doc,{
+        startY : y+10,
+        body   : [
+          ["Solde initial",        fmt(soldeInitial)          +" FCFA"],
+          ["Entrées",              fmt(totalEntrees)          +" FCFA"],
+          ["Injection",            fmt(totalInjection)        +" FCFA"],
+          ["Dépenses",            "-"+fmt(totalDepenses)      +" FCFA"],
+          ["Approvisionnement",   "-"+fmt(totalAppro)         +" FCFA"],
+          ["Profit",               fmt(totalProfit)           +" FCFA"],
+          ["Stock téléphones",     fmt(valeurStockPhones)     +" FCFA"],
+          ["Dette Papa",           fmt(dettePapa)             +" FCFA"],
+          ["Valeur business",      fmt(valeurBusiness)        +" FCFA"],
+          ["Solde final",          fmt(soldeFinal)            +" FCFA"]
+        ],
+        theme        : "grid",
+        headStyles   : {fillColor:[255,255,255],textColor:[0,0,0],fontStyle:"bold"},
+        columnStyles : {0:{fontStyle:"bold"}},
+        styles       : {fontSize:10}
+      });
 
-      // Enregistrement
+      /* ---- Enregistrement ---- */
       doc.save(`Rapport_${saisie}.pdf`);
-    }
-  );
+    })
+    .catch(err=> alert("Erreur export PDF : "+err.message));
 }
+
 </script>
 
 </body>
