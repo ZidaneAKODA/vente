@@ -1713,6 +1713,14 @@ onclick="exportDailyReportPDF()">
 </button>
 <!-- ============================================== -->
 
+<!-- À coller dans votre section Rapports, juste sous l'autre bouton -->
+<button id="btnExportRapportMensuelPDF"
+        class="btn-modern secondary"
+        style="margin-top:8px;"
+        onclick="askMonthlyExport()">
+  <i data-lucide="download"></i> Exporter le rapport PDF du mois
+</button>
+
 
   <div class="reports-container">
     <!-- Carte Résumé des Ventes -->
@@ -2380,6 +2388,13 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
       <label for="fournisseurAppro">Fournisseur</label>
       <input type="text" id="fournisseurAppro" placeholder="Nom du fournisseur" required />
 
+      <label for="categorieAppro">Catégorie</label>
+<select id="categorieAppro" required>
+  <option value="telephones">Téléphones</option>
+  <option value="accessoires">Accessoires</option>
+</select>
+
+
       <!-- Recherche du modèle de téléphone -->
       <label for="modeleAppro">Modèle de téléphone</label>
       <div class="input-container">
@@ -2647,6 +2662,19 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
   // Recherche en temps réel pour les modèles
   const modeleInput = document.getElementById("modeleAppro");
   const suggestionListAppro = document.getElementById("suggestionListAppro");
+  /* Quand on change de catégorie : on nettoie l’input, on vide la liste */
+document.getElementById("categorieAppro").addEventListener("change", () => {
+  modeleInput.value = "";
+  suggestionListAppro.innerHTML = "";
+  suggestionListAppro.style.display = "none";
+
+  // (facultatif) adapter le placeholder de l’input
+  modeleInput.placeholder =
+    document.getElementById("categorieAppro").value === "telephones"
+      ? "Rechercher un modèle de téléphone…"
+      : "Rechercher un accessoire…";
+});
+
   modeleInput.addEventListener("input", function () {
     const query = this.value.trim().toLowerCase();
     suggestionListAppro.innerHTML = "";
@@ -2655,9 +2683,13 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
       return;
     }
     // Récupération des modèles de téléphones dans la collection "stock" avec catégorie "telephones"
-    dbFirestore.collection("stock")
-      .where("category", "==", "telephones")
-      .get()
+// Récupération dynamique des modèles selon la catégorie choisie
+const selectedCat = document.getElementById("categorieAppro").value;
+
+dbFirestore.collection("stock")
+  .where("category", "==", selectedCat)
+  .get()
+
       .then(snapshot => {
         const models = [];
         snapshot.forEach(doc => {
@@ -2700,46 +2732,40 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
   });
 
   // Fonction pour ajouter un article d'approvisionnement au panier
-  function ajouterApprovisionnementItem() {
-    const fournisseur = document.getElementById("fournisseurAppro").value.trim();
-    const modele = document.getElementById("modeleAppro").value.trim();
-    const quantite = parseFloat(document.getElementById("quantiteAppro").value);
-    const prixAchat = parseFloat(document.getElementById("prixAchatAppro").value);
-    const coutTotal = parseFloat(document.getElementById("coutTotalAppro").value);
+  // Fonction d’ajout d’un article d’approvisionnement, avec gestion de la catégorie
+function ajouterApprovisionnementItem() {
+  const fournisseur = document.getElementById("fournisseurAppro").value.trim();
+  const categorie   = document.getElementById("categorieAppro").value;
+  const modele      = document.getElementById("modeleAppro").value.trim();
+  const quantite    = parseFloat(document.getElementById("quantiteAppro").value);
+  const prixAchat   = parseFloat(document.getElementById("prixAchatAppro").value);
+  const coutTotal   = parseFloat(document.getElementById("coutTotalAppro").value);
 
-    if (!fournisseur) {
-      alert("Veuillez entrer le nom du fournisseur.");
-      return;
-    }
-    if (!modele) {
-      alert("Veuillez saisir le modèle de téléphone.");
-      return;
-    }
-    if (!quantite || quantite <= 0) {
-      alert("Veuillez entrer une quantité valide.");
-      return;
-    }
-    if (!prixAchat || prixAchat <= 0) {
-      alert("Veuillez entrer un prix d'achat valide.");
-      return;
-    }
-    const item = {
-      fournisseur,
-      produit: modele,
-      quantite,
-      prixAchat,
-      coutTotal: coutTotal.toFixed(2)
-    };
-
-    currentApproItems.push(item);
-    updatePanierApprovisionnement();
-    // Réinitialiser les champs relatifs à l'article (le fournisseur reste pour le groupe)
-    document.getElementById("modeleAppro").value = "";
-    document.getElementById("quantiteAppro").value = "1";
-    document.getElementById("prixAchatAppro").value = "";
-    document.getElementById("coutTotalAppro").value = "";
-    suggestionListAppro.style.display = "none";
+  if (!fournisseur || !categorie || !modele || quantite <= 0 || prixAchat <= 0) {
+    alert("Veuillez remplir tous les champs correctement.");
+    return;
   }
+
+  const item = {
+    fournisseur,
+    category: categorie,   // ← au lieu de « categorie »
+    produit: modele,
+    quantite,
+    prixAchat,
+    coutTotal: coutTotal.toFixed(2)
+  };
+
+  currentApproItems.push(item);
+  updatePanierApprovisionnement();
+
+  // Réinitialisation des champs
+  document.getElementById("modeleAppro").value = "";
+  document.getElementById("quantiteAppro").value = "1";
+  document.getElementById("prixAchatAppro").value = "";
+  document.getElementById("coutTotalAppro").value = "";
+}
+
+
 
   // Met à jour l'affichage du panier d'approvisionnement
   function updatePanierApprovisionnement() {
@@ -2763,81 +2789,66 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
     updatePanierApprovisionnement();
   }
 
-  function finaliserApprovisionnement() {
+  // Fonction de finalisation de l’approvisionnement, qui propage la catégorie au stock
+function finaliserApprovisionnement() {
   if (currentApproItems.length === 0) {
     alert("Le panier est vide.");
     return;
   }
 
-  // Supposons que tous les articles proviennent du même fournisseur
   const fournisseur = currentApproItems[0].fournisseur;
+  const totalCost = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
 
-  // Calculer le coût total en sommant "coutTotal" de chaque article dans le panier
-  const totalCost = currentApproItems.reduce((acc, item) => {
-    return acc + parseFloat(item.coutTotal);
-  }, 0);
-
-  // Créer l'objet approvisionnement
   const approvisionnement = {
     fournisseur,
     items: currentApproItems,
     timestamp: Date.now()
   };
 
-  // Enregistrer l'approvisionnement dans Firestore
   dbFirestore.collection("approvisionnement").add(approvisionnement)
     .then(() => {
-      // Mettre à jour le stock pour chaque article
-      const updatePromises = currentApproItems.map(item => {
-        return ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, "telephones");
-      });
+      // Met à jour le stock en utilisant item.categorie
+      const updatePromises = currentApproItems.map(item =>
+        ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, item.categorie)
+      );
       return Promise.all(updatePromises);
     })
-    // …
-/* --- nouveau code : enregistrement du mouvement + dépense --- */
-.then(() => {
-  const compteId = document.getElementById("compteSelectAppro").value;
-  // mouvement de trésorerie : sortie d'argent
-  return enregistrerMouvementTresorerie({
-  compteId,
-  type: 'appro',
-  sens: 'out',
-  montant: totalCost,
-  description: `Approvisionnement ${fournisseur}`
-});
-})
-// Remplace par ceci
-.then(() => {
-  const now = new Date();
-  const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
-  const depense = {
-    montant     : totalCost,
-    description : `Approvisionnement ${fournisseur}`,
-    type        : "depense fonctionnelle",
-    timestamp   : now.getTime(),
-    date        : now.toISOString(),
-    dateString  : `${dd}/${mm}/${yyyy}`
-  };
-  return dbFirestore.collection("depenses").add(depense);
-})
-
-
     .then(() => {
-  alert("Approvisionnement enregistré avec succès !");
-  currentApproItems = [];
-  updatePanierApprovisionnement();
-  document.getElementById("fournisseurAppro").value = "";
-  chargerApprovisionnements();
-  updateStockSummary();
-  // Ajout de l'actualisation du total des dépenses aujourd'hui
-  updateBalanceDisplay();
-})
-
+      const compteId = document.getElementById("compteSelectAppro").value;
+      return enregistrerMouvementTresorerie({
+        compteId,
+        type: 'appro',
+        sens: 'out',
+        montant: totalCost,
+        description: `Approvisionnement ${fournisseur}`
+      });
+    })
+    .then(() => {
+      const now = new Date();
+      const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
+      const depense = {
+        montant: totalCost,
+        description: `Approvisionnement ${fournisseur}`,
+        type: "depense fonctionnelle",
+        timestamp: now.getTime(),
+        date: now.toISOString(),
+        dateString: `${dd}/${mm}/${yyyy}`
+      };
+      return dbFirestore.collection("depenses").add(depense);
+    })
+    .then(() => {
+      alert("Approvisionnement enregistré avec succès !");
+      currentApproItems = [];
+      updatePanierApprovisionnement();
+      document.getElementById("fournisseurAppro").value = "";
+      chargerApprovisionnements();
+      updateStockSummary();
+      updateBalanceDisplay();
+    })
     .catch(error => {
       alert("Erreur lors de l'ajout de l'approvisionnement : " + error.message);
     });
 }
-
 
   // Charger l'historique dès l'accès à la page Approvisionnement
   window.addEventListener('load', function() {
@@ -5760,6 +5771,188 @@ function exportDailyReportPDF(){
       doc.save(`Rapport_${saisie}.pdf`);
     })
     .catch(err=> alert("Erreur export PDF : "+err.message));
+}
+
+const isPhone = it => !it.category ||
+                       it.category.toLowerCase() === 'telephones';
+
+
+
+function getRange(collection, field, startTs, endTs){
+  return dbFirestore.collection(collection)
+    .where(field, '>=', startTs)
+    .where(field, '<=', endTs)
+    .get();
+}
+
+async function countPhonesSold(startTs, endTs){
+  const snap = await getRange('ventes','timestamp',startTs,endTs);
+  let total = 0;
+  snap.forEach(d=>{
+    (d.data().items||[]).forEach(it=>{
+      if(isPhone(it)) total += parseInt(it.quantite)||0;
+    });
+  });
+  return total;
+}
+
+/* ============================================================
+   UI : demande le mois puis lance l’export
+   ============================================================ */
+function askMonthlyExport(){
+  const mois = prompt('Mois à exporter (AAAA-MM) :',
+                      new Date().toISOString().slice(0,7));
+  if(!mois || !/^\d{4}-\d{2}$/.test(mois)) return;
+  exportMonthlyReportPDF(mois)
+    .catch(err=>alert('Erreur export mensuel : '+err.message));
+}
+// ===== EXPORT MENSUEL AVEC DÉTECTION D’ANOMALIES =====
+async function exportMonthlyReportPDF(month) {
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new Error("Format de mois invalide (AAAA-MM attendu).");
+  }
+
+  // 1) Bornes temporelles
+  const [Y, M] = month.split("-").map(Number);
+  const startTs = new Date(Y, M - 1, 1, 0, 0, 0, 0).getTime();
+  const endTs = new Date(Y, M, 0, 23, 59, 59, 999).getTime();
+
+  // 2) Snapshots
+  const [
+    ventesSnap,
+    depSnap,
+    rembSnap,
+    approSnap,
+    stockPhonesVal,
+    dettePapa,
+    nbPhones
+  ] = await Promise.all([
+    getRange("ventes", "timestamp", startTs, endTs),
+    getRange("depenses", "timestamp", startTs, endTs),
+    getRange("remboursements", "timestamp", startTs, endTs),
+    getRange("approvisionnement", "timestamp", startTs, endTs),
+    dbFirestore
+      .collection("stock")
+      .where("category", "==", "telephones")
+      .get()
+      .then(s => {
+        let v = 0;
+        s.forEach(d => {
+          v += (d.data().stock || 0) * (d.data().price || 0);
+        });
+        return v;
+      }),
+    dbFirestore
+      .collection("depensePapa")
+      .doc("balance")
+      .get()
+      .then(d => (d.exists ? d.data().montant || 0 : 0)),
+    countPhonesSold(startTs, endTs)
+  ]);
+
+  // 3) Agrégations VENTES → CA, profit, quantité
+  let ca = 0,
+    profit = 0,
+    qtyVentes = 0;
+  const caParJour = Array(new Date(Y, M, 0).getDate()).fill(0);
+  const profitByProd = {};
+  const qtyByProd = {};
+
+  ventesSnap.forEach(doc => {
+    const v = doc.data();
+    const dayIdx = new Date(v.timestamp).getDate() - 1;
+    caParJour[dayIdx] += +v.overallTotal;
+    ca += +v.overallTotal;
+    profit += +v.totalProfit;
+    qtyVentes++;
+
+    (v.items || []).forEach(item => {
+      const p = item.produit;
+      const q = parseInt(item.quantite) || 0;
+      const pTot = parseFloat(item.profitTotal) || 0;
+      qtyByProd[p] = (qtyByProd[p] || 0) + q;
+      profitByProd[p] = (profitByProd[p] || 0) + pTot;
+    });
+  });
+
+  // 4) Préparation tableau profit par article
+  const profitRows = Object.entries(profitByProd)
+    .sort((a, b) => b[1] - a[1])
+    .map(([prod, p]) => [prod, qtyByProd[prod].toString(), fmt(p) + " FCFA"]);
+
+  // 5) Détection anomalies sur totalProfit de chaque vente mensuelle
+  const allProfits = ventesSnap.docs.map(d => parseFloat(d.data().totalProfit) || 0);
+  const mean = allProfits.reduce((s, v) => s + v, 0) / allProfits.length || 0;
+  const variance =
+    allProfits.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / allProfits.length || 0;
+  const stdDev = Math.sqrt(variance);
+  const threshold = mean + 3 * stdDev;
+  const outliers = ventesSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(sale => parseFloat(sale.totalProfit) > threshold);
+
+  // 6) Génération du PDF
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
+  doc.setFontSize(18);
+  doc.text(`Rapport mensuel – ${month}`, 40, 40);
+
+  // --- Résumé exécutif ---
+  doc.autoTable({
+    startY: 60,
+    theme: "grid",
+    styles: { fontSize: 10 },
+    body: [
+      ["CA total", fmt(ca) + " FCFA"],
+      ["Profit brute", fmt(profit) + " FCFA"],
+      ["Nb ventes", qtyVentes.toString()],
+      ["Téléphones vendus", nbPhones.toString()],
+
+      [
+        "Approvisionnements",
+        fmt(
+          approSnap.docs
+            .flatMap(d => d.data().items || [])
+            .reduce((s, it) => s + it.quantite * it.prixAchat, 0)
+        ) + " FCFA"
+      ],
+
+    ],
+    columnStyles: { 0: { fontStyle: "bold" } }
+  });
+
+  // --- Top 10 modèles ---
+  const top10 = Object.entries(qtyByProd)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([m, q]) => [m, q.toString()]);
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text("Top 10 modèles (quantité)", 40, 40);
+  doc.autoTable({
+    startY: 50,
+    head: [["Modèle", "Qté"]],
+    body: top10,
+    styles: { fontSize: 10 }
+  });
+
+  // --- Profit par article ---
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text("Profit par article", 40, 40);
+  doc.autoTable({
+  startY: 50,
+  head: [["Article", "Qté", "Profit cumulé"]],
+  body: profitRows,
+  foot: [["", "TOTAL", fmt(profit) + " FCFA"]],
+  showFoot: 'lastPage',               // ← n’affiche le pied que sur la dernière page
+  headStyles: { fillColor: [240,240,240] },
+  footStyles: { fontStyle: "bold" },
+  styles: { fontSize: 10 }
+});
+
+
+  doc.save(`Rapport_${month}.pdf`);
 }
 
 </script>
