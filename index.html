@@ -691,6 +691,51 @@
   font-weight: bold;
 }
 
+/* === Cart Footer === */
+.cart-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 56px;              /* laisse la place à la bottom-nav-pro (hauteur ~56px) */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--white);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  z-index: 1001;
+}
+
+.cart-footer .footer-info,
+.cart-footer .footer-total {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.cart-footer .footer-label {
+  font-size: 14px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.cart-footer #footerQuantity,
+.cart-footer #footerTotal {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+/* Réduire le bouton “Suivant” du panier */
+#cartFooter .btn-modern {
+  padding: 6px 12px;      /* moins d’espace intérieur */
+  font-size: 14px;        /* texte un peu plus petit */
+  border-radius: 30px;    /* coins un peu moins arrondis */
+  /* si besoin, limiter la largeur max : */
+  max-width: 120px;
+}
+
+
     
   </style>
 </head>
@@ -3193,24 +3238,25 @@ function finaliserApprovisionnement() {
     <!-- articles injectés par JS -->
     <div id="panierContainer" class="list-container"></div>
 
-    <!-- TOTAL PANIER -->
-    <div id="panierTotal"
-         style="text-align:right;font-size:18px;font-weight:bold;margin:12px 0;">
-      Total : 0 FCFA
-    </div>
 
-    <div id="panierQuantity"
-     style="text-align:right;font-size:16px;color:#555;margin-bottom:20px;">
-  Qté totale : 0
-</div>
-
-<button id="btnPanierSuivant" class="btn-modern"
-onclick="continuerDepuisPanier()"
-disabled>
-Suivant <i data-lucide="arrow-right"></i>
-</button>
 
   </div>
+
+    <!-- Fixed Cart Footer -->
+    <div id="cartFooter" class="cart-footer">
+      <div class="footer-info">
+        <span class="footer-label">Articles</span>
+        <span id="footerQuantity">0</span>
+      </div>
+      <div class="footer-total">
+        <span class="footer-label">Total :</span>
+        <span id="footerTotal">0 FCFA</span>
+      </div>
+      <button id="footerCheckout" class="btn-modern">
+        Suivant <i data-lucide="arrow-right"></i>
+      </button>
+    </div>
+  
 </section>
 
 
@@ -4091,6 +4137,21 @@ if (!navigator.onLine) {
 let currentItems = [];              // contenu du panier
 let cachedStock  = [];              // stock en mémoire (déjà chargé)
 
+/* --- MÀJ DU FOOTER PANIER ---------------------------------- */
+function updateCartFooter () {
+  const qtyEl   = document.getElementById('footerQuantity');
+  const totalEl = document.getElementById('footerTotal');
+  const btn     = document.getElementById('footerCheckout');
+  if (!qtyEl || !totalEl || !btn) return;          // footer pas (encore) présent
+
+  const q  = currentItems.reduce((s, it) => s + it.quantite, 0);
+  const tt = currentItems.reduce((s, it) => s + it.total   , 0);
+
+  qtyEl.textContent   = q;
+  totalEl.textContent = tt.toLocaleString() + ' FCFA';
+  btn.disabled        = (q === 0);
+}
+
 
 
 function updateSearchCartBadge() {
@@ -4108,17 +4169,18 @@ document.getElementById('searchCartIcon').addEventListener('click', () => {
 });
 
 /* Ajoute un produit ou incrémente sa quantité ------------------ */
-function addOrIncrementItem(prod){
+function addOrIncrementItem(prod) {
   const idx = currentItems.findIndex(it => it.produit === prod.name);
-  if (idx > -1){                          // déjà présent → on incrémente
-    if (currentItems[idx].quantite >= prod.stock){
+
+  if (idx > -1) {                               // déjà présent → on incrémente
+    if (currentItems[idx].quantite >= prod.stock) {
       showToast("Stock épuisé !");
       return;
     }
     currentItems[idx].quantite += 1;
     currentItems[idx].total     = currentItems[idx].quantite * currentItems[idx].prix;
-  }else{                                  // premier ajout
-    if (prod.stock < 1){
+  } else {                                      // premier ajout
+    if (prod.stock < 1) {
       showToast("Stock épuisé !");
       return;
     }
@@ -4129,9 +4191,11 @@ function addOrIncrementItem(prod){
       total    : prod.price
     });
   }
+
   renderMiniPanier();
-  updatePanierPage();     
-  updateSearchCartBadge();       // total + badge
+  updatePanierPage();
+  updateSearchCartBadge();
+  updateCartFooter();            // ← NOUVEL appel
 }
 
 /* ========== Aperçu rapide dans l’étape 1 ========= */
@@ -4148,54 +4212,40 @@ function renderMiniPanier(){
 }
 
 /* ========== Écran #panier complet ========= */
-function updatePanierPage(){
-  const container     = document.getElementById("panierContainer");
-  const totalLabel    = document.getElementById("panierTotal");
-  const quantityLabel = document.getElementById("panierQuantity");
-  const btnSuivant    = document.getElementById("btnPanierSuivant");
+function updatePanierPage() {
+  const container = document.getElementById("panierContainer");
 
-  if (!container) return;   // sécurité si écran pas encore chargé
+  container.innerHTML = currentItems.length
+    ? ""
+    : "<p>Votre panier est vide.</p>";
 
-  container.innerHTML = "";
-  if (currentItems.length === 0){
-    container.innerHTML        = "<p>Votre panier est vide.</p>";
-    totalLabel.textContent     = "Total : 0 FCFA";
-    quantityLabel.textContent  = "Qté totale : 0";
-    btnSuivant.disabled        = true;
-    document.getElementById("nav-panier").dataset.count = 0;
-    return;
-  }
-
-  let total = 0, qt = 0;
-  currentItems.forEach((item,i)=>{
-    total += item.total;
-    qt    += item.quantite;
-
+  currentItems.forEach((item, index) => {
     const row = document.createElement("div");
     row.className = "panier-item";
     row.innerHTML = `
       <strong>${item.produit}</strong><br>
-      Qté : <input type="number" min="1" value="${item.quantite}"
-            data-idx="${i}" class="inpQt">
-      Prix : <input type="number" min="0" step="100" value="${item.prix}"
-            data-idx="${i}" class="inpPx">
-      Total : <span class="ligneTotal">
-                ${item.total.toLocaleString()} FCFA</span>
-      <span class="remove-item" onclick="retirerArticle(${i})">×</span>`;
+      Qté :
+        <input type="number" min="1" value="${item.quantite}"
+               data-idx="${index}" class="inpQt">
+      Prix :
+        <input type="number" min="0" step="100" value="${item.prix}"
+               data-idx="${index}" class="inpPx">
+      Total :
+        <span class="ligneTotal">${item.total.toLocaleString()} FCFA</span>
+      <span class="remove-item" onclick="retirerArticle(${index})">×</span>
+    `;
     container.appendChild(row);
   });
 
-  totalLabel.textContent    = "Total : " + total.toLocaleString() + " FCFA";
-  quantityLabel.textContent = "Qté totale : " + qt;
-  btnSuivant.disabled       = false;
+  container.querySelectorAll('.inpQt').forEach(el => el.oninput = onChangeQtOrPx);
+  container.querySelectorAll('.inpPx').forEach(el => el.oninput = onChangeQtOrPx);
 
-
-  // écoute temps réel sur Qté / Prix
-  container.querySelectorAll('.inpQt')
-           .forEach(el => el.oninput = onChangeQtOrPx);
-  container.querySelectorAll('.inpPx')
-           .forEach(el => el.oninput = onChangeQtOrPx);
+  updateCartFooter();   // ← un seul point de vérité pour le footer
 }
+
+// Le bouton du footer doit appeler la même fonction que l’ancien « Suivant »
+document.getElementById('footerCheckout').onclick = continuerDepuisPanier;
+
 
 // Enfin, au chargement de la page de recherche, initialiser le badge
 window.addEventListener('hashchange', () => {
@@ -4204,44 +4254,41 @@ window.addEventListener('hashchange', () => {
   }
 });
 /* Recalcul lors d’une saisie Qté ou Prix ---------------------- */
-function onChangeQtOrPx(e){
+function onChangeQtOrPx(e) {
   const idx  = +e.target.dataset.idx;
   const wrap = e.target.closest('.panier-item');
   const q    = +wrap.querySelector('.inpQt').value || 0;
   const p    = +wrap.querySelector('.inpPx').value || 0;
 
   const stockItem = cachedStock.find(s => s.name === currentItems[idx].produit);
-  if (stockItem && q > stockItem.stock){
+  if (stockItem && q > stockItem.stock) {
     showToast("Max " + stockItem.stock);
     wrap.querySelector('.inpQt').value = stockItem.stock;
     currentItems[idx].quantite = stockItem.stock;
-  }else{
+  } else {
     currentItems[idx].quantite = q;
   }
+
   currentItems[idx].prix  = p;
   currentItems[idx].total = currentItems[idx].quantite * currentItems[idx].prix;
   wrap.querySelector('.ligneTotal').textContent =
         currentItems[idx].total.toLocaleString() + " FCFA";
 
-  // maj totaux globaux sans reconstruire le DOM
-  let t=0,qt=0;
-  currentItems.forEach(it=>{ t+=it.total; qt+=it.quantite; });
-  document.getElementById("panierTotal").textContent    =
-      "Total : " + t.toLocaleString() + " FCFA";
-  document.getElementById("panierQuantity").textContent =
-      "Qté totale : " + qt;
+  updateCartFooter();            // ← NOUVEL appel
 }
 
 /* Retirer un article ----------------------------------------- */
-function retirerArticle(i){
-  currentItems.splice(i,1);
-  if (window.location.hash === '#panier'){
+function retirerArticle(i) {
+  currentItems.splice(i, 1);
+
+  if (window.location.hash === '#panier') {
     updatePanierPage();
-  }else{
+  } else {
     renderMiniPanier();
   }
 
   updateSearchCartBadge();
+  updateCartFooter();            // ← NOUVEL appel
 }
 
 /* Passer à l’écran Panier ------------------------------------ */
@@ -4253,13 +4300,13 @@ function ouvrirPanier(){
 }
 
 /* Bouton “Suivant” depuis l’écran Panier --------------------- */
-function continuerDepuisPanier(){
+function continuerDepuisPanier() {
   if (currentItems.length === 0) return;
   window.location.hash = 'vendre';   // retour au wizard
   currentStep = 1;                   // Étape 2 : infos client
   showStep(currentStep);
+  updateCartFooter();                // ← garde le footer frais
 }
-
     // Gestion de la livraison dans la vente
     function toggleDeliveryFields() {
       const isDelivery = document.getElementById("isDelivery").checked;
