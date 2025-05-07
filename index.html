@@ -1,3 +1,18 @@
+<!--
+  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  ┃  MOBILE-FIRST APPLICATION                                ┃
+  ┃  ------------------------------------------------------  ┃
+  ┃  ⚠️ Ce projet est conçu pour un usage mobile :          ┃
+  ┃    • Responsive et tactile avant tout                    ┃
+  ┃    • Écrans petits, interactions optimisées pour le touch┃
+  ┃    • Performance et chargement optimisé réseaux mobiles  ┃
+  ┃    • Pas de dépendance aux fonctionnalités desktop (hover┃
+  ┃      ou survol intensif, grandes résolutions, etc.)      ┃
+  ┃                                                          ┃
+  ┃  Merci de respecter ce paradigme lors de toute modification.┃
+  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+-->
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -788,6 +803,35 @@
     transform: scale(4);
     opacity: 0;
   }
+}
+
+/* ============================================================
+   BOUTON  "HISTORY"  SUR CHAQUE CARTE PRODUIT (STOCK)
+   ============================================================ */
+   .product-card {           /* ta carte existante : on ajoute…   */
+  position: relative;     /* …un contexte pour l'absolute       */
+}
+
+/* bouton rond translucide */
+.product-card .history-btn{
+  position:absolute;
+  top:6px; right:6px;                 /* coin haut-droit          */
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  border:none; border-radius:50%;
+  background:rgba(0,0,0,.05);
+  cursor:pointer;
+  transition:background .25s;
+}
+.product-card .history-btn i{
+  width:18px; height:18px;
+  color:var(--primary-color);
+}
+.product-card .history-btn:hover{
+  background:var(--primary-color);
+}
+.product-card .history-btn:hover i{
+  color:#fff;
 }
 
 
@@ -4884,66 +4928,57 @@ function continuerDepuisPanier() {
 
 
     // Gestion des onglets dans la section Stock
-    function filterStockItems(category) {
-      let searchTerm = "";
-      let containerId = "";
-      if(category === 'telephones'){
-        const inputElement = document.getElementById("search-telephones");
-        if (!inputElement) {
-          console.error('L\'élément avec l\'id "search-telephones" n\'a pas été trouvé.');
-          return;
-        }
-        searchTerm = inputElement.value.toLowerCase();
-        containerId = "telephones-container";
-      } else if(category === 'accessoires'){
-        const inputElement = document.getElementById("search-accessoires");
-        if (!inputElement) {
-          console.error('L\'élément avec l\'id "search-accessoires" n\'a pas été trouvé.');
-          return;
-        }
-        searchTerm = inputElement.value.toLowerCase();
-        containerId = "accessoires-container";
-      } else if(category === 'liste-prix'){
-        const inputElement = document.getElementById("search-prix");
-        if (!inputElement) {
-          console.error('L\'élément avec l\'id "search-prix" n\'a pas été trouvé.');
-          return;
-        }
-        searchTerm = inputElement.value.toLowerCase();
-        containerId = "liste-prix-container";
-      }
-      const container = document.getElementById(containerId);
-      container.innerHTML = "";
-      getAllStockFirestore().then(stocks => {
-        let filteredProducts = stocks.filter(prod => prod.category === category && prod.name.toLowerCase().includes(searchTerm));
-        if(filteredProducts.length === 0){
-          container.innerHTML = "<p>Aucun produit trouvé.</p>";
-          return;
-        }
-        if(category === 'liste-prix'){
-          filteredProducts.forEach(prod => {
-            const div = document.createElement("div");
-            div.className = "price-item";
-            div.innerHTML = `<p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>`;
-            container.appendChild(div);
-          });
-        } else {
-          filteredProducts.forEach(prod => {
-            const card = document.createElement("div");
-            card.className = "product-card";
-            card.innerHTML = 
-              `<div class="product-icon">${prod.icon}</div>
-              <div class="product-details">
-                <h3>${prod.name}</h3>
-                <p>🔹 Stock : ${prod.stock} unités</p>
-                <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-              </div>`;
-            container.appendChild(card);
-          });
-        }
-      }).catch(err => console.error("Erreur dans filterStockItems : " + err.message));
+    function filterStockItems(category){
+  const inputId     = category === 'telephones'
+                        ? "search-telephones"
+                        : category === 'accessoires'
+                          ? "search-accessoires"
+                          : "search-prix";
+  const containerId = category === 'telephones'
+                        ? "telephones-container"
+                        : category === 'accessoires'
+                          ? "accessoires-container"
+                          : "liste-prix-container";
+
+  const searchTerm  = document.getElementById(inputId)
+                              .value.toLowerCase();
+  const cont        = document.getElementById(containerId);
+  cont.innerHTML = "";
+
+  getAllStockFirestore().then(stocks=>{
+    const filtered = stocks.filter(p =>
+      p.category === category &&
+      p.name.toLowerCase().includes(searchTerm));
+
+    if(filtered.length === 0){
+      cont.innerHTML = "<p>Aucun produit trouvé.</p>";
+      return;
     }
 
+    filtered.forEach(prod=>{
+      const card = document.createElement("div");
+      card.className = "product-card";
+      card.innerHTML = `
+        <button class="history-btn"
+                onclick="voirHistoriqueStock('${prod.id}', event)"
+                title="Historique">
+          <i data-lucide="history"></i>
+        </button>
+
+        <div class="product-icon">${prod.icon}</div>
+        <div class="product-details">
+          <h3>${prod.name}</h3>
+          <p>🔹 Stock : ${prod.stock} unités</p>
+          <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+        </div>
+      `;
+      cont.appendChild(card);
+    });
+
+    lucide.createIcons();
+  })
+  .catch(err=>console.error("filterStockItems :",err.message));
+}
     let currentStockCategory = "";
     function updateStockSummary() {
       getAllStockFirestore().then(stocks => {
@@ -4970,52 +5005,58 @@ function continuerDepuisPanier() {
       document.getElementById("stock-category").style.display = "none";
       document.getElementById("stock-home").style.display = "block";
     }
-    function filterStockCategory() {
-  const searchInput = document.getElementById("search-category");
-  if (!searchInput) {
-    console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
-    return;
-  }
-  const searchTerm = searchInput.value.toLowerCase();
+    function filterStockCategory(){
+  const searchTerm = document
+        .getElementById("search-category")
+        .value.toLowerCase();
+
   getAllStockFirestore().then(stocks => {
-    let filteredProducts = stocks.filter(prod =>
-      prod.category === currentStockCategory &&
-      prod.name.toLowerCase().includes(searchTerm)
-    );
-    // Tri personnalisé : extraire le premier mot et lui attribuer un rang
-    filteredProducts.sort((a, b) => {
-      const firstA = a.name.split(" ")[0].toLowerCase();
-      const firstB = b.name.split(" ")[0].toLowerCase();
-      // Définition de l'ordre souhaité
-      const ordre = { "tecno": 1, "infinix": 2, "itel": 3, "redmi": 4 };
-      const rankA = ordre[firstA] || 5; // Les autres auront la valeur 5
-      const rankB = ordre[firstB] || 5;
-      if (rankA !== rankB) {
-        return rankA - rankB;
-      }
-      // En cas d'égalité de rang, trier alphabétiquement par nom complet
-      return a.name.localeCompare(b.name);
-    });
-    
-    const container = document.getElementById("category-container");
-    container.innerHTML = "";
-    if (filteredProducts.length === 0) {
-      container.innerHTML = "<p>Aucun produit trouvé.</p>";
+
+    /* -- filtrage + tri perso (Tecno → Infinix → Itel → Redmi → autres) -- */
+    const filtered = stocks
+      .filter(p =>
+        p.category === currentStockCategory &&
+        p.name.toLowerCase().includes(searchTerm))
+      .sort((a,b)=>{
+        const ordre = {tecno:1,infinix:2,itel:3,redmi:4};
+        const rA = ordre[a.name.split(" ")[0].toLowerCase()] || 5;
+        const rB = ordre[b.name.split(" ")[0].toLowerCase()] || 5;
+        return rA !== rB ? rA - rB : a.name.localeCompare(b.name);
+      });
+
+    /* -- construction DOM -- */
+    const cont = document.getElementById("category-container");
+    cont.innerHTML = "";
+    if(filtered.length === 0){
+      cont.innerHTML = "<p>Aucun produit trouvé.</p>";
       return;
     }
-    filteredProducts.forEach(prod => {
+
+    filtered.forEach(prod =>{
       const card = document.createElement("div");
       card.className = "product-card";
-      card.innerHTML =
-        `<div class="product-icon">${prod.icon}</div>
-         <div class="product-details">
-           <h3>${prod.name}</h3>
-           <p>🔹 Stock : ${prod.stock} unités</p>
-           <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-         </div>`;
-      container.appendChild(card);
+
+      /* ⬇⬇  ICI TOUT LE HTML DE LA CARTE ⬇⬇ */
+      card.innerHTML = `
+        <button class="history-btn"
+                onclick="voirHistoriqueStock('${prod.id}', event)"
+                title="Historique">
+          <i data-lucide="history"></i>
+        </button>
+
+        <div class="product-icon">${prod.icon}</div>
+        <div class="product-details">
+          <h3>${prod.name}</h3>
+          <p>🔹 Stock : ${prod.stock} unités</p>
+          <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+        </div>
+      `;
+      cont.appendChild(card);
     });
-  }).catch(err => console.error("Erreur dans filterStockCategory : " + err.message));
+
+    lucide.createIcons();           // indispensable pour les icônes
+  })
+  .catch(err => console.error("filterStockCategory :",err.message));
 }
 
     // Importation du stock depuis un fichier TXT
