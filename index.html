@@ -981,8 +981,12 @@
               <!-- Options générées via Firestore -->
             </select>
             <!-- ====== NOUVEAU : choix du compte ====== -->
-<label for="compteSelectVente">Compte de trésorerie</label>
-<select id="compteSelectVente"></select>
+            <label for="compteSelectVente">Compte de trésorerie <span style="color:red;">*</span></label>
+            <select id="compteSelectVente" required>
+              <option value="" disabled selected>— Choisissez un compte —</option>
+              <!-- Les options sont ensuite injectées dynamiquement -->
+            </select>
+            
 <!-- ======================================= -->
 
             <label for="photoFacture">Photo de la facture</label>
@@ -3702,11 +3706,21 @@ function finaliserApprovisionnement() {
       }
     }
     function nextStep() {
-      if(currentStep < steps.length - 1) {
-        currentStep++;
-        showStep(currentStep);
-      }
+  // Si on est à l’étape 3 (index = 2) : on exige un compte
+  if (currentStep === 2) {
+    const compte = document.getElementById("compteSelectVente").value;
+    if (!compte) {
+      alert("Veuillez sélectionner un compte de trésorerie avant de continuer.");
+      return; // on reste sur l’étape
     }
+  }
+
+  // votre code existant
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    showStep(currentStep);
+  }
+}
     function prevStep() {
       if(currentStep > 0) {
         currentStep--;
@@ -6036,18 +6050,42 @@ Promise.all([
       styles     : { fontSize: 8 }
     });
 
-    /* ---- Approvisionnements ---- */
-    y = doc.lastAutoTable.finalY + 30;
-    doc.setFontSize(14);
-    doc.text("Achats de marchandises", 40, y);
-    autoTable.call(doc, {
-      startY     : y + 20,
-      head       : [["Heure", "Article", "Qté", "Prix U."]],
-      body       : appro.rows.length ? appro.rows : [["—", "—", "0", "0"]],
-      foot       : [['', '', 'Sous-total', fmt(totalAppro) + " FCFA"]],
-      footStyles : { fontStyle: "bold" },
-      styles     : { fontSize: 8 }
-    });
+   // ---- Approvisionnements ----
+y = doc.lastAutoTable.finalY + 30;
+doc.setFontSize(14);
+doc.text("Achats de marchandises", 40, y);
+
+const approTable = appro.rows.map(([, produit, qt, prixU]) => {
+  const q  = parseFloat(qt) || 0;
+  // on enlève tous les espaces insécables ou simples avant de parser
+  const pu = parseFloat(prixU.replace(/\s/g, '')) || 0;
+  const tot = q * pu;
+  return [
+    produit,
+    fmt(q),
+    fmt(pu),
+    fmt(tot)
+  ];
+});
+
+doc.autoTable({
+  startY: y + 20,
+  head: [["Produit", "Qté", "Prix unitaire", "Total"]],
+  body: approTable.length
+    ? approTable
+    : [["—", "0", "0", "0"]],
+  foot: [
+    [
+      { content: "Sous-total", colSpan: 3, styles: { halign: "right", fontStyle: "bold" } },
+      fmt(totalAppro) + " FCFA"
+    ]
+  ],
+  styles:    { fontSize: 8 },
+  headStyles:{ fillColor: [0,96,100], textColor: 255 },
+  footStyles:{ fillColor: [0,96,100], textColor: 255 }
+});
+
+
 
     /* ---- Variation stock Téléphones ---- */
     y = doc.lastAutoTable.finalY + 30;
