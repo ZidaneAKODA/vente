@@ -4386,6 +4386,7 @@ function addOrIncrementItem(prod) {
     }
     currentItems[idx].quantite += 1;
     currentItems[idx].total     = currentItems[idx].quantite * currentItems[idx].prix;
+    currentItems[idx].category  = prod.category;
   } else {                                      // premier ajout
     if (prod.stock < 1) {
       showToast("Stock épuisé !");
@@ -4395,7 +4396,8 @@ function addOrIncrementItem(prod) {
       produit  : prod.name,
       prix     : prod.price,
       quantite : 1,
-      total    : prod.price
+      total    : prod.price,
+      category : prod.category
     });
   }
 
@@ -4597,6 +4599,7 @@ function continuerDepuisPanier() {
           // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
           item.profitUnitaire = profitUnitaire;
           item.profitTotal = profitTotal;
+          item.coutAchat     = stockData.price || 0;
         }
       });
   });
@@ -5833,32 +5836,59 @@ const ventesP = dbFirestore.collection("ventes")
   .where("dateVente", "==", saisie.split("-").reverse().join("/"))
   .get()
   .then(snap => {
-    const rows = [];
-    let qty = 0, ca = 0, profit = 0, soldQty = 0, soldVal = 0;
-    snap.forEach(doc => {
-      (doc.data().items || []).forEach(it => {
+    let qty = 0, ca = 0, profit = 0;
+let soldPhonesQty = 0, soldPhonesVal = 0;
+let soldAccQty    = 0, soldAccVal    = 0;
+let soldPhonesCAMV = 0; 
 
-        /* profit total de l’article */
-        const pTot = it.profitTotal !== undefined
-                   ? parseFloat(it.profitTotal)
-                   : ((parseFloat(it.prix) - (parseFloat(it.prixAchat) || 0)) * it.quantite);
+const phoneRows = [];
+const accRows   = [];
 
-        /* coût d’achat unitaire pour la variation de stock */
-        const costUnit = parseFloat(it.prix) - (parseFloat(it.profitUnitaire) || 0);
+snap.forEach(doc => {
+  const v = doc.data();
+  v.items.forEach(item => {
+    const total = parseFloat(item.total) || 0;
+    qty += item.quantite;
+    ca  += total;
 
-        rows.push([it.produit, fmt(it.prix), it.quantite.toString(), fmt(it.total)]);
-        qty      += it.quantite;
-        ca       += +it.total;
-        profit   += pTot;
+    if (isPhone(item)) {
+      // Téléphones
+      phoneRows.push([
+        item.produit,
+        fmt(item.prix),
+        item.quantite.toString(),
+        fmt(total) + " FCFA"
+      ]);
+      soldPhonesQty += item.quantite;
+      soldPhonesVal += total;
+      soldPhonesCAMV += item.quantite * (item.coutAchat || 0);   // <-- AJOUT
+    } else {
+      // Accessoires
+      accRows.push([
+        item.produit,
+        fmt(item.prix),
+        item.quantite.toString(),
+        fmt(total) + " FCFA"
+      ]);
+      soldAccQty += item.quantite;
+      soldAccVal += total;
+    }
+  });
+});
 
-        /* variation stock téléphones */
-        if (!it.category || it.category.toLowerCase() === "telephones") {
-          soldQty += it.quantite;
-          soldVal += costUnit * it.quantite;
-        }
-      });
-    });
-    return { rows, qty, ca, profit, soldQty, soldVal };
+return {
+  phoneRows,
+  accRows,
+  qty,
+  ca,
+  profit,
+  soldPhonesQty,
+  soldPhonesVal,
+  soldAccQty,
+  soldAccVal,
+  soldPhonesCAMV      // <-- AJOUT
+};
+
   });
 
 /* ── 3) DÉPENSES ─────────────────────────────────────────── */
@@ -5999,9 +6029,11 @@ Promise.all([
                          - totalAppro;
 
     /* Variation stock téléphones */
-    const closingQty = openingStock.qty + achatsPhones.qty - ventes.soldQty;
-    const closingVal = openingStock.val + achatsPhones.val - ventes.soldVal;
+    const closingQty = openingStock.qty + achatsPhones.qty - ventes.soldPhonesQty;
+// Après :
+const closingVal = openingStock.val + achatsPhones.val - ventes.soldPhonesCAMV;
 
+    
     const valeurBusiness = soldeFinal + closingVal + dettePapa;
 
     /* === PDF === */
@@ -6013,24 +6045,43 @@ Promise.all([
     doc.text(`Rapport du ${jsDate.toLocaleDateString("fr-FR")}`, 40, 40);
 
     /* ---- VENTES ---- */
-    doc.setFontSize(14);
-    doc.text("Téléphones vendus", 40, 60);
-    autoTable.call(doc, {
-      startY     : 70,
-      head       : [["Modèle", "Prix U.", "Qté", "Total"]],
-      body       : ventes.rows.length ? ventes.rows : [["—", "—", "0", "0"]],
-      foot       : [['', '', ventes.qty.toString(), fmt(totalEntrees) + " FCFA"]],
-      footStyles : { fontStyle: "bold" },
-      styles     : { fontSize: 9 }
-    });
+    // → Section Téléphones
+let y = 60;
+doc.setFontSize(14);
+doc.text("Téléphones vendus", 40, y);
+autoTable.call(doc, {
+  startY: y + 10,
+  head: [["Modèle","Prix U.","Qté","Total"]],
+  body: ventes.phoneRows.length 
+    ? ventes.phoneRows 
+    : [["—","—","0","0"]],
+  foot: [["","", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal)+" FCFA"]],
+  styles: { fontSize: 9 }
+});
+
+// → Section Accessoires
+y = doc.lastAutoTable.finalY + 30;
+doc.setFontSize(14);
+doc.text("Accessoires vendus", 40, y);
+autoTable.call(doc, {
+  startY: y + 10,
+  head: [["Modèle","Prix U.","Qté","Total"]],
+  body: ventes.accRows.length 
+    ? ventes.accRows 
+    : [["—","—","0","0"]],
+  foot: [["","", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal)+" FCFA"]],
+  styles: { fontSize: 9 }
+});
+
 
     /* ---- Dépenses Papa ---- */
-    let y = doc.lastAutoTable.finalY + 30;
+    y = doc.lastAutoTable.finalY + 30;
     doc.setFontSize(14);
     doc.text("Dépenses Papa", 40, y);
     autoTable.call(doc, {
       startY     : y + 10,
       head       : [["Heure", "Description", "Montant"]],
+      showFoot : 'lastPage',
       body       : deps.papa.length ? deps.papa : [["—", "—", "0"]],
       foot       : [['', 'Sous-total', fmt(deps.totPapa) + " FCFA"]],
       footStyles : { fontStyle: "bold" },
@@ -6045,9 +6096,11 @@ Promise.all([
       startY     : y + 10,
       head       : [["Heure", "Description", "Montant"]],
       body       : deps.fonc.length ? deps.fonc : [["—", "—", "0"]],
+      showFoot : 'lastPage',
       foot       : [['', 'Sous-total', fmt(deps.totFonc) + " FCFA"]],
       footStyles : { fontStyle: "bold" },
-      styles     : { fontSize: 8 }
+      styles     : { fontSize: 8 },
+      
     });
 
    // ---- Approvisionnements ----
@@ -6080,12 +6133,11 @@ doc.autoTable({
       fmt(totalAppro) + " FCFA"
     ]
   ],
+  showFoot : 'lastPage',
   styles:    { fontSize: 8 },
   headStyles:{ fillColor: [0,96,100], textColor: 255 },
   footStyles:{ fillColor: [0,96,100], textColor: 255 }
 });
-
-
 
     /* ---- Variation stock Téléphones ---- */
     y = doc.lastAutoTable.finalY + 30;
@@ -6097,7 +6149,7 @@ doc.autoTable({
   head   : [["Libellé", "Nombre", "Coût d'Achat"]],
   body   : [
     ["Solde initial", fmt(openingStock.qty), fmt(openingStock.val) + " FCFA"],
-    ["Ventes",       "-" + fmt(ventes.soldQty), "-" + fmt(ventes.soldVal) + " FCFA"],
+    ["Ventes", "-" + fmt(ventes.soldPhonesQty), "-" + fmt(ventes.soldPhonesCAMV) + " FCFA"],
     ["Achats",       "+" + fmt(achatsPhones.qty), "+" + fmt(achatsPhones.val) + " FCFA"],
     ["Solde finale",  fmt(closingQty), fmt(closingVal) + " FCFA"]
   ],
@@ -6137,9 +6189,7 @@ doc.autoTable({
   .catch(err => alert("Erreur export PDF : " + err.message));
 }
 
-const isPhone = it => !it.category ||
-                       it.category.toLowerCase() === 'telephones';
-
+const isPhone = it => (it.category || "").toLowerCase() === "telephones";
 
 
 function getRange(collection, field, startTs, endTs){
