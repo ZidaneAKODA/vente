@@ -2951,7 +2951,7 @@ function ajouterApprovisionnementItem() {
 
   const item = {
     fournisseur,
-    categorie: categorie,   // ← au lieu de « categorie »
+    category: categorie,     // ← au lieu de « categorie »
     produit: modele,
     quantite,
     prixAchat,
@@ -3012,7 +3012,7 @@ function finaliserApprovisionnement() {
     .then(() => {
       // Met à jour le stock en utilisant item.categorie
       const updatePromises = currentApproItems.map(item =>
-        ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, item.categorie)
+        ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, item.category)
       );
       return Promise.all(updatePromises);
     })
@@ -5239,7 +5239,7 @@ function continuerDepuisPanier() {
           alert("Erreur lors de l'ajout de l'entrée de stock : " + err.message);
         });
     }
-    function ajouterOuMettreAJourStock(produit, quantite, prix, categorie) {
+    function ajouterOuMettreAJourStock(produit, quantite, prix, category) {
   return dbFirestore.collection("stock")
     .where("name", "==", produit)
     .get()
@@ -5263,7 +5263,7 @@ function continuerDepuisPanier() {
           name: produit, 
           stock: quantite, 
           price: prix, 
-          category: categorie, 
+          category : category, 
           icon, 
           createdAt: firebase.firestore.FieldValue.serverTimestamp() 
         };
@@ -5846,6 +5846,7 @@ const accRows   = [];
 
 snap.forEach(doc => {
   const v = doc.data();
+  profit += parseFloat(v.totalProfit) || 0;
   v.items.forEach(item => {
     const total = parseFloat(item.total) || 0;
     qty += item.quantite;
