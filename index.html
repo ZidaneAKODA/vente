@@ -6108,37 +6108,50 @@ autoTable.call(doc, {
 y = doc.lastAutoTable.finalY + 30;
 doc.setFontSize(14);
 doc.text("Achats de marchandises", 40, y);
+// 1) Calculez la quantité totale
+const totalQtyAppro = appro.rows
+  .reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
 
+// 2) Préparez le tableau
 const approTable = appro.rows.map(([, produit, qt, prixU]) => {
-  const q  = parseFloat(qt) || 0;
-  // on enlève tous les espaces insécables ou simples avant de parser
-  const pu = parseFloat(prixU.replace(/\s/g, '')) || 0;
-  const tot = q * pu;
+  const q    = parseFloat(qt) || 0;
+  const pu   = parseFloat(prixU.replace(/\s/g, '')) || 0;
+  const tot  = q * pu;
   return [
     produit,
-    fmt(q),
-    fmt(pu),
-    fmt(tot)
+    fmt(q),              // Qté
+    fmt(pu),             // Prix unitaire
+    fmt(tot) + " FCFA"   // Total ligne
   ];
 });
 
+// 3) Générez le tableau avec la ligne de pied
 doc.autoTable({
   startY: y + 20,
-  head: [["Produit", "Qté", "Prix unitaire", "Total"]],
+  head: [
+    ["Produit", "Qté", "Prix unitaire", "Total"]
+  ],
   body: approTable.length
     ? approTable
     : [["—", "0", "0", "0"]],
   foot: [
     [
-      { content: "Sous-total", colSpan: 3, styles: { halign: "right", fontStyle: "bold" } },
-      fmt(totalAppro) + " FCFA"
+      // première cellule : label
+      { content: "Total", styles: { halign: "right", fontStyle: "bold" } },
+      // colonne Qté : somme des quantités
+      { content: totalQtyAppro.toString(), styles: { fontStyle: "bold" } },
+      // prix unitaire vide
+      "",
+      // colonne Total : somme des totaux
+      fmt(appro.tot) + " FCFA"
     ]
   ],
-  showFoot : 'lastPage',
+  showFoot: 'lastPage',
   styles:    { fontSize: 8 },
   headStyles:{ fillColor: [0,96,100], textColor: 255 },
   footStyles:{ fillColor: [0,96,100], textColor: 255 }
 });
+
 
     /* ---- Variation stock Téléphones ---- */
     y = doc.lastAutoTable.finalY + 30;
