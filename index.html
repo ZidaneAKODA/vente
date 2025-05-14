@@ -5929,23 +5929,43 @@ const injectionP = dbFirestore.collection("remboursements")
     return total;
   });
 
-/* ── 5) APPROVISIONNEMENTS (toutes cat.) ─────────────────── */
+// 5) APPROVISIONNEMENTS  ➜  on sépare tout de suite
 const approP = dbFirestore.collection("approvisionnement")
   .where("timestamp", ">=", startOfDay)
   .where("timestamp", "<=", endOfDay)
   .get()
   .then(snap => {
-    const rows = [];
-    let tot = 0;
+    const rowsPhones = [];
+    const rowsAcc    = [];
+    let   totPhones  = 0;
+    let   totAcc     = 0;
+
     snap.forEach(doc => {
-      const a = doc.data();
-      const time = new Date(a.timestamp).toLocaleTimeString("fr-FR");
-      (a.items || []).forEach(it => {
-        rows.push([time, it.produit, it.quantite.toString(), fmt(it.prixAchat)]);
-        tot += parseFloat(it.quantite) * parseFloat(it.prixAchat);
+      const h = new Date(doc.data().timestamp).toLocaleTimeString("fr-FR");
+
+      (doc.data().items || []).forEach(it => {
+        const ligne = [
+          h,
+          it.produit,
+          it.quantite.toString(),
+          fmt(it.prixAchat) + " FCFA"
+        ];
+
+        if (it.category === "telephones") {
+          rowsPhones.push(ligne);
+          totPhones += it.quantite * it.prixAchat;
+        } else {                      // accessoires (ou autre)
+          rowsAcc.push(ligne);
+          totAcc += it.quantite * it.prixAchat;
+        }
       });
     });
-    return { rows, tot };
+
+    return {
+      phones : { rows: rowsPhones, total: totPhones },
+      acc    : { rows: rowsAcc,    total: totAcc    },
+      grandTotal : totPhones + totAcc
+    };
   });
 
 /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
@@ -6142,53 +6162,38 @@ autoTable.call(doc, {
       
     });
 
-   // ---- Approvisionnements ----
+/* ---- Achats TÉLÉPHONES ---- */
 y = doc.lastAutoTable.finalY + 30;
 doc.setFontSize(14);
-doc.text("Achats de marchandises", 40, y);
-// 1) Calculez la quantité totale
-const totalQtyAppro = appro.rows
-  .reduce((sum, row) => sum + (parseFloat(row[2]) || 0), 0);
+doc.text("Achats – Téléphones", 40, y);
 
-// 2) Préparez le tableau
-const approTable = appro.rows.map(([, produit, qt, prixU]) => {
-  const q    = parseFloat(qt) || 0;
-  const pu   = parseFloat(prixU.replace(/\s/g, '')) || 0;
-  const tot  = q * pu;
-  return [
-    produit,
-    fmt(q),              // Qté
-    fmt(pu),             // Prix unitaire
-    fmt(tot) + " FCFA"   // Total ligne
-  ];
-});
-
-// 3) Générez le tableau avec la ligne de pied
 doc.autoTable({
-  startY: y + 20,
-  head: [
-    ["Produit", "Qté", "Prix unitaire", "Total"]
-  ],
-  body: approTable.length
-    ? approTable
-    : [["—", "0", "0", "0"]],
-  foot: [
-    [
-      // première cellule : label
-      { content: "Total", styles: { halign: "right", fontStyle: "bold" } },
-      // colonne Qté : somme des quantités
-      { content: totalQtyAppro.toString(), styles: { fontStyle: "bold" } },
-      // prix unitaire vide
-      "",
-      // colonne Total : somme des totaux
-      fmt(appro.tot) + " FCFA"
-    ]
-  ],
-  showFoot: 'lastPage',
-  styles:    { fontSize: 8 },
-  headStyles:{ fillColor: [0,96,100], textColor: 255 },
-  footStyles:{ fillColor: [0,96,100], textColor: 255 }
+  startY     : y + 10,
+  head       : [["Heure", "Produit", "Qté", "Prix U.", "Total"]],
+  body       : appro.phones.rows.length ? appro.phones.rows
+                                        : [["—","—","0","0","0"]],
+  foot       : [["", "", "", "Total", fmt(appro.phones.total) + " FCFA"]],
+  showFoot   : 'lastPage',
+  headStyles : { fillColor:[0,96,100], textColor:255 },
+  styles     : { fontSize: 9 }
 });
+
+/* ---- Achats ACCESSOIRES ---- */
+y = doc.lastAutoTable.finalY + 25;
+doc.setFontSize(14);
+doc.text("Achats – Accessoires", 40, y);
+
+doc.autoTable({
+  startY     : y + 10,
+  head       : [["Heure", "Produit", "Qté", "Prix U.", "Total"]],
+  body       : appro.acc.rows.length ? appro.acc.rows
+                                     : [["—","—","0","0","0"]],
+  foot       : [["", "", "", "Total", fmt(appro.acc.total) + " FCFA"]],
+  showFoot   : 'lastPage',
+  headStyles : { fillColor:[0,96,100], textColor:255 },
+  styles     : { fontSize: 9 }
+});
+
 
 // ---- Apport de marchandises par Papa ----
 y = doc.lastAutoTable.finalY + 30;
