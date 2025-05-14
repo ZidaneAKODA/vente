@@ -5939,6 +5939,8 @@ const approP = dbFirestore.collection("approvisionnement")
     const rowsAcc    = [];
     let   totPhones  = 0;
     let   totAcc     = 0;
+    let totQtyPhones = 0;
+    let totQtyAcc    = 0;
 
     snap.forEach(doc => {
       const h = new Date(doc.data().timestamp).toLocaleTimeString("fr-FR");
@@ -5948,15 +5950,18 @@ const approP = dbFirestore.collection("approvisionnement")
           h,
           it.produit,
           it.quantite.toString(),
-          fmt(it.prixAchat) + " FCFA"
+          fmt(it.prixAchat) + " FCFA",
+          fmt(it.quantite * it.prixAchat) + " FCFA"  
         ];
 
         if (it.category === "telephones") {
           rowsPhones.push(ligne);
+          totQtyPhones += it.quantite;        
           totPhones += it.quantite * it.prixAchat;
         } else {                      // accessoires (ou autre)
           rowsAcc.push(ligne);
-          totAcc += it.quantite * it.prixAchat;
+          totQtyAcc   += it.quantite;
+          totAcc      += it.quantite * it.prixAchat;
         }
       });
     });
@@ -6071,7 +6076,7 @@ Promise.all([
     const totalEntrees   = ventes.ca;
     const totalInjection = injection;
     const totalDepenses  = deps.totPapa + deps.totFonc;
-    const totalAppro     = appro.tot;
+    const totalAppro     = appro.grandTotal;
     const totalProfit    = ventes.profit;
 
     const soldeFinal     = soldeInitial
@@ -6170,9 +6175,11 @@ doc.text("Achats – Téléphones", 40, y);
 doc.autoTable({
   startY     : y + 10,
   head       : [["Heure", "Produit", "Qté", "Prix U.", "Total"]],
-  body       : appro.phones.rows.length ? appro.phones.rows
-                                        : [["—","—","0","0","0"]],
-  foot       : [["", "", "", "Total", fmt(appro.phones.total) + " FCFA"]],
+  body       : appro.phones.rows.length
+                 ? appro.phones.rows
+                 : [["—","—","0","0","0"]],
+  foot       : [["TOTAL", "", appro.phones.qty.toString(),
+                 "", fmt(appro.phones.total) + " FCFA"]],
   showFoot   : 'lastPage',
   headStyles : { fillColor:[0,96,100], textColor:255 },
   styles     : { fontSize: 9 }
@@ -6186,9 +6193,11 @@ doc.text("Achats – Accessoires", 40, y);
 doc.autoTable({
   startY     : y + 10,
   head       : [["Heure", "Produit", "Qté", "Prix U.", "Total"]],
-  body       : appro.acc.rows.length ? appro.acc.rows
-                                     : [["—","—","0","0","0"]],
-  foot       : [["", "", "", "Total", fmt(appro.acc.total) + " FCFA"]],
+  body       : appro.acc.rows.length
+                 ? appro.acc.rows
+                 : [["—","—","0","0","0"]],
+  foot       : [["TOTAL", "", appro.acc.qty.toString(),
+                 "", fmt(appro.acc.total) + " FCFA"]],
   showFoot   : 'lastPage',
   headStyles : { fillColor:[0,96,100], textColor:255 },
   styles     : { fontSize: 9 }
