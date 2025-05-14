@@ -5965,12 +5965,12 @@ const approP = dbFirestore.collection("approvisionnement")
         }
       });
     });
+return {
+  phones : { rows: rowsPhones, qty: totQtyPhones, total: totPhones },
+  acc    : { rows: rowsAcc,    qty: totQtyAcc,    total: totAcc    },
+  grandTotal : totPhones + totAcc
+};
 
-    return {
-      phones : { rows: rowsPhones, total: totPhones },
-      acc    : { rows: rowsAcc,    total: totAcc    },
-      grandTotal : totPhones + totAcc
-    };
   });
 
 /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
