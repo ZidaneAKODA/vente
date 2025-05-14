@@ -5934,15 +5934,16 @@ const approP = dbFirestore.collection("approvisionnement")
   .where("timestamp", ">=", startOfDay)
   .where("timestamp", "<=", endOfDay)
   .get()
-  .then(snap => {
+  .then(snapshot => {
     const rowsPhones = [];
     const rowsAcc    = [];
-    let   totPhones  = 0;
-    let   totAcc     = 0;
-    let totQtyPhones = 0;
-    let totQtyAcc    = 0;
 
-    snap.forEach(doc => {
+    let totQtyPhones = 0;       // 🆕 total Qté téléphones
+    let totQtyAcc    = 0;       // 🆕 total Qté accessoires
+    let totPhones    = 0;       // FCFA
+    let totAcc       = 0;       // FCFA
+
+    snapshot.forEach(doc => {
       const h = new Date(doc.data().timestamp).toLocaleTimeString("fr-FR");
 
       (doc.data().items || []).forEach(it => {
@@ -5951,27 +5952,28 @@ const approP = dbFirestore.collection("approvisionnement")
           it.produit,
           it.quantite.toString(),
           fmt(it.prixAchat) + " FCFA",
-          fmt(it.quantite * it.prixAchat) + " FCFA"  
+          fmt(it.quantite * it.prixAchat) + " FCFA"
         ];
 
         if (it.category === "telephones") {
           rowsPhones.push(ligne);
-          totQtyPhones += it.quantite;        
-          totPhones += it.quantite * it.prixAchat;
-        } else {                      // accessoires (ou autre)
+          totQtyPhones += it.quantite;                    // 🆕
+          totPhones    += it.quantite * it.prixAchat;
+        } else {
           rowsAcc.push(ligne);
-          totQtyAcc   += it.quantite;
+          totQtyAcc   += it.quantite;                     // 🆕
           totAcc      += it.quantite * it.prixAchat;
         }
       });
     });
-return {
-  phones : { rows: rowsPhones, qty: totQtyPhones, total: totPhones },
-  acc    : { rows: rowsAcc,    qty: totQtyAcc,    total: totAcc    },
-  grandTotal : totPhones + totAcc
-};
 
+    return {
+      phones : { rows: rowsPhones, qty: totQtyPhones, total: totPhones },
+      acc    : { rows: rowsAcc,    qty: totQtyAcc,    total: totAcc    },
+      grandTotal : totPhones + totAcc
+    };
   });
+
 
 /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
 /* ---------- Filtrage sur dateString ---------- */
