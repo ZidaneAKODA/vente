@@ -5949,15 +5949,17 @@ const approP = dbFirestore.collection("approvisionnement")
   });
 
 /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
-const papaSupplyP = dbFirestore
-  .collection("apportPapa")
-  .where("timestamp", ">=", startOfDay)
-  .where("timestamp", "<=", endOfDay)
+/* ---------- Filtrage sur dateString ---------- */
+const dateFR = jsDate.toLocaleDateString("fr-FR");   // même format que dans Firestore
+
+const papaSupplyP = dbFirestore.collection("apportPapa")
+  .where("dateString", "==", dateFR)
   .get()
   .then(snap => {
-    const rows       = [];
-    let totalQty     = 0;
-    let totalAmount  = 0;
+    const rows = [];
+    let totalQty = 0;
+    let totalAmount = 0;
+
     snap.forEach(doc => {
       (doc.data().items || []).forEach(it => {
         const lineTotal = it.quantite * it.coutUnitaire;
@@ -5971,6 +5973,7 @@ const papaSupplyP = dbFirestore
         totalAmount += lineTotal;
       });
     });
+
     return { rows, totalQty, totalAmount };
   });
 
