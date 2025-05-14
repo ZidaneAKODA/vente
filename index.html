@@ -5905,7 +5905,6 @@ const depensesP = dbFirestore.collection("depenses")
       const desc = d.description || "";
       const isAppro = desc.toLowerCase().startsWith("approvisionnement");
       const ligne = [
-        new Date(d.timestamp).toLocaleTimeString("fr-FR"),
         desc,
         fmt(d.montant)
       ];
@@ -5948,7 +5947,6 @@ const approP = dbFirestore.collection("approvisionnement")
 
       (doc.data().items || []).forEach(it => {
         const ligne = [
-          h,
           it.produit,
           it.quantite.toString(),
           fmt(it.prixAchat) + " FCFA",
@@ -6144,15 +6142,19 @@ autoTable.call(doc, {
     y = doc.lastAutoTable.finalY + 30;
     doc.setFontSize(14);
     doc.text("Dépenses Papa", 40, y);
-    autoTable.call(doc, {
-      startY     : y + 10,
-      head       : [["Heure", "Description", "Montant"]],
-      showFoot : 'lastPage',
-      body       : deps.papa.length ? deps.papa : [["—", "—", "0"]],
-      foot       : [['', 'Sous-total', fmt(deps.totPapa) + " FCFA"]],
-      footStyles : { fontStyle: "bold" },
-      styles     : { fontSize: 8 }
-    });
+    autoTable.call(doc,{
+  startY : y+10,
+  head   : [["Description","Montant"]],
+
+  body   : deps.papa.length
+              ? deps.papa
+              : [["—","0 FCFA"]],          // ← 2 cellules, pas 3
+
+  foot   : [["Sous-total", fmt(deps.totPapa)+" FCFA"]], // ← 2 cellules
+  showFoot :'lastPage',
+  styles : {fontSize:8},
+  footStyles:{fontStyle:"bold"}
+});
 
     /* ---- Dépenses fonctionnelles ---- */
     y = doc.lastAutoTable.finalY + 20;
@@ -6160,10 +6162,12 @@ autoTable.call(doc, {
     doc.text("Dépenses fonctionnelles", 40, y);
     autoTable.call(doc, {
       startY     : y + 10,
-      head       : [["Heure", "Description", "Montant"]],
-      body       : deps.fonc.length ? deps.fonc : [["—", "—", "0"]],
+      head   : [["Description","Montant"]],
+  body   : deps.fonc.length
+              ? deps.fonc
+              : [["—","0 FCFA"]],
+  foot   : [["Sous-total", fmt(deps.totFonc)+" FCFA"]],
       showFoot : 'lastPage',
-      foot       : [['', 'Sous-total', fmt(deps.totFonc) + " FCFA"]],
       footStyles : { fontStyle: "bold" },
       styles     : { fontSize: 8 },
       
@@ -6175,16 +6179,20 @@ doc.setFontSize(14);
 doc.text("Achats – Téléphones", 40, y);
 
 doc.autoTable({
-  startY     : y + 10,
-  head       : [["Heure", "Produit", "Qté", "Prix U.", "Total"]],
-  body       : appro.phones.rows.length
-                 ? appro.phones.rows
-                 : [["—","—","0","0","0"]],
-  foot       : [["TOTAL", "", appro.phones.qty.toString(),
-                 "", fmt(appro.phones.total) + " FCFA"]],
-  showFoot   : 'lastPage',
-  headStyles : { fillColor:[0,96,100], textColor:255 },
-  styles     : { fontSize: 9 }
+  startY: y + 10,
+  head : [["Produit","Qté","Prix U.","Total"]],
+  body : appro.phones.rows.length
+           ? appro.phones.rows
+           : [["—", "0", "0", "0"]],
+  foot : [[
+    "TOTAL",                         // col. 0
+    appro.phones.qty.toString(),     // col. 1
+    "",                              // col. 2 (pas de prix U. global)
+    fmt(appro.phones.total)+" FCFA"  // col. 3
+  ]],
+  showFoot: 'lastPage',
+  headStyles: { fillColor:[0,96,100], textColor:255 },
+  styles: { fontSize: 9 }
 });
 
 /* ---- Achats ACCESSOIRES ---- */
@@ -6194,12 +6202,16 @@ doc.text("Achats – Accessoires", 40, y);
 
 doc.autoTable({
   startY     : y + 10,
-  head       : [["Heure", "Produit", "Qté", "Prix U.", "Total"]],
-  body       : appro.acc.rows.length
-                 ? appro.acc.rows
-                 : [["—","—","0","0","0"]],
-  foot       : [["TOTAL", "", appro.acc.qty.toString(),
-                 "", fmt(appro.acc.total) + " FCFA"]],
+  head : [["Produit","Qté","Prix U.","Total"]],
+  body : appro.acc.rows.length
+           ? appro.acc.rows
+           : [["—","0","0","0"]],
+  foot : [[
+    "TOTAL",
+    appro.acc.qty.toString(),
+    "",
+    fmt(appro.acc.total)+" FCFA"
+  ]],
   showFoot   : 'lastPage',
   headStyles : { fillColor:[0,96,100], textColor:255 },
   styles     : { fontSize: 9 }
