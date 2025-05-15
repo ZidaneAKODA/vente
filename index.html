@@ -6210,41 +6210,6 @@ autoTable.call(doc, {
 });
 
 
-    /* ---- Dépenses Papa ---- */
-    y = doc.lastAutoTable.finalY + 30;
-    doc.setFontSize(14);
-    doc.text("Dépenses Papa", 40, y);
-    autoTable.call(doc,{
-  startY : y+10,
-  head   : [["Description","Montant"]],
-
-  body   : deps.papa.length
-              ? deps.papa
-              : [["—","0 FCFA"]],          // ← 2 cellules, pas 3
-
-  foot   : [["Sous-total", fmt(deps.totPapa)+" FCFA"]], // ← 2 cellules
-  showFoot :'lastPage',
-  styles : {fontSize:8},
-  footStyles:{fontStyle:"bold"}
-});
-
-    /* ---- Dépenses fonctionnelles ---- */
-    y = doc.lastAutoTable.finalY + 20;
-    doc.setFontSize(14);
-    doc.text("Dépenses fonctionnelles", 40, y);
-    autoTable.call(doc, {
-      startY     : y + 10,
-      head   : [["Description","Montant"]],
-  body   : deps.fonc.length
-              ? deps.fonc
-              : [["—","0 FCFA"]],
-  foot   : [["Sous-total", fmt(deps.totFonc)+" FCFA"]],
-      showFoot : 'lastPage',
-      footStyles : { fontStyle: "bold" },
-      styles     : { fontSize: 8 },
-      
-    });
-
 /* ---- Achats TÉLÉPHONES ---- */
 y = doc.lastAutoTable.finalY + 30;
 doc.setFontSize(14);
@@ -6288,6 +6253,42 @@ doc.autoTable({
   headStyles : { fillColor:[0,96,100], textColor:255 },
   styles     : { fontSize: 9 }
 });
+
+
+    /* ---- Dépenses Papa ---- */
+    y = doc.lastAutoTable.finalY + 30;
+    doc.setFontSize(14);
+    doc.text("Dépenses Papa", 40, y);
+    autoTable.call(doc,{
+  startY : y+10,
+  head   : [["Description","Montant"]],
+
+  body   : deps.papa.length
+              ? deps.papa
+              : [["—","0 FCFA"]],          // ← 2 cellules, pas 3
+
+  foot   : [["Sous-total", fmt(deps.totPapa)+" FCFA"]], // ← 2 cellules
+  showFoot :'lastPage',
+  styles : {fontSize:8},
+  footStyles:{fontStyle:"bold"}
+});
+
+    /* ---- Dépenses fonctionnelles ---- */
+    y = doc.lastAutoTable.finalY + 20;
+    doc.setFontSize(14);
+    doc.text("Dépenses fonctionnelles", 40, y);
+    autoTable.call(doc, {
+      startY     : y + 10,
+      head   : [["Description","Montant"]],
+  body   : deps.fonc.length
+              ? deps.fonc
+              : [["—","0 FCFA"]],
+  foot   : [["Sous-total", fmt(deps.totFonc)+" FCFA"]],
+      showFoot : 'lastPage',
+      footStyles : { fontStyle: "bold" },
+      styles     : { fontSize: 8 },
+      
+    });
 
 
 // ---- Apport de marchandises par Papa ----
