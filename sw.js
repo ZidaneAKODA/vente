@@ -1,7 +1,7 @@
 // service-worker.js
 
 // ⚠️ Incrémentez ce nom à chaque déploiement !
-const CACHE_NAME = 'africaphone-cache-v5';
+const CACHE_NAME = 'africaphone-cache-v6';
 
 const urlsToCache = [
   '/index.html',
