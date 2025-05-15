@@ -1203,10 +1203,17 @@
       </div>
     </section>
 
-    <!-- === Screen Stock : Historique (vierge pour l’instant) === -->
+<!-- === Screen Stock : Historique (avec contenu) === -->
 <section id="screen-stock-history" class="screen">
-  
+  <header>
+    <button class="back-btn" onclick="window.location.hash='stock'">← Retour</button>
+    <h1>Historique du Stock</h1>
+  </header>
+  <div id="stockHistoryContainer" class="list-container">
+    <!-- JS injectera ici les variations -->
+  </div>
 </section>
+
 
 
     <!-- Screen 5: Entrée de Stock -->
@@ -3779,6 +3786,8 @@ function finaliserApprovisionnement() {
     
 
     // Déclaration globale
+// stockId sélectionné pour l’historique
+let currentHistoryStockId = null;
 
 // Pagination dépenses  (⚙️ correctif anti-doublon)
 let lastVisibleDepenses = null;
@@ -4114,22 +4123,46 @@ function updateBalanceDisplay() {
         })
         .catch(error => { throw new Error("Erreur lors de l'importation du stock : " + error.message); });
     }
-    function updateStockAfterSaleFirestore(items) {
-      const promises = items.map(item => {
-        return dbFirestore.collection("stock")
-          .where("name", "==", item.produit)
-          .get()
-          .then(querySnapshot => {
-            if (!querySnapshot.empty) {
-              const doc = querySnapshot.docs[0];
-              const stockData = doc.data();
-              const newStock = Math.max(0, stockData.stock - item.quantite);
-              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
-            }
-          });
+    /**
+ * Pour chaque article vendu, décrémente le stock
+ * et logue la variation (sortie).
+ *
+ * @param {Array<{ produit: string, quantite: number }>} items
+ * @returns {Promise}
+ */
+function updateStockAfterSaleFirestore(items) {
+  const promises = items.map(item => {
+    return dbFirestore
+      .collection("stock")
+      .where("name", "==", item.produit)
+      .get()
+      .then(querySnapshot => {
+        if (!querySnapshot.empty) {
+          const docRef   = querySnapshot.docs[0].ref;
+          const data     = querySnapshot.docs[0].data();
+          const oldStock = parseFloat(data.stock) || 0;
+          // on retire la quantité vendue
+          const newStock = Math.max(0, oldStock - item.quantite);
+
+          return docRef.update({ stock: newStock })
+            .then(() => {
+              // Log de la variation ↓
+              return docRef
+                .collection("history")
+                .add({
+                  timestamp: Date.now(),
+                  change: -item.quantite,
+                  newStock: newStock
+                });
+            });
+        }
       });
-      return Promise.all(promises).then(() => updateStockSummary());
-    }
+  });
+
+  // Après toutes les mises à jour, on peut rafraîchir l'UI
+  return Promise.all(promises).then(() => updateStockSummary());
+}
+
     function restockAfterCancellationFirestore(sale) {
       const promises = sale.items.map(item => {
         return dbFirestore.collection("stock")
@@ -4222,10 +4255,11 @@ function enregistrerSnapshotDaily() {
 
   
 function voirHistoriqueStock(stockId, e) {
-  e.stopPropagation();
-  window.location.hash = 'stock-history';
-  // plus tard on pourra charger stockId dans stockHistoryContainer
+  e.stopPropagation();                       // éviter le “bubbling”
+  currentHistoryStockId = stockId;          // mémoriser l’ID du produit
+  window.location.hash = 'stock-history';   // basculer vers l’écran historique
 }
+
 
   function showScreenByHash(hash) {
   // Masquer tous les écrans
@@ -4296,8 +4330,10 @@ function voirHistoriqueStock(stockId, e) {
   break;
        
   case 'stock-history':
-      // pour l’instant, écran vierge
-      break;
+  if (currentHistoryStockId) {
+    chargerHistoriqueStock(currentHistoryStockId);
+  }
+  break;
 
   case 'start-day':
       // rien de spécial à faire
@@ -5240,38 +5276,65 @@ function continuerDepuisPanier() {
         });
     }
     function ajouterOuMettreAJourStock(produit, quantite, prix, category) {
-  return dbFirestore.collection("stock")
+  // Cherche si le produit existe déjà
+  return dbFirestore
+    .collection("stock")
     .where("name", "==", produit)
     .get()
     .then(querySnapshot => {
       if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        const data = doc.data();
+        // —— CAS EXISTANT : on met à jour le stock + prix moyen
+        const docRef   = querySnapshot.docs[0].ref;
+        const data     = querySnapshot.docs[0].data();
         const oldStock = parseFloat(data.stock) || 0;
         const oldPrice = parseFloat(data.price) || 0;
+
         const newStock = oldStock + quantite;
-        // Calcul du prix moyen pondéré :
-        // ((ancien stock * ancien prix) + (quantité approvisionnée * prix approvisionnement)) / nouveau stock
+        // Prix moyen pondéré
         const newPrice = ((oldStock * oldPrice) + (quantite * prix)) / newStock;
-        return dbFirestore.collection("stock").doc(doc.id).update({
+
+        return docRef.update({
           stock: newStock,
           price: newPrice
+        })
+        .then(() => {
+          // Log de la variation ↑
+          return docRef
+            .collection("history")
+            .add({
+              timestamp: Date.now(),
+              change: +quantite,
+              newStock: newStock
+            });
         });
       } else {
-        const icon = (categorie === "accessoires") ? "🎧" : "📱";
-        const newRecord = { 
-          name: produit, 
-          stock: quantite, 
-          price: prix, 
-          category : category, 
-          icon, 
-          createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+        // —— CAS NOUVEAU : on crée un nouveau document
+        const icon = category === "accessoires" ? "🎧" : "📱";
+        const newRecord = {
+          name: produit,
+          category: category,
+          stock: quantite,
+          price: prix,
+          icon: icon,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        return dbFirestore.collection("stock").add(newRecord);
+
+        return dbFirestore
+          .collection("stock")
+          .add(newRecord)
+          .then(docRef => {
+            // Log de la variation ↑ (équivalent à "stock = quantite")
+            return docRef
+              .collection("history")
+              .add({
+                timestamp: Date.now(),
+                change: +quantite,
+                newStock: quantite
+              });
+          });
       }
     });
 }
-
 
     // Gestion des Vendeurs via Firestore
     function chargerVendeurs() {
@@ -6537,6 +6600,48 @@ window.addEventListener('load', async () => {
 });
 
 window.addEventListener('hashchange', handleHashChange);
+
+/**
+ * Charge et affiche l’historique des variations
+ * pour un stock donné (appro + ventes).
+ *
+ * @param {string} stockId
+ */
+function chargerHistoriqueStock(stockId) {
+  const container = document.getElementById("stockHistoryContainer");
+  container.innerHTML = "<p>Chargement de l’historique…</p>";
+
+  dbFirestore
+    .collection("stock")
+    .doc(stockId)
+    .collection("history")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(snapshot => {
+      container.innerHTML = "";
+      if (snapshot.empty) {
+        container.innerHTML = "<p>Aucune variation de stock.</p>";
+        return;
+      }
+      snapshot.forEach(doc => {
+        const d    = doc.data();
+        const date = new Date(d.timestamp).toLocaleString("fr-FR");
+        const signe = d.change > 0 ? "+" : "";
+        const row  = document.createElement("div");
+        row.className = "history-item";
+        row.innerHTML = `
+          <p>
+            <strong>${date}</strong><br>
+            ∆ ${signe}${d.change} unités → stock : ${d.newStock}
+          </p>`;
+        container.appendChild(row);
+      });
+    })
+    .catch(err => {
+      console.error("Erreur historique :", err);
+      container.innerHTML = "<p>Erreur de chargement.</p>";
+    });
+}
 
 
 </script>
