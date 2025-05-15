@@ -5649,20 +5649,29 @@ function majCartesTresorerie() {
       fermerModalTresorerie();
     }
   </script>
-  <script>
-    // Check if service workers are supported
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('sw.js')
-          .then(function(registration) {
-            console.log('Service Worker registered with scope:', registration.scope);
-          })
-          .catch(function(err) {
-            console.log('Service Worker registration failed:', err);
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('[App] SW enregistré, scope :', reg.scope);
+
+          // Dès qu’on déploie une nouvelle version (CACHE_NAME incrémenté)…
+          reg.addEventListener('updatefound', () => {
+            const newSW = reg.installing;
+            newSW.addEventListener('statechange', () => {
+              // Quand le nouvel SW est prêt et qu’il y avait déjà un SW actif
+              if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[App] Nouvelle version dispo → reload');
+                window.location.reload();
+              }
+            });
           });
-      });
-    }
-  </script>
+        })
+        .catch(err => console.error('[App] Échec enregistrement SW :', err));
+    });
+  }
+</script>
 
   <script>
   let deferredPrompt;
