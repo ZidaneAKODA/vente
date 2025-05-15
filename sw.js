@@ -1,5 +1,5 @@
 // Define a cache name and the files to cache
-const CACHE_NAME = 'africaphone-cache-v2';
+const CACHE_NAME = 'africaphone-cache-v3';
 const urlsToCache = [
   './index.html',
   './login.html',
