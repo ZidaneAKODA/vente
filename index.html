@@ -3235,11 +3235,13 @@ function ouvrirModalScan(item) {
 
   html5QrcodeScanner = new Html5Qrcode("reader");
   // Configuration optimisée pour la vitesse
-  const config = { 
-    fps: 25, 
-    qrbox: { width: 280, height: 100 }, // Boîte plus large et moins haute, idéale pour les IMEI
-    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] 
-  };
+  // LIGNE AMÉLIORÉE
+const config = {
+  fps: 10,
+  qrbox: { width: 250, height: 250 },
+  supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+  formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128 ] // <-- ON AJOUTE CETTE LIGNE !
+};
   
   html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
   lucide.createIcons(); // Pour l'icône "+"
