@@ -3205,20 +3205,13 @@ async function finaliserApprovisionnement() {
 </div>
 
 <script>
-/* =================================================================== */
-/* LOGIQUE DE SCAN IMEI AVANCÉE (Filtre + Continu + Manuel)          */
-/* =================================================================== */
-
-// --- Variables globales pour le processus de scan ---
+// === Variables globales ===
 let html5QrcodeScanner;
 let currentApproItemForScan = null;
 let tempScannedImeis = [];
 const scanFeedbackEl = document.getElementById('scanFeedback');
 
-/**
- * Ouvre le modal de scan et initialise le lecteur de code-barres.
- * @param {object} item - L'article d'approvisionnement.
- */
+// === Fonction pour ouvrir le modal ===
 function ouvrirModalScan(item) {
   currentApproItemForScan = item;
   tempScannedImeis = [];
@@ -3230,131 +3223,116 @@ function ouvrirModalScan(item) {
   document.getElementById('manualImeiInput').value = '';
   scanFeedbackEl.textContent = 'Dirigez la caméra vers un code-barres';
   document.getElementById('modalScanImei').style.display = 'flex';
-  
+
   document.getElementById('btnConfirmerScan').disabled = true;
 
   html5QrcodeScanner = new Html5Qrcode("reader");
-  // Configuration optimisée pour la vitesse
-  // LIGNE AMÉLIORÉE
-const config = {
-  fps: 10,
-  qrbox: { width: 250, height: 250 },
-  supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-  formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128 ] // <-- ON AJOUTE CETTE LIGNE !
-};
-  
+
+  const config = {
+    fps: 10,
+    qrbox: { width: 250, height: 250 },
+    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ],
+    disableFlip: true
+  };
+
   html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
-  lucide.createIcons(); // Pour l'icône "+"
+  lucide.createIcons();
 }
 
-/**
- * Gère la fermeture propre du modal de scan en arrêtant la caméra.
- */
+// === Fonction pour fermer le modal ===
 function fermerModalScan() {
   if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-    html5QrcodeScanner.stop().catch(err => { /* ignorer l'erreur si déjà arrêté */ });
+    html5QrcodeScanner.stop().catch(() => {});
   }
   document.getElementById('modalScanImei').style.display = 'none';
 }
 
+// === Traitement d'un IMEI ===
+function processImei(rawInput) {
+  const cleaned = rawInput.replace(/\D/g, '').slice(0, 15);
+  console.log("Scanned raw:", rawInput, "→ cleaned:", cleaned);
 
-/**
- * Valide et ajoute un IMEI à la liste, que ce soit par scan ou manuellement.
- * @param {string} imei - L'IMEI à traiter.
- */
-function processImei(imei) {
-    // 1. Validation de l'IMEI (15 chiffres)
-    if (!/^\d{15}$/.test(imei)) {
-        scanFeedbackEl.textContent = "Format invalide. Scannez l'IMEI à 15 chiffres.";
-        setTimeout(() => scanFeedbackEl.textContent = '', 2000);
-        return;
+  if (cleaned.length !== 15) {
+    scanFeedbackEl.textContent = "IMEI invalide. 15 chiffres requis.";
+    setTimeout(() => scanFeedbackEl.textContent = '', 2000);
+    return;
+  }
+
+  if (tempScannedImeis.includes(cleaned)) {
+    showToast("Cet IMEI a déjà été ajouté.");
+    return;
+  }
+
+  if (tempScannedImeis.length >= currentApproItemForScan.quantite) {
+    showToast("Quantité requise déjà atteinte.");
+    scanFeedbackEl.textContent = "Quantité atteinte !";
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+      html5QrcodeScanner.stop();
     }
+    return;
+  }
 
-    // 2. Vérification des doublons
-    if (tempScannedImeis.includes(imei)) {
-        showToast("Cet IMEI a déjà été ajouté.");
-        return;
+  tempScannedImeis.push(cleaned);
+
+  const list = document.getElementById('scannedImeiList');
+  const listItem = document.createElement('li');
+  listItem.textContent = cleaned;
+  list.appendChild(listItem);
+
+  document.getElementById('scanCurrentCount').textContent = tempScannedImeis.length;
+  scanFeedbackEl.textContent = `IMEI ${cleaned} ajouté !`;
+  if (navigator.vibrate) navigator.vibrate(100);
+
+  if (tempScannedImeis.length === currentApproItemForScan.quantite) {
+    document.getElementById('btnConfirmerScan').disabled = false;
+    scanFeedbackEl.textContent = "Tous les IMEI ont été ajoutés !";
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+      html5QrcodeScanner.stop();
     }
-
-    // 3. Vérification de la quantité
-    if (tempScannedImeis.length >= currentApproItemForScan.quantite) {
-        showToast("Quantité requise déjà atteinte.");
-        // On arrête le scan une fois la quantité atteinte pour éviter les scans accidentels
-        if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-            html5QrcodeScanner.stop();
-            scanFeedbackEl.textContent = 'Quantité atteinte !';
-        }
-        return;
-    }
-
-    // 4. Ajout de l'IMEI à la liste
-    tempScannedImeis.push(imei);
-
-    // 5. Mise à jour de l'UI
-    const list = document.getElementById('scannedImeiList');
-    const listItem = document.createElement('li');
-    listItem.textContent = imei;
-    list.appendChild(listItem);
-    const currentCount = tempScannedImeis.length;
-    document.getElementById('scanCurrentCount').textContent = currentCount;
-    scanFeedbackEl.textContent = `IMEI ${imei} ajouté !`;
-
-    // 6. Feedback utilisateur
-    if (navigator.vibrate) navigator.vibrate(100);
-
-    // 7. Vérification finale
-    if (currentCount === currentApproItemForScan.quantite) {
-        document.getElementById('btnConfirmerScan').disabled = false;
-        scanFeedbackEl.textContent = "Tous les IMEI ont été ajoutés !";
-        if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-             html5QrcodeScanner.stop();
-        }
-        showToast("Prêt à confirmer.");
-    }
+    showToast("Prêt à confirmer.");
+  }
 }
 
-
-/**
- * Callback pour le scan réussi. Il ne fait qu'appeler le processeur central.
- */
+// === Callback scan réussi ===
 function onScanSuccess(decodedText, decodedResult) {
-    processImei(decodedText);
+  console.log("✅ SCAN:", decodedText);
+  processImei(decodedText);
 }
 
-/**
- * Ajoute un IMEI entré manuellement.
- */
-function ajouterImeiManuellement() {
-    const input = document.getElementById('manualImeiInput');
-    const imei = input.value.trim();
-    if (imei) {
-        processImei(imei);
-        input.value = ''; // On vide le champ après l'ajout
-    }
-}
-
-/**
- * Callback en cas d'échec (souvent ignorable).
- */
+// === Callback scan raté (inutile mais obligatoire) ===
 function onScanFailure(error) {
-  // Pas d'action nécessaire, le scanner continue d'essayer.
+  // Rien à faire ici
 }
 
-/**
- * Confirme les IMEI et les ajoute au panier (cette fonction ne change pas).
- */
+// === Saisie manuelle ===
+function ajouterImeiManuellement() {
+  const input = document.getElementById('manualImeiInput');
+  const imei = input.value.trim();
+  if (imei) {
+    processImei(imei);
+    input.value = '';
+  }
+}
+
+// === Confirmation finale ===
 function confirmerScanApprovisionnement() {
   if (tempScannedImeis.length !== currentApproItemForScan.quantite) {
     alert("Le nombre d'IMEI ne correspond pas à la quantité !");
     return;
   }
-  
+
   currentApproItemForScan.imeis = tempScannedImeis;
   currentApproItems.push(currentApproItemForScan);
   updatePanierApprovisionnement();
   fermerModalScan();
 }
 </script>
+
 
     <!--Dépense Fonctionnelle -->
     <section id="screen-depense-fonctionnelle" class="screen">
