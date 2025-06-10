@@ -33,6 +33,7 @@
 <link rel="manifest" href="manifest.json">
 <!-- Charger SheetJS pour générer des .xlsx -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
 <!-- Set the theme color (should match the one in your manifest) -->
 <meta name="theme-color" content="#006064">
@@ -2837,8 +2838,6 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
     border-bottom: none;
   }
 
-
-
 </style>
 
 <script>
@@ -2947,52 +2946,72 @@ function ajouterApprovisionnementItem() {
   const fournisseur = document.getElementById("fournisseurAppro").value.trim();
   const categorie   = document.getElementById("categorieAppro").value;
   const modele      = document.getElementById("modeleAppro").value.trim();
-  const quantite    = parseFloat(document.getElementById("quantiteAppro").value);
+  const quantite    = parseInt(document.getElementById("quantiteAppro").value);
   const prixAchat   = parseFloat(document.getElementById("prixAchatAppro").value);
   const coutTotal   = parseFloat(document.getElementById("coutTotalAppro").value);
 
-  if (!fournisseur || !categorie || !modele || quantite <= 0 || prixAchat <= 0) {
+  if (!fournisseur || !categorie || !modele || isNaN(quantite) || quantite <= 0 || isNaN(prixAchat) || prixAchat <= 0) {
     alert("Veuillez remplir tous les champs correctement.");
     return;
   }
 
   const item = {
     fournisseur,
-    category: categorie,     // ← au lieu de « categorie »
+    category: categorie,
     produit: modele,
     quantite,
     prixAchat,
-    coutTotal: coutTotal.toFixed(2)
+    coutTotal: coutTotal.toFixed(2),
+    imeis: [] // On prépare un tableau pour les IMEI
   };
 
-  currentApproItems.push(item);
-  updatePanierApprovisionnement();
+  // Si ce n'est pas un téléphone, on l'ajoute directement au panier
+  if (item.category !== 'telephones') {
+    currentApproItems.push(item);
+    updatePanierApprovisionnement();
+    showToast(`${item.produit} ajouté au panier.`);
+  } else {
+    // Si c'est un téléphone, on ouvre le modal de scan
+    ouvrirModalScan(item);
+  }
 
-  // Réinitialisation des champs
+  // Réinitialisation des champs du formulaire après l'action
   document.getElementById("modeleAppro").value = "";
   document.getElementById("quantiteAppro").value = "1";
   document.getElementById("prixAchatAppro").value = "";
   document.getElementById("coutTotalAppro").value = "";
+  document.getElementById("modeleAppro").focus();
 }
 
 
-
-  // Met à jour l'affichage du panier d'approvisionnement
   function updatePanierApprovisionnement() {
-    const container = document.getElementById("panierApproContent");
-    container.innerHTML = "";
-    if (currentApproItems.length === 0) {
-      container.innerHTML = "<p>Le panier est vide.</p>";
-      return;
-    }
-    currentApproItems.forEach((item, index) => {
-      const div = document.createElement("div");
-      div.className = "panier-item";
-      div.innerHTML = `<strong>${item.produit}</strong> - Qté: ${item.quantite} - Prix: ${item.prixAchat} FCFA - Total: ${item.coutTotal} FCFA <span class="remove-item" onclick="retirerApproItem(${index})">×</span>`;
-      container.appendChild(div);
-    });
+  const container = document.getElementById("panierApproContent");
+  container.innerHTML = "";
+  if (currentApproItems.length === 0) {
+    container.innerHTML = "<p>Le panier est vide.</p>";
+    return;
   }
-
+  
+  currentApproItems.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.className = "panier-item"; // Vous avez déjà ce style
+    
+    // On ajoute une ligne pour les IMEI si elle existe
+    let imeiInfo = '';
+    if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
+      imeiInfo = `<br><small style="color: green;">✔ ${item.imeis.length} IMEI scannés</small>`;
+    } else if (item.category === 'telephones') {
+       imeiInfo = `<br><small style="color: orange;">⚠ Pas d'IMEI scanné</small>`;
+    }
+    
+    div.innerHTML = `
+        <strong>${item.produit}</strong> - Qté: ${item.quantite} - Total: ${item.coutTotal} FCFA 
+        <span class="remove-item" onclick="retirerApproItem(${index})" style="cursor: pointer; color: red; float: right;">&times;</span>
+        ${imeiInfo}
+    `;
+    container.appendChild(div);
+  });
+}
   // Permet de retirer un article du panier
   function retirerApproItem(index) {
     currentApproItems.splice(index, 1);
@@ -3000,66 +3019,122 @@ function ajouterApprovisionnementItem() {
   }
 
   // Fonction de finalisation de l’approvisionnement, qui propage la catégorie au stock
-function finaliserApprovisionnement() {
+async function finaliserApprovisionnement() {
   if (currentApproItems.length === 0) {
-    alert("Le panier est vide.");
+    alert("Le panier d'approvisionnement est vide.");
     return;
   }
 
   const fournisseur = currentApproItems[0].fournisseur;
   const totalCost = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
+  const compteId = document.getElementById("compteSelectAppro").value;
 
-  const approvisionnement = {
-    fournisseur,
-    items: currentApproItems,
-    timestamp: Date.now()
-  };
+  if (!compteId) {
+      alert("Veuillez sélectionner un compte de trésorerie.");
+      return;
+  }
 
-  dbFirestore.collection("approvisionnement").add(approvisionnement)
-    .then(() => {
-      // Met à jour le stock en utilisant item.categorie
-      const updatePromises = currentApproItems.map(item =>
-        ajouterOuMettreAJourStock(item.produit, item.quantite, item.prixAchat, item.category)
-      );
-      return Promise.all(updatePromises);
-    })
-    .then(() => {
-      const compteId = document.getElementById("compteSelectAppro").value;
-      return enregistrerMouvementTresorerie({
-        compteId,
-        type: 'appro',
-        sens: 'out',
-        montant: totalCost,
-        description: `Approvisionnement ${fournisseur}`
-      });
-    })
-    .then(() => {
-      const now = new Date();
-      const [yyyy, mm, dd] = now.toISOString().split("T")[0].split("-");
-      const depense = {
+  showSaleLoader(); // Affiche un loader
+
+  try {
+    const batch = dbFirestore.batch();
+    const now = new Date();
+
+    // Promesses pour trouver/créer les documents de stock
+    const stockUpdatePromises = currentApproItems.map(item => {
+        return dbFirestore.collection("stock").where("name", "==", item.produit).get().then(snapshot => ({item, snapshot}));
+    });
+
+    const stockDocs = await Promise.all(stockUpdatePromises);
+    
+    for (const {item, snapshot} of stockDocs) {
+        let stockDocRef;
+        let isNewProduct = snapshot.empty;
+
+        if (isNewProduct) {
+            // Créer un nouveau produit s'il n'existe pas
+            stockDocRef = dbFirestore.collection("stock").doc();
+            const icon = item.category === "accessoires" ? "🎧" : "📱";
+            batch.set(stockDocRef, {
+                name: item.produit,
+                category: item.category,
+                stock: item.quantite,
+                price: item.prixAchat, // Prix d'achat initial
+                icon: icon,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            // Mettre à jour le produit existant
+            stockDocRef = snapshot.docs[0].ref;
+            const stockData = snapshot.docs[0].data();
+            const oldStock = stockData.stock || 0;
+            const oldPrice = stockData.price || 0;
+            const newStock = oldStock + item.quantite;
+            // Calcul du prix d'achat moyen pondéré
+            const newPrice = ((oldStock * oldPrice) + (item.quantite * item.prixAchat)) / newStock;
+
+            batch.update(stockDocRef, { stock: newStock, price: newPrice });
+        }
+
+        // Si l'article a des IMEI, les ajouter à la sous-collection
+        if (item.imeis && item.imeis.length > 0) {
+            item.imeis.forEach(imei => {
+                const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
+                batch.set(imeiDocRef, {
+                    status: "disponible",
+                    dateEntree: now
+                });
+            });
+        }
+    }
+
+    // Enregistrer l'opération d'approvisionnement
+    const approRef = dbFirestore.collection("approvisionnement").doc();
+    batch.set(approRef, {
+        fournisseur,
+        items: currentApproItems,
+        timestamp: now.getTime()
+    });
+
+    // Enregistrer la dépense fonctionnelle
+    const depenseRef = dbFirestore.collection("depenses").doc();
+    batch.set(depenseRef, {
         montant: totalCost,
         description: `Approvisionnement ${fournisseur}`,
         type: "depense fonctionnelle",
         timestamp: now.getTime(),
         date: now.toISOString(),
-        dateString: `${dd}/${mm}/${yyyy}`
-      };
-      return dbFirestore.collection("depenses").add(depense);
-    })
-    .then(() => {
-      alert("Approvisionnement enregistré avec succès !");
-      currentApproItems = [];
-      updatePanierApprovisionnement();
-      document.getElementById("fournisseurAppro").value = "";
-      chargerApprovisionnements();
-      updateStockSummary();
-      updateBalanceDisplay();
-    })
-    .catch(error => {
-      alert("Erreur lors de l'ajout de l'approvisionnement : " + error.message);
+        dateString: now.toLocaleDateString("fr-FR")
     });
-}
 
+    // Commit de toutes les opérations en une seule fois
+    await batch.commit();
+
+    // Enregistrer le mouvement de trésorerie (après le commit pour être sûr)
+    await enregistrerMouvementTresorerie({
+        compteId,
+        type: 'appro',
+        sens: 'out',
+        montant: totalCost,
+        description: `Approvisionnement ${fournisseur}`
+    });
+
+    alert("Approvisionnement enregistré avec succès !");
+
+  } catch (error) {
+    console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
+    alert("Une erreur est survenue : " + error.message);
+  } finally {
+    // Nettoyage final
+    currentApproItems = [];
+    updatePanierApprovisionnement();
+    document.getElementById("fournisseurAppro").value = "";
+    chargerApprovisionnements(); // Rafraîchir l'historique
+    updateStockSummary();
+    updateBalanceDisplay();
+    hideSaleLoader(); // Masque le loader
+  }
+}
   // Charger l'historique dès l'accès à la page Approvisionnement
   window.addEventListener('load', function() {
     if(window.location.hash === '#approvisionnement'){
@@ -3101,6 +3176,142 @@ function finaliserApprovisionnement() {
   }
 </script>
 
+<div id="modalScanImei" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="fermerModalScan()">&times;</span>
+    <h2>Scanner les IMEI pour <strong id="scanProductName" style="color: var(--primary-color);"></strong></h2>
+    <p>Veuillez scanner <strong id="scanTargetCount">0</strong> code(s)-barres IMEI.</p>
+    
+    <div id="reader" style="width: 100%; max-width: 400px; margin: 15px auto; border: 2px solid #eee; border-radius: 8px;"></div>
+
+    <hr style="margin: 15px 0;">
+
+    <h4>IMEI Scannés (<span id="scanCurrentCount">0</span>) :</h4>
+    <ul id="scannedImeiList" style="list-style-type: none; padding: 0; max-height: 150px; overflow-y: auto; background: #f9f9f9; border-radius: 5px; padding: 10px;">
+      </ul>
+    
+    <button id="btnConfirmerScan" class="btn-modern" onclick="confirmerScanApprovisionnement()" style="margin-top: 15px;">
+        <i data-lucide="check-circle"></i> Confirmer et Ajouter au Panier
+    </button>
+  </div>
+</div>
+
+<script>
+  /* =================================================================== */
+/* LOGIQUE DE SCAN IMEI POUR L'APPROVISIONNEMENT                     */
+/* =================================================================== */
+
+// --- Variables globales pour le processus de scan ---
+let html5QrcodeScanner; // L'objet qui gère le scanner
+let currentApproItemForScan = null; // Stocke l'article en cours de scan (ex: {produit: 'iPhone 15', quantite: 5, ...})
+let tempScannedImeis = []; // Liste temporaire des IMEI scannés pour cet article
+
+/**
+ * Ouvre le modal de scan et initialise le lecteur de code-barres.
+ * @param {object} item - L'article d'approvisionnement pour lequel scanner les IMEI.
+ */
+function ouvrirModalScan(item) {
+  currentApproItemForScan = item;
+  tempScannedImeis = []; // On réinitialise la liste à chaque ouverture
+
+  // Mettre à jour les textes du modal
+  document.getElementById('scanProductName').textContent = item.produit;
+  document.getElementById('scanTargetCount').textContent = item.quantite;
+  document.getElementById('scanCurrentCount').textContent = '0';
+  document.getElementById('scannedImeiList').innerHTML = '';
+  document.getElementById('modalScanImei').style.display = 'flex';
+  
+  // Désactiver le bouton de confirmation tant que le compte n'y est pas
+  document.getElementById('btnConfirmerScan').disabled = true;
+
+  // Initialiser le scanner
+  html5QrcodeScanner = new Html5Qrcode("reader");
+  const config = { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] };
+  
+  // Démarrer le scan avec la caméra arrière
+  html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
+}
+
+/**
+ * Gère la fermeture propre du modal de scan en arrêtant la caméra.
+ */
+function fermerModalScan() {
+  if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+    html5QrcodeScanner.stop().catch(err => console.error("Erreur à l'arrêt du scanner.", err));
+  }
+  document.getElementById('modalScanImei').style.display = 'none';
+}
+
+/**
+ * Callback exécuté à chaque fois qu'un code-barres est lu avec succès.
+ * @param {string} decodedText - Le texte décodé (l'IMEI).
+ */
+function onScanSuccess(decodedText, decodedResult) {
+  // Ignorer si le modal n'est pas visible
+  if (document.getElementById('modalScanImei').style.display !== 'flex') return;
+
+  // 1. Vérifier si l'IMEI a déjà été scanné pour ce lot
+  if (tempScannedImeis.includes(decodedText)) {
+    showToast("IMEI déjà scanné.");
+    return;
+  }
+
+  // 2. Vérifier si on a atteint la quantité requise
+  if (tempScannedImeis.length >= currentApproItemForScan.quantite) {
+    showToast("Quantité requise atteinte.");
+    return;
+  }
+  
+  // 3. Ajouter l'IMEI à la liste temporaire
+  tempScannedImeis.push(decodedText);
+  
+  // 4. Mettre à jour l'interface du modal
+  const list = document.getElementById('scannedImeiList');
+  const listItem = document.createElement('li');
+  listItem.textContent = decodedText;
+  list.appendChild(listItem);
+  document.getElementById('scanCurrentCount').textContent = tempScannedImeis.length;
+  
+  // 5. Fournir un feedback à l'utilisateur
+  if(navigator.vibrate) navigator.vibrate(100);
+  showToast(`IMEI ${decodedText} ajouté !`);
+  
+  // 6. Activer le bouton de confirmation si le compte est bon
+  if (tempScannedImeis.length === currentApproItemForScan.quantite) {
+     document.getElementById('btnConfirmerScan').disabled = false;
+     showToast("Tous les IMEI ont été scannés. Vous pouvez confirmer.");
+  }
+}
+
+/**
+ * Callback exécuté en cas d'échec de lecture (on peut souvent l'ignorer).
+ */
+function onScanFailure(error) {
+  // console.warn(`Erreur de scan: ${error}`);
+}
+
+/**
+ * Confirme les IMEI scannés, les associe à l'article, et ajoute l'ensemble au panier.
+ */
+function confirmerScanApprovisionnement() {
+  if (tempScannedImeis.length !== currentApproItemForScan.quantite) {
+    alert("Le nombre d'IMEI scannés ne correspond pas à la quantité !");
+    return;
+  }
+  
+  // Associer la liste des IMEI à l'objet article
+  currentApproItemForScan.imeis = tempScannedImeis;
+  
+  // Ajouter l'article complet (avec ses IMEI) au panier d'approvisionnement
+  currentApproItems.push(currentApproItemForScan);
+  
+  // Mettre à jour l'affichage du panier
+  updatePanierApprovisionnement();
+  
+  // Fermer le modal de scan
+  fermerModalScan();
+}
+</script>
 
     <!--Dépense Fonctionnelle -->
     <section id="screen-depense-fonctionnelle" class="screen">
