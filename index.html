@@ -3254,17 +3254,17 @@ function fermerModalScan() {
 
 // === Traitement d'un IMEI ===
 function processImei(rawInput) {
-  const cleaned = rawInput.replace(/\D/g, '').slice(0, 15);
-  console.log("Scanned raw:", rawInput, "→ cleaned:", cleaned);
+  const cleaned = rawInput.trim(); // plus de filtrage numérique
+  console.log("Scanned:", cleaned);
 
-  if (cleaned.length !== 15) {
-    scanFeedbackEl.textContent = "IMEI invalide. 15 chiffres requis.";
+  if (!cleaned) {
+    scanFeedbackEl.textContent = "Donnée vide ou invalide.";
     setTimeout(() => scanFeedbackEl.textContent = '', 2000);
     return;
   }
 
   if (tempScannedImeis.includes(cleaned)) {
-    showToast("Cet IMEI a déjà été ajouté.");
+    showToast("Ce code a déjà été ajouté.");
     return;
   }
 
@@ -3285,12 +3285,12 @@ function processImei(rawInput) {
   list.appendChild(listItem);
 
   document.getElementById('scanCurrentCount').textContent = tempScannedImeis.length;
-  scanFeedbackEl.textContent = `IMEI ${cleaned} ajouté !`;
+  scanFeedbackEl.textContent = `Code ${cleaned} ajouté !`;
   if (navigator.vibrate) navigator.vibrate(100);
 
   if (tempScannedImeis.length === currentApproItemForScan.quantite) {
     document.getElementById('btnConfirmerScan').disabled = false;
-    scanFeedbackEl.textContent = "Tous les IMEI ont été ajoutés !";
+    scanFeedbackEl.textContent = "Tous les codes ont été ajoutés !";
     if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
       html5QrcodeScanner.stop();
     }
