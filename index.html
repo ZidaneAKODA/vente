@@ -876,7 +876,115 @@
   transform: scale(0.95);
 }
 
+/* =========================================================
+   NOUVEAU STYLE POUR LES CARTES D'HISTORIQUE DES VENTES
+   ========================================================= */
 
+/* On retire la classe .vente-card pour la remplacer par .history-card */
+#ventesContainer .history-card {
+    display: flex;
+    align-items: center;
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    padding: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    border-left: 4px solid transparent; /* Bordure de statut */
+}
+
+/* --- Statuts colorés --- */
+.history-card.status-reussie { border-left-color: #4CAF50; }
+.history-card.status-echouee { border-left-color: #F44336; }
+.history-card.status-en-cours { border-left-color: #FF9800; }
+.history-card.status-vente-directe { border-left-color: #2196F3; }
+
+
+/* --- Conteneur de l'icône à gauche --- */
+.history-card .icon-container {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+}
+.history-card.status-reussie .icon-container { background-color: #e8f5e9; }
+.history-card.status-echouee .icon-container { background-color: #ffebee; }
+.history-card.status-en-cours .icon-container { background-color: #fff3e0; }
+.history-card.status-vente-directe .icon-container { background-color: #e3f2fd; }
+
+.history-card .icon-container i {
+    width: 22px;
+    height: 22px;
+}
+.history-card.status-reussie i { color: #4CAF50; }
+.history-card.status-echouee i { color: #F44336; }
+.history-card.status-en-cours i { color: #FF9800; }
+.history-card.status-vente-directe i { color: #2196F3; }
+
+
+/* --- Bloc d'informations central --- */
+.history-card .info-container {
+    flex-grow: 1;
+}
+
+.history-card .client-name {
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--text-color);
+    margin-bottom: 4px;
+}
+
+.history-card .meta-info {
+    font-size: 13px;
+    color: #666;
+}
+
+/* --- Bloc montant à droite --- */
+.history-card .amount-container {
+    text-align: right;
+    margin-left: 10px;
+}
+
+.history-card .total-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.history-card .sale-time {
+    font-size: 12px;
+    color: #777;
+}
+
+/* --- Bouton Annuler (icône) --- */
+.history-card .cancel-btn-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 5px;
+}
+.history-card .cancel-btn-icon:hover {
+    color: #F44336;
+}
+
+/* --- Bouton Détails (plus discret) --- */
+.history-card .details-btn-link {
+    font-size: 13px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 6px;
+    display: inline-block;
+}
   </style>
 </head>
 <body>
@@ -1126,36 +1234,83 @@
       }
     
       // Fonction pour afficher l'historique des ventes dans la section appropriée
-      function displaySalesHistory(salesList) {
-        const container = document.getElementById("ventesContainer");
-        container.innerHTML = "";
-        
-        if (salesList.length === 0) {
-          container.innerHTML = `
+      // Fonction pour afficher l'historique des ventes dans la section appropriée
+function displaySalesHistory(salesList) {
+    const container = document.getElementById("ventesContainer");
+    container.innerHTML = "";
+    
+    if (salesList.length === 0) {
+        container.innerHTML = `
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
-              <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
-              <p style="font-size: 18px; color: #888; margin-top: 20px;">Aucune vente enregistrée…</p>
+                <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+                <p style="font-size: 18px; color: #888; margin-top: 20px;">Aucune vente enregistrée…</p>
             </div>`;
-          lucide.createIcons();
-          return;
+        lucide.createIcons();
+        return;
+    }
+    
+    // On trie les ventes par ordre décroissant (la plus récente en premier)
+    salesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    salesList.forEach(sale => {
+        const card = document.createElement("div");
+
+        // Déterminer le statut et l'icône de la vente
+        let statusClass = 'status-vente-directe';
+        let iconName = 'shopping-bag';
+        let statusText = 'Vente directe';
+
+        if (sale.isDelivery) {
+            iconName = 'truck';
+            switch (sale.deliveryStatus) {
+                case 'réussie':
+                    statusClass = 'status-reussie';
+                    statusText = 'Livraison réussie';
+                    break;
+                case 'échouée':
+                    statusClass = 'status-echouee';
+                    statusText = 'Livraison échouée';
+                    break;
+                default:
+                    statusClass = 'status-en-cours';
+                    statusText = 'Livraison en cours';
+                    break;
+            }
         }
         
-        salesList.forEach(sale => {
-          const card = document.createElement("div");
-          card.className = "vente-card";
-          card.innerHTML = `
-            <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
-            <p>Vendeur : ${sale.vendeur}</p>
-            <p>Articles : ${sale.items ? sale.items.length : 0}</p>
-            <p>Total : ${sale.overallTotal}</p>
-            <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
-            <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>
-          `;
-          container.appendChild(card);
-        });
-        // Recharge les icônes Lucide
-        lucide.createIcons();
-      }
+        card.className = `history-card ${statusClass}`;
+        
+        // Formatter le montant total
+        const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
+        
+        // Construire le HTML de la carte
+        card.innerHTML = `
+            <div class="icon-container">
+                <i data-lucide="${iconName}"></i>
+            </div>
+            <div class="info-container">
+                <div class="client-name">${sale.clientNom || 'Client Inconnu'}</div>
+                <div class="meta-info">
+                    👤 ${sale.vendeur || 'N/A'} • 
+                    ${sale.items ? sale.items.length : 0} article(s) • 
+                    <span style="font-weight:500;">${statusText}</span>
+                </div>
+                 <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">Voir les détails</a>
+            </div>
+            <div class="amount-container">
+                <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
+                <div class="sale-time">${sale.heureVente || ''}</div>
+            </div>
+            <button class="cancel-btn-icon" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">
+                <i data-lucide="x-circle" style="width:18px; height:18px;"></i>
+            </button>
+        `;
+        container.appendChild(card);
+    });
+
+    // Recharger les icônes Lucide pour toute la page
+    lucide.createIcons();
+}
     </script>
     
     <!-- Screen  : Démarrer la journée -->
@@ -3047,47 +3202,56 @@ async function finaliserApprovisionnement() {
 
     const stockDocs = await Promise.all(stockUpdatePromises);
     
-    for (const {item, snapshot} of stockDocs) {
-        let stockDocRef;
-        let isNewProduct = snapshot.empty;
+     for (const {item, snapshot} of stockDocs) {
+        let stockDocRef;
+        let newStock; // On déclare newStock ici pour qu'il soit accessible dans les deux cas
 
-        if (isNewProduct) {
-            // Créer un nouveau produit s'il n'existe pas
-            stockDocRef = dbFirestore.collection("stock").doc();
-            const icon = item.category === "accessoires" ? "🎧" : "📱";
-            batch.set(stockDocRef, {
-                name: item.produit,
-                category: item.category,
-                stock: item.quantite,
-                price: item.prixAchat, // Prix d'achat initial
-                icon: icon,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        } else {
-            // Mettre à jour le produit existant
-            stockDocRef = snapshot.docs[0].ref;
-            const stockData = snapshot.docs[0].data();
-            const oldStock = stockData.stock || 0;
-            const oldPrice = stockData.price || 0;
-            const newStock = oldStock + item.quantite;
-            // Calcul du prix d'achat moyen pondéré
-            const newPrice = ((oldStock * oldPrice) + (item.quantite * item.prixAchat)) / newStock;
+        if (snapshot.empty) {
+            // Créer un nouveau produit s'il n'existe pas
+            stockDocRef = dbFirestore.collection("stock").doc();
+            newStock = item.quantite; // Le nouveau stock est simplement la quantité ajoutée
+            const icon = item.category === "accessoires" ? "🎧" : "📱";
+            batch.set(stockDocRef, {
+                name: item.produit,
+                category: item.category,
+                stock: newStock,
+                price: item.prixAchat, // Prix d'achat initial
+                icon: icon,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            // Mettre à jour le produit existant
+            stockDocRef = snapshot.docs[0].ref;
+            const stockData = snapshot.docs[0].data();
+            const oldStock = stockData.stock || 0;
+            const oldPrice = stockData.price || 0;
+            newStock = oldStock + item.quantite;
+            // Calcul du prix d'achat moyen pondéré
+            const newPrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * item.prixAchat)) / newStock : 0;
 
-            batch.update(stockDocRef, { stock: newStock, price: newPrice });
-        }
+            batch.update(stockDocRef, { stock: newStock, price: newPrice });
+        }
 
-        // Si l'article a des IMEI, les ajouter à la sous-collection
-        if (item.imeis && item.imeis.length > 0) {
-            item.imeis.forEach(imei => {
-                const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
-                batch.set(imeiDocRef, {
-                    status: "disponible",
-                    dateEntree: now
-                });
-            });
-        }
-    }
+        // ✅ CORRECTION : On ajoute l'enregistrement de l'historique dans le batch
+        const historyRef = stockDocRef.collection("history").doc();
+        batch.set(historyRef, {
+          timestamp: now.getTime(),
+          change: +item.quantite, // Mouvement positif
+          newStock: newStock,
+          type: 'approvisionnement' // On peut ajouter un type pour plus de clarté
+        });
 
+        // Si l'article a des IMEI, les ajouter à la sous-collection
+        if (item.imeis && item.imeis.length > 0) {
+            item.imeis.forEach(imei => {
+                const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
+                batch.set(imeiDocRef, {
+                    status: "disponible",
+                    dateEntree: now
+                });
+            });
+        }
+    }
     // Enregistrer l'opération d'approvisionnement
     const approRef = dbFirestore.collection("approvisionnement").doc();
     batch.set(approRef, {
@@ -3254,17 +3418,17 @@ function fermerModalScan() {
 
 // === Traitement d'un IMEI ===
 function processImei(rawInput) {
-  const cleaned = rawInput.trim(); // plus de filtrage numérique
-  console.log("Scanned:", cleaned);
+  const cleaned = rawInput.replace(/\D/g, '').slice(0, 15);
+  console.log("Scanned raw:", rawInput, "→ cleaned:", cleaned);
 
-  if (!cleaned) {
-    scanFeedbackEl.textContent = "Donnée vide ou invalide.";
+  if (cleaned.length !== 15) {
+    scanFeedbackEl.textContent = "IMEI invalide. 15 chiffres requis.";
     setTimeout(() => scanFeedbackEl.textContent = '', 2000);
     return;
   }
 
   if (tempScannedImeis.includes(cleaned)) {
-    showToast("Ce code a déjà été ajouté.");
+    showToast("Cet IMEI a déjà été ajouté.");
     return;
   }
 
@@ -3285,12 +3449,12 @@ function processImei(rawInput) {
   list.appendChild(listItem);
 
   document.getElementById('scanCurrentCount').textContent = tempScannedImeis.length;
-  scanFeedbackEl.textContent = `Code ${cleaned} ajouté !`;
+  scanFeedbackEl.textContent = `IMEI ${cleaned} ajouté !`;
   if (navigator.vibrate) navigator.vibrate(100);
 
   if (tempScannedImeis.length === currentApproItemForScan.quantite) {
     document.getElementById('btnConfirmerScan').disabled = false;
-    scanFeedbackEl.textContent = "Tous les codes ont été ajoutés !";
+    scanFeedbackEl.textContent = "Tous les IMEI ont été ajoutés !";
     if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
       html5QrcodeScanner.stop();
     }
