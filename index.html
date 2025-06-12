@@ -1232,8 +1232,212 @@
           });
       }
     
-      // Fonction pour afficher l'historique des ventes dans la section appropriée
-      // Fonction pour afficher l'historique des ventes dans la section appropriée
+ /**
+ * Génère une facture PDF pour une vente donnée en utilisant jsPDF et jsPDF-AutoTable,
+ * en respectant le style visuel du document "Facture AFRICA 9.pdf".
+ * Cette version corrigée gère les nombres contenant des slashes (ex: "11/000").
+ * @param {object} sale - L'objet de la vente contenant les détails nécessaires.
+ */
+ /**
+ * Génère une facture PDF pour une vente donnée en utilisant jsPDF et jsPDF-AutoTable,
+ * en respectant le style visuel du document "Facture AFRICA 9.pdf".
+ * Cette version corrigée gère les nombres contenant des slashes (ex: "11/000") et utilise le helper fmt.
+ * @param {object} sale - L'objet de la vente contenant les détails nécessaires.
+ */
+function generateInvoicePDF(sale) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'pt', 'a4'); // Utilise les points comme unité pour un meilleur contrôle
+
+    // --- Fonction utilitaire pour la conversion de nombre en lettres ---
+    // Cible : "vingt cinq mille quatre cent"
+    const numberToWordsFr = (n) => {
+        if (n === 0) return 'zéro';
+
+        const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+        const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+        const tens = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+
+        const convertChunk = (num) => {
+            let chunkWords = "";
+            if (num >= 100) {
+                const hundreds = Math.floor(num / 100);
+                chunkWords += (hundreds > 1 ? units[hundreds] + ' ' : '') + 'cent';
+                num %= 100;
+                if (num > 0) chunkWords += ' ';
+            }
+            if (num >= 10) {
+                if (num < 20) {
+                    chunkWords += teens[num - 10];
+                } else {
+                    const ten = Math.floor(num / 10);
+                    chunkWords += tens[ten];
+                    if (num % 10 === 1 && ten < 8) { // soixante et un, etc.
+                         chunkWords += ' et ' + units[num % 10];
+                    } else if (num % 10 !== 0) {
+                         chunkWords += ' ' + units[num % 10];
+                    }
+                }
+            } else if (num > 0) {
+                chunkWords += units[num];
+            }
+            return chunkWords;
+        };
+        
+        if (n < 1000) return convertChunk(n);
+
+        const thousands = Math.floor(n / 1000);
+        const remainder = n % 1000;
+
+        let words = "";
+        if (thousands === 1) {
+            words = 'mille';
+        } else {
+            words = convertChunk(thousands) + ' mille';
+        }
+
+        if (remainder > 0) {
+            words += ' ' + convertChunk(remainder);
+        }
+
+        return words.trim().replace(/-/g, ' ');
+    };
+
+    // --- Fonction utilitaire pour nettoyer les nombres ---
+    const cleanNumber = (input) => {
+        if (typeof input === 'number') return input;
+        // Retire les slashes et les espaces, puis convertit en nombre
+        return parseFloat(String(input).replace(/[\/\s]/g, '')) || 0;
+    };
+
+
+    try {
+        // --- En-tête de l'entreprise (Haut Gauche) ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("AFRICA PHONE", 40, 50);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text("RB/ABC/24 B 8356", 40, 65);
+        doc.text("N° Ifu: 3202413299289", 40, 78);
+        doc.text("Ilot: 168, Agori, Abomey-Calavi, Bénin", 40, 91);
+        doc.text("E-mail: africaphone24@gmail.com", 40, 104);
+        doc.text("+229 54 15 15 22", 40, 117);
+
+        // --- Titre "FACTURE" (Centré) ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(28);
+        doc.text("FACTURE", doc.internal.pageSize.getWidth() / 2, 80, { align: 'center' });
+
+        // --- Ligne de séparation ---
+        doc.setLineWidth(1);
+        doc.line(40, 135, 555, 135);
+
+        // --- Informations sur la facture ---
+        let y = 160;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+
+        doc.text("Référence :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(`AFPNE${(sale.id || '00000').substring(0, 5).toUpperCase()}`, 150, y);
+
+        y += 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Date :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(sale.dateVente || 'N/A', 150, y);
+
+        y += 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Objet de la facture :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text("Achat de téléphone portable", 150, y);
+
+        y += 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Client :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(sale.clientNom || 'Client Inconnu', 150, y);
+
+
+        // --- Tableau des articles ---
+        const tableColumn = ["Désignation", "P.U.", "Qté", "Montant"];
+        const tableRows = [];
+
+        sale.items.forEach(item => {
+            const pu = cleanNumber(item.prix);
+            const total = cleanNumber(item.total);
+            
+            const itemData = [
+                item.produit || "Article inconnu",
+                fmt(pu),
+                item.quantite || "0",
+                `${fmt(total)} FCFA`
+            ];
+            tableRows.push(itemData);
+        });
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: y + 30,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [220, 220, 220],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold'
+            },
+            styles: {
+                font: 'helvetica',
+                fontSize: 10
+            },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { halign: 'right' },
+                2: { halign: 'center' },
+                3: { halign: 'right' }
+            },
+            margin: { left: 40, right: 40 }
+        });
+
+        // --- Pied de page ---
+        let finalY = doc.lastAutoTable.finalY;
+
+        // Total HT
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        const overallTotal = cleanNumber(sale.overallTotal);
+        const totalText = `TOTAL HT: ${fmt(overallTotal)} FCFA`;
+        doc.text(totalText, 555, finalY + 30, { align: 'right' });
+
+        // Garantie
+        finalY = doc.lastAutoTable.finalY + 60; // Positionnement ajusté
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.text("Avec Garantie de 1an (12 mois)", 40, finalY);
+
+        // Montant en lettres
+        finalY += 20;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        const totalAmountInWords = numberToWordsFr(overallTotal);
+        const fullText = `Arrêté la présente facture à la somme de ${totalAmountInWords} FCFA`;
+        const splitText = doc.splitTextToSize(fullText, 515); // 595 (largeur page) - 40 (marge G) - 40 (marge D)
+        doc.text(splitText, 40, finalY);
+
+
+        // --- Sauvegarde du PDF ---
+        doc.save(`Facture_AFONE_${(sale.clientNom || 'Vente').replace(/ /g, '_')}_${sale.id.substring(0, 5)}.pdf`);
+        showToast('Facture PDF générée avec succès.');
+
+    } catch (e) {
+        console.error("Erreur lors de la génération de la facture PDF :", e);
+        alert("Une erreur est survenue lors de la génération de la facture.");
+    }
+}
+
+// Remplacez votre fonction displaySalesHistory par celle-ci
 function displaySalesHistory(salesList) {
     const container = document.getElementById("ventesContainer");
     container.innerHTML = "";
@@ -1279,10 +1483,9 @@ function displaySalesHistory(salesList) {
         
         card.className = `history-card ${statusClass}`;
         
-        // Formatter le montant total
         const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
         
-        // Construire le HTML de la carte
+        // Construire le HTML de la carte en ajoutant le bouton de téléchargement
         card.innerHTML = `
             <div class="icon-container">
                 <i data-lucide="${iconName}"></i>
@@ -1294,7 +1497,14 @@ function displaySalesHistory(salesList) {
                     ${sale.items ? sale.items.length : 0} article(s) • 
                     <span style="font-weight:500;">${statusText}</span>
                 </div>
-                 <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">Voir les détails</a>
+                <div style="margin-top: 6px;">
+                    <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">Détails</a>
+                    
+                    <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="margin-left: 15px; cursor:pointer;">
+                        <i data-lucide="download" style="width:16px; height:16px; vertical-align: -3px; margin-right: 4px;"></i>
+                        Facture
+                    </a>
+                </div>
             </div>
             <div class="amount-container">
                 <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
@@ -1305,6 +1515,22 @@ function displaySalesHistory(salesList) {
             </button>
         `;
         container.appendChild(card);
+    });
+
+    // Attacher les écouteurs d'événements pour les nouveaux boutons de téléchargement
+    container.querySelectorAll('.download-invoice-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation(); 
+            const saleId = event.currentTarget.getAttribute('data-sale-id');
+            const saleData = salesList.find(s => s.id === saleId);
+
+            if (saleData) {
+                generateInvoicePDF(saleData);
+            } else {
+                console.error('Données de vente non trouvées pour ID :', saleId);
+                alert('Erreur: Impossible de trouver les données de la vente.');
+            }
+        });
     });
 
     // Recharger les icônes Lucide pour toute la page
