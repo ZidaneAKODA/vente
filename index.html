@@ -875,7 +875,6 @@
 .btn-start-day:active {
   transform: scale(0.95);
 }
-
 /* =========================================================
    NOUVEAU STYLE POUR LES CARTES D'HISTORIQUE DES VENTES
    ========================================================= */
@@ -894,10 +893,10 @@
 }
 
 /* --- Statuts colorés --- */
-.history-card.status-reussie { border-left-color: #4CAF50; }
-.history-card.status-echouee { border-left-color: #F44336; }
-.history-card.status-en-cours { border-left-color: #FF9800; }
-.history-card.status-vente-directe { border-left-color: #2196F3; }
+.history-card.status-reussie { border-left-color: #4CAF50; } /* Vert */
+.history-card.status-echouee { border-left-color: #F44336; } /* Rouge */
+.history-card.status-en-cours { border-left-color: #FF9800; } /* Orange */
+.history-card.status-vente-directe { border-left-color: #2196F3; } /* Bleu */
 
 
 /* --- Conteneur de l'icône à gauche --- */
@@ -5005,82 +5004,105 @@ function continuerDepuisPanier() {
         finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
       }
     }
-    function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
-  showSaleLoader();
-  const now = new Date();
-  const dateVente = now.toLocaleDateString("fr-FR");
-  const heureVente = now.toLocaleTimeString("fr-FR");
-  
-  // Calcul de l'overallTotal et calcul du profit par article
-  let overallTotal = 0;
-  let totalProfit = 0;
-  
-  // Pour chaque article vendu, on calcule le profit en récupérant le coût d'achat moyen
-  const profitCalculations = currentItems.map(item => {
-    overallTotal += parseFloat(item.total);
-    return dbFirestore.collection("stock")
-      .where("name", "==", item.produit)
-      .get()
-      .then(querySnapshot => {
-        if (!querySnapshot.empty) {
-          const stockData = querySnapshot.docs[0].data();
-          // Profit unitaire = Prix de vente saisi - coût moyen (stock.price)
-          const profitUnitaire = item.prix - (stockData.price || 0);
-          const profitTotal = profitUnitaire * item.quantite;
-          totalProfit += profitTotal;
-          // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
-          item.profitUnitaire = profitUnitaire;
-          item.profitTotal = profitTotal;
-          item.coutAchat     = stockData.price || 0;
-        }
-      });
-  });
-  
-  // Attendre que tous les calculs de profit soient faits
-  Promise.all(profitCalculations).then(() => {
-    const vente = { 
-      dateVente, 
-      heureVente, 
-      clientNom, 
-      clientNumero, 
-      vendeur,
-      items: currentItems, 
-      overallTotal: overallTotal.toFixed(2),
-      totalProfit: totalProfit.toFixed(2), // Stocker le profit total de la vente
-      photoFacture: photoData, 
-      observationsVendeur,
-      isDelivery,
-      deliveryStatus: isDelivery ? "en cours" : null,
-      timestamp: Date.now()
-    };
-    
-    const compteId = document.getElementById("compteSelectVente").value;
+ function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+  showSaleLoader();
+  const now = new Date();
+  const dateVente = now.toLocaleDateString("fr-FR");
+  const heureVente = now.toLocaleTimeString("fr-FR");
+  
+  // Calcul de l'overallTotal et calcul du profit par article
+  let overallTotal = 0;
+  let totalProfit = 0;
+  
+  // Pour chaque article vendu, on calcule le profit en récupérant le coût d'achat moyen
+  const profitCalculations = currentItems.map(item => {
+    overallTotal += parseFloat(item.total);
+    return dbFirestore.collection("stock")
+      .where("name", "==", item.produit)
+      .get()
+      .then(querySnapshot => {
+        if (!querySnapshot.empty) {
+          const stockData = querySnapshot.docs[0].data();
+          // Profit unitaire = Prix de vente saisi - coût moyen (stock.price)
+          const profitUnitaire = item.prix - (stockData.price || 0);
+          const profitTotal = profitUnitaire * item.quantite;
+          totalProfit += profitTotal;
+          // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
+          item.profitUnitaire = profitUnitaire;
+          item.profitTotal = profitTotal;
+          item.coutAchat     = stockData.price || 0;
+        }
+      });
+  });
+  
+  // Attendre que tous les calculs de profit soient faits
+  Promise.all(profitCalculations).then(() => {
+    const vente = { 
+      dateVente, 
+      heureVente, 
+      clientNom, 
+      clientNumero, 
+      vendeur,
+      items: currentItems, 
+      overallTotal: overallTotal.toFixed(2),
+      totalProfit: totalProfit.toFixed(2), // Stocker le profit total de la vente
+      photoFacture: photoData, 
+      observationsVendeur,
+      isDelivery,
+      deliveryStatus: isDelivery ? "en cours" : null,
+      timestamp: Date.now()
+    };
+    
+    const compteId = document.getElementById("compteSelectVente").value;
 
-    addSaleFirestore({ ...vente, compteId })
-  .then((newSaleId) => {
-    // 1️⃣ on met d’abord à jour le stock
-    return updateStockAfterSaleFirestore(currentItems)
-      // 2️⃣ puis on crée le mouvement en passant bien l’ID de la vente (newSaleId)
-      .then(() => enregistrerMouvementTresorerie({
-        compteId,
-        type: 'vente',
-        sens: 'in',
-        montant: +overallTotal,
-        description: `Vente ${clientNom}`,
-        refId: newSaleId
-      }));
-  })
-  .then(() => updateBalanceDisplay())
-  .then(() => {
-    hideSaleLoader();
-    alert(isDelivery ? "Livraison validée !" : "Vente validée !");
-    // … le reste de ton code de nettoyage d’UI …
-  })
-  .catch(error => {
-    hideSaleLoader();
-    alert("Erreur lors de l'ajout de la vente : " + error.message);
-    });
-  });
+    addSaleFirestore({ ...vente, compteId })
+  .then((newSaleId) => {
+    // 1️⃣ on met d’abord à jour le stock
+    return updateStockAfterSaleFirestore(currentItems)
+      // 2️⃣ puis on crée le mouvement en passant bien l’ID de la vente (newSaleId)
+      .then(() => enregistrerMouvementTresorerie({
+        compteId,
+        type: 'vente',
+        sens: 'in',
+        montant: +overallTotal,
+        description: `Vente ${clientNom}`,
+        refId: newSaleId
+      }));
+  })
+  .then(() => updateBalanceDisplay())
+  .then(() => {
+    hideSaleLoader();
+    alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+    
+    // START: Code to add for reset and redirection
+    // Reset the form fields
+    document.getElementById("produit").value = "";
+    document.getElementById("prix").value = "";
+    document.getElementById("quantite").value = "1";
+    document.getElementById("totalArticle").value = "";
+    document.getElementById("clientNom").value = "";
+    document.getElementById("clientNumero").value = "";
+    document.getElementById("photoFacture").value = "";
+    document.getElementById("observationsVendeur").value = "";
+    document.getElementById("isDelivery").checked = false;
+    document.getElementById("livreurNom").value = "";
+    document.getElementById("livreurNumero").value = "";
+    document.getElementById("lieuLivraison").value = "";
+    document.getElementById("saleRecap").innerHTML = "";
+    
+    // Reset the cart
+    currentItems = [];
+    
+    // Redirect to the sales history page
+    window.location.hash = 'historique';
+    // END: Code to add for reset and redirection
+
+  })
+  .catch(error => {
+    hideSaleLoader();
+    alert("Erreur lors de l'ajout de la vente : " + error.message);
+    });
+  });
 }
 
 
