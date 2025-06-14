@@ -33,7 +33,12 @@
 <link rel="manifest" href="manifest.json">
 <!-- Charger SheetJS pour générer des .xlsx -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@10.5.3000/dist/dbr.bundle.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
+<script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 
 <!-- Set the theme color (should match the one in your manifest) -->
 <meta name="theme-color" content="#006064">
@@ -50,6 +55,33 @@
       -moz-user-select: none;
       -ms-user-select: none;
     }
+
+  /* CORRECTIF POUR LE SCROLL APRÈS L'AJOUT D'IONIC
+  */
+  .screen {
+    /* Permet à chaque écran d'avoir sa propre barre de défilement si le contenu dépasse */
+    overflow-y: auto; 
+    
+    /* On s'assure que l'écran ne dépasse pas de la vue visible.
+       100vh = 100% de la hauteur de l'écran.
+       On soustrait la hauteur de votre barre de navigation du bas (~60px) 
+       et le padding du conteneur #app (~15px) pour éviter une double barre de scroll.
+    */
+    height: calc(100vh - 75px); 
+  }
+
+  /* On exclut l'écran de détail de cette règle, car Ionic s'en occupe déjà */
+  #screen-article-detail {
+      height: auto;
+      overflow-y: initial;
+  }
+
+  /* On exclut aussi l'écran de démarrage qui doit être centré */
+   #screen-start-day {
+      height: 100vh;
+      overflow-y: hidden;
+   }
+
     /* Désactivation de l'effet de sélection (outline) sur boutons, liens et éléments cliquables */
     button, a, div.section, div.nav-item, div.shortcut {
       outline: none;
@@ -1401,30 +1433,90 @@ function generateInvoicePDF(sale) {
             margin: { left: 40, right: 40 }
         });
 
-        // --- Pied de page ---
-        let finalY = doc.lastAutoTable.finalY;
+        // ==========================================================
+        //          DÉBUT DU PIED DE PAGE CORRIGÉ (AVEC footerY)
+        // ==========================================================
 
-        // Total HT
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        const overallTotal = cleanNumber(sale.overallTotal);
-        const totalText = `TOTAL HT: ${fmt(overallTotal)} FCFA`;
-        doc.text(totalText, 555, finalY + 30, { align: 'right' });
+        // On définit notre position de départ ('footerY') juste en dessous du tableau des articles
+        let footerY = doc.lastAutoTable.finalY + 30; // Marge de 30pt sous le tableau
 
-        // Garantie
-        finalY = doc.lastAutoTable.finalY + 60; // Positionnement ajusté
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(9);
-        doc.text("Avec Garantie de 1an (12 mois)", 40, finalY);
+        // --- TOTAL HT ---
+        // On aligne le total à droite
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        const overallTotal = cleanNumber(sale.overallTotal);
+        const totalText = `TOTAL HT: ${fmt(overallTotal)} FCFA`;
+        doc.text(totalText, 555, footerY, { align: 'right' });
 
-        // Montant en lettres
-        finalY += 20;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        const totalAmountInWords = numberToWordsFr(overallTotal);
-        const fullText = `Arrêté la présente facture à la somme de ${totalAmountInWords} FCFA`;
-        const splitText = doc.splitTextToSize(fullText, 515); // 595 (largeur page) - 40 (marge G) - 40 (marge D)
-        doc.text(splitText, 40, finalY);
+        // --- Garantie 1 an ---
+        // On aligne cette mention à gauche, sur la même ligne visuelle que le total
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.text("Avec Garantie de 1an (12 mois)", 40, footerY);
+
+        // On descend pour la suite
+        footerY += 30;
+
+        // --- Montant en lettres ---
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        const totalAmountInWords = numberToWordsFr(overallTotal);
+        const fullText = `Arrêté la présente facture à la somme de ${totalAmountInWords} FCFA.`;
+        const splitText = doc.splitTextToSize(fullText, 515); // On gère le retour à la ligne
+        doc.text(splitText, 40, footerY);
+
+        // On se décale vers le bas de la hauteur du texte qu'on vient d'écrire, plus une marge
+        footerY += (splitText.length * 12) + 20; // 12pt de hauteur par ligne + 20pt de marge
+
+        // --- Section des Conditions de Garantie ---
+
+        // On vérifie qu'on a assez de place, sinon on crée une nouvelle page
+        if (footerY > 680) {
+            doc.addPage();
+            footerY = 40; // On repart en haut de la nouvelle page
+        }
+
+        // 1. Ligne de séparation
+        doc.setDrawColor(200, 200, 200); // Gris clair
+        doc.setLineWidth(0.5);
+        doc.line(40, footerY, 555, footerY); // Ligne horizontale sur toute la largeur
+        footerY += 25;
+
+        // 2. Titre des conditions
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("Conditions de Garantie", doc.internal.pageSize.getWidth() / 2, footerY, { align: 'center' });
+        footerY += 25;
+
+        // 3. Le contenu des conditions
+        const warrantyParagraphs = [
+            "Couverture : La garantie s’applique uniquement aux défauts de fabrication ou problèmes techniques du téléphone.",
+            "Exclusions : Tout dommage causé par l’utilisateur (chute, contact avec l’eau, mauvaise utilisation, etc.) est exclu de la garantie.",
+            "Procédure de retour :",
+            "a. Le produit doit être examiné pour confirmer le problème.",
+            "b. Une réparation sera tentée en priorité.",
+            "c. Un remplacement ne sera envisagé que si la réparation est impossible.",
+            "Délais : Le temps de réparation varie selon la nature de la panne et la disponibilité des techniciens.",
+            "Conditions de prise en charge : Aucun service de garantie ne sera effectué si le téléphone n’est pas retourné avec son emballage d’origine complet (boîte, accessoires, etc.) et en bon état."
+        ];
+
+        // 4. On dessine les paragraphes
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        
+        warrantyParagraphs.forEach(p => {
+            const isListItem = p.match(/^[a-z]\./);
+            const xPosition = isListItem ? 55 : 40; // Indentation pour les listes a,b,c
+            
+            const lines = doc.splitTextToSize(p, 515);
+            doc.text(lines, xPosition, footerY);
+            
+            footerY += (lines.length * 10) + (isListItem ? 2 : 6); // On descend après chaque paragraphe
+        });
+
+        // ==========================================================
+        //            FIN DU PIED DE PAGE CORRIGÉ
+        // ==========================================================
 
 
         // --- Sauvegarde du PDF ---
@@ -1739,6 +1831,416 @@ function displaySalesHistory(salesList) {
   }
 </script>
 
+<section id="screen-article-detail" class="screen">
+  <ion-app>
+    <ion-header class="ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button onclick="window.location.hash='stock'">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Détail de l'article</ion-title>
+        <ion-buttons slot="end">
+          <ion-button>
+            <ion-icon slot="icon-only" name="pencil-outline"></ion-icon>
+          </ion-button>
+          <ion-button>
+            <ion-icon slot="icon-only" name="ellipsis-vertical-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <div class="main-content">
+        <div class="product-info-grid">
+          <div class="product-details">
+            <h1 id="detail-product-title" class="product-title">Chargement...</h1>
+            
+            <span class="product-price-label">Prix de vente</span>
+            <span id="detail-selling-price" class="product-price-value">...</span>
+
+            <span class="product-price-label">Coût d'achat</span>
+            <span id="detail-purchase-cost" class="product-price-value">...</span>
+          </div>
+          
+          <div class="add-image-box">
+            <span>+ Add</span>
+            <span>Image</span>
+          </div>
+        </div>
+
+        <ion-segment value="details" id="article-tabs">
+  <ion-segment-button value="details">
+    <ion-label>Détails</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="transactions">
+    <ion-label>Transactions</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="history">
+    <ion-label>Historique</ion-label>
+  </ion-segment-button>
+</ion-segment>
+
+<div id="detailsContent" class="tab-content">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="stats-chart-outline"></ion-icon>
+        Stock Summary
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="summary-grid">
+        <div></div>
+        <div class="summary-header">Comptable</div>
+        <div class="summary-header">Physique</div>
+        <div class="summary-label">Stock disponible</div>
+        <div id="detail-stock-on-hand" class="summary-value">...</div>
+        <div class="summary-value">...</div>
+        <div class="summary-label">Stock engagé</div>
+        <div class="summary-value">0.00</div>
+        <div class="summary-value">0.00</div>
+        <div class="summary-label">Disponible à la vente</div>
+        <div id="detail-available-for-sale" class="summary-value">...</div>
+        <div class="summary-value">...</div>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="cube-outline"></ion-icon>
+        Stock Status
+      </ion-card-title>
+    </ion-header>
+    <ion-card-content>
+       <div class="status-grid">
+         </div>
+    </ion-card-content>
+  </ion-card>
+</div>
+
+<div id="transactionsContent" class="tab-content" style="display: none;">
+  </div>
+
+<div id="historyContent" class="tab-content" style="display: none;">
+  </div>
+    </ion-content>
+  </ion-app>
+</section>
+<style>
+  /* Styles spécifiques pour l'écran de détail d'article */
+#screen-article-detail {
+    --ion-background-color: #f5f4fa; 
+    --ion-text-color: #2e3748; 
+    --ion-font-family: 'Inter', sans-serif;
+}
+#screen-article-detail ion-header ion-toolbar {
+    --background: var(--ion-background-color);
+    --border-width: 0 !important;
+    box-shadow: none;
+}
+#screen-article-detail ion-content {
+    --background: var(--ion-background-color);
+}
+#screen-article-detail ion-toolbar {
+    --padding-start: 10px;
+    --padding-end: 10px;
+}
+#screen-article-detail ion-toolbar ion-title {
+    font-weight: 600;
+    color: var(--ion-text-color);
+}
+#screen-article-detail ion-toolbar ion-buttons ion-icon {
+    font-size: 24px;
+    color: var(--ion-text-color);
+}
+#screen-article-detail .main-content {
+    padding: 0 16px;
+}
+#screen-article-detail .product-info-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 16px;
+    margin-bottom: 24px;
+}
+#screen-article-detail .product-details {
+    display: flex;
+    flex-direction: column;
+}
+#screen-article-detail .product-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ion-text-color);
+    margin-bottom: 12px;
+}
+#screen-article-detail .product-price-label {
+    font-size: 14px;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+#screen-article-detail .product-price-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ion-text-color);
+    margin-bottom: 12px;
+}
+#screen-article-detail .add-image-box {
+    width: 100px;
+    height: 100px;
+    border: 2px dashed #d0d0e0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    color: #8a92a6;
+    background-color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+}
+#screen-article-detail ion-segment {
+    --background: var(--ion-background-color);
+    box-shadow: none;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 16px;
+}
+#screen-article-detail ion-segment-button {
+    --color: #6c757d;
+    --color-checked: var(--ion-text-color);
+    --indicator-color: var(--ion-text-color);
+    --indicator-height: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    box-shadow: none !important;
+}
+#screen-article-detail ion-card {
+    --background: #ffffff;
+    box-shadow: none;
+    border-radius: 8px;
+    border: 1px solid #edeaf2;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 16px;
+}
+#screen-article-detail ion-card-header {
+    padding-bottom: 8px;
+}
+#screen-article-detail ion-card-title {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-text-color);
+}
+#screen-article-detail ion-card-title ion-icon {
+    font-size: 20px;
+    margin-right: 8px;
+}
+#screen-article-detail ion-card-content {
+    padding-top: 8px;
+}
+#screen-article-detail .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px 16px;
+    font-size: 14px;
+}
+#screen-article-detail .summary-header {
+    font-weight: 600;
+    color: #6c757d;
+    text-align: right;
+}
+#screen-article-detail .summary-label {
+    color: var(--ion-text-color);
+}
+#screen-article-detail .summary-value {
+    text-align: right;
+    color: var(--ion-text-color);
+    font-weight: 500;
+}
+#screen-article-detail .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    font-size: 14px;
+}
+#screen-article-detail .status-item {
+    display: flex;
+    flex-direction: column;
+}
+#screen-article-detail .status-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-text-color);
+}
+#screen-article-detail .status-label {
+    color: #6c757d;
+}
+/* Cache la barre de navigation quand l'écran de détail d'un article est actif */
+#screen-article-detail.active ~ .bottom-nav-pro {
+    display: none;
+}
+</style>
+<script>
+  /**
+   * Initialise les écouteurs d'événements pour les onglets de la page de détail.
+   * Doit être appelé une seule fois au chargement de la page.
+   */
+  function setupArticleTabs() {
+    const tabs = document.getElementById('article-tabs');
+    // On vérifie si l'écouteur n'a pas déjà été attaché pour éviter les doublons
+    if (tabs && !tabs.listenerAttached) {
+      tabs.addEventListener('ionChange', (event) => {
+        const selectedTab = event.detail.value;
+        handleTabChange(selectedTab);
+      });
+      tabs.listenerAttached = true; // On marque l'écouteur comme attaché
+    }
+  }
+
+  /**
+   * Gère le changement d'onglet et charge les données appropriées.
+   * @param {string} tabValue - La valeur de l'onglet sélectionné ('details', 'transactions', 'history').
+   */
+  function handleTabChange(tabValue) {
+    // Masquer tous les conteneurs de contenu des onglets
+    document.querySelectorAll('#screen-article-detail .tab-content').forEach(content => {
+      content.style.display = 'none';
+    });
+
+    // Afficher le conteneur sélectionné et charger ses données si nécessaire
+    switch (tabValue) {
+      case 'details':
+        document.getElementById('detailsContent').style.display = 'block';
+        // Les détails sont déjà chargés par loadArticleDetail(), donc rien à faire de plus.
+        break;
+      case 'transactions':
+        document.getElementById('transactionsContent').style.display = 'block';
+        loadArticleTransactions(currentArticleId);
+        break;
+      case 'history':
+        document.getElementById('historyContent').style.display = 'block';
+        loadArticleStockHistory(currentArticleId);
+        break;
+    }
+  }
+
+  /**
+   * Charge et affiche l'historique des ventes et approvisionnements pour un article.
+   * @param {string} articleId - L'ID de l'article dans la collection 'stock'.
+   */
+  async function loadArticleTransactions(articleId) {
+    const container = document.getElementById('transactionsContent');
+    container.innerHTML = '<p>Chargement des transactions...</p>';
+
+    try {
+      const stockDoc = await dbFirestore.collection("stock").doc(articleId).get();
+      if (!stockDoc.exists) {
+        container.innerHTML = '<p>Article non trouvé.</p>';
+        return;
+      }
+      const articleName = stockDoc.data().name;
+
+      // Récupérer les ventes récentes qui contiennent cet article
+      const salesSnapshot = await dbFirestore.collection("ventes")
+        .orderBy("timestamp", "desc")
+        .limit(50) // On limite pour ne pas surcharger
+        .get();
+
+      const transactions = [];
+
+      salesSnapshot.forEach(doc => {
+        const sale = doc.data();
+        // On vérifie si un des articles de la vente correspond à notre article
+        const relevantItem = sale.items && sale.items.find(item => item.produit === articleName);
+        if (relevantItem) {
+          transactions.push({
+            date: new Date(sale.timestamp).toLocaleDateString('fr-FR'),
+            type: 'Vente',
+            details: `Client: ${sale.clientNom || 'N/A'}`,
+            montant: relevantItem.total
+          });
+        }
+      });
+      
+      // Ici, vous pourriez ajouter une logique similaire pour les approvisionnements
+
+      if (transactions.length === 0) {
+        container.innerHTML = '<p>Aucune transaction récente pour cet article.</p>';
+        return;
+      }
+
+      // Afficher les transactions trouvées
+      container.innerHTML = '<h3>Transactions Récentes</h3>';
+      transactions.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'vente-card'; // Réutilisation d'un style existant
+        div.style.marginBottom = '8px';
+        div.innerHTML = `<p><strong>${t.date} - ${t.type}</strong><br>${t.details}<br>Montant: <strong>${t.montant.toLocaleString()} FCFA</strong></p>`;
+        container.appendChild(div);
+      });
+
+    } catch (error) {
+        console.error("Erreur lors du chargement des transactions :", error);
+        container.innerHTML = '<p>Erreur lors du chargement des transactions.</p>';
+    }
+  }
+
+  /**
+   * Charge et affiche l'historique des variations de stock pour un article.
+   * @param {string} articleId - L'ID de l'article dans la collection 'stock'.
+   */
+  function loadArticleStockHistory(articleId) {
+    const container = document.getElementById("historyContent");
+    container.innerHTML = "<p>Chargement de l’historique du stock…</p>";
+
+    dbFirestore.collection("stock").doc(articleId).collection("history")
+      .orderBy("timestamp", "desc").limit(50) // On limite aux 50 derniers mouvements
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          container.innerHTML = "<p>Aucune variation de stock enregistrée pour cet article.</p>";
+          return;
+        }
+
+        container.innerHTML = '<h3>Historique des Mouvements de Stock</h3>';
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const date = new Date(d.timestamp).toLocaleString("fr-FR");
+          const change = d.change || 0;
+          const signe = change > 0 ? "+" : "";
+          const color = change > 0 ? "green" : "red";
+          const typeMouvement = d.type === 'approvisionnement' ? 'Approvisionnement' : 'Vente';
+
+          const row = document.createElement("div");
+          row.className = "vente-card"; // Réutilisation d'un style existant
+          row.style.marginBottom = '8px';
+          row.innerHTML = `
+            <p>
+              <strong>${date}</strong> - <span>${typeMouvement}</span><br>
+              Mouvement : <span style="color:${color}; font-weight:bold;">${signe}${change}</span> unités<br>
+              Nouveau Stock : <strong>${d.newStock}</strong>
+            </p>`;
+          container.appendChild(row);
+        });
+      })
+      .catch(err => {
+        console.error("Erreur chargement historique stock:", err);
+        container.innerHTML = "<p>Erreur de chargement de l'historique.</p>";
+      });
+  }
+
+  // Lancement de la configuration des onglets au chargement de la page.
+  window.addEventListener('load', setupArticleTabs);
+
+</script>
 
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
@@ -2964,259 +3466,184 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
 
 <!-- Section Approvisionnement -->
 <section id="screen-approvisionnement" class="screen">
-  <header>
-    <button class="back-btn" onclick="window.location.hash='menu'">
-      <i data-lucide="arrow-left"></i>
-    </button>
-    <h1>Approvisionnement</h1>
-  </header>
+    <header>
+        <button class="back-btn" onclick="window.location.hash='menu'">
+            <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Nouvel Achat</h1>
+    </header>
 
-  <!-- Formulaire d'approvisionnement -->
-  <div class="form-section">
-    <h2>Nouveau Approvisionnement</h2>
-    <form class="vente-form" onsubmit="event.preventDefault(); ajouterApprovisionnementItem();">
-      <!-- Champ Fournisseur -->
-      <label for="fournisseurAppro">Fournisseur</label>
-      <input type="text" id="fournisseurAppro" placeholder="Nom du fournisseur" required />
+    <div class="form-section">
+        <h2>Détails de l'achat</h2>
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterApprovisionnementItem();">
 
-      <label for="categorieAppro">Catégorie</label>
-<select id="categorieAppro" required>
-  <option value="telephones">Téléphones</option>
-  <option value="accessoires">Accessoires</option>
-</select>
+            <label for="fournisseurAppro">Fournisseur <span style="color: #d9534f;">*</span></label>
+            <input type="text" id="fournisseurAppro" placeholder="Saisir le nom du fournisseur" required />
 
+            <label for="categorieAppro">Catégorie <span style="color: #d9534f;">*</span></label>
+            <select id="categorieAppro" required>
+                <option value="telephones">Téléphones</option>
+                <option value="accessoires">Accessoires</option>
+            </select>
 
-      <!-- Recherche du modèle de téléphone -->
-      <label for="modeleAppro">Modèle de téléphone</label>
-      <div class="input-container">
-        <input type="text" id="modeleAppro" placeholder="Rechercher un modèle" autocomplete="off" required />
-        <div id="suggestionListAppro" class="suggestion-list"></div>
-      </div>
-      <!-- Quantité -->
-      <label for="quantiteAppro">Quantité achetée</label>
-      <div class="quantity-container">
-        <button type="button" onclick="decrementQuantityAppro()">–</button>
-        <input type="number" id="quantiteAppro" min="1" value="1" required oninput="calculerCoutTotalAppro()" />
-        <button type="button" onclick="incrementQuantityAppro()">+</button>
-      </div>
-      <!-- Prix d'achat unitaire -->
-      <label for="prixAchatAppro">Prix d'achat unitaire (FCFA)</label>
-      <input type="number" id="prixAchatAppro" placeholder="Prix d'achat" required oninput="calculerCoutTotalAppro()" />
-      <!-- Coût total -->
-      <label for="coutTotalAppro">Coût total</label>
-      <input type="number" id="coutTotalAppro" placeholder="Calcul automatique" readonly />
-      <button type="button" class="btn-modern" onclick="ajouterApprovisionnementItem()">Ajouter au panier</button>
-    </form>
-  </div>
+            <label for="modeleAppro">Désignation article <span style="color: #d9534f;">*</span></label>
+            <div class="input-container">
+                <input type="text" id="modeleAppro" placeholder="Rechercher ou créer un article" autocomplete="off" required />
+                <div id="suggestionListAppro" class="suggestion-list"></div>
+            </div>
 
-  <!-- Panier Approvisionnement -->
-  <div class="panier-approvisionnement">
-    <h2>Panier Approvisionnement</h2>
-    <div id="panierApproContent" class="list-container">
-      <p>Le panier est vide.</p>
+            <label for="quantiteAppro">Quantité <span style="color: #d9534f;">*</span></label>
+            <div class="quantity-container">
+                <button type="button" onclick="decrementQuantityAppro()">–</button>
+                <input type="number" id="quantiteAppro" min="1" value="1" required oninput="calculerCoutTotalAppro()" />
+                <button type="button" onclick="incrementQuantityAppro()">+</button>
+            </div>
+            
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label for="prixAchatAppro">Prix d'achat unitaire <span style="color: #d9534f;">*</span></label>
+                    <input type="number" id="prixAchatAppro" placeholder="0" required oninput="calculerCoutTotalAppro()" />
+                </div>
+                <div style="flex: 1;">
+                    <label for="coutTotalAppro">Coût total</label>
+                    <input type="number" id="coutTotalAppro" placeholder="Calcul auto" readonly />
+                </div>
+            </div>
+            
+            <button type="button" class="btn-modern add-item-style" onclick="ajouterApprovisionnementItem()">Ajouter l'article</button>
+        </form>
     </div>
-    <label for="compteSelectAppro">Compte de trésorerie</label>
-    <select id="compteSelectAppro"></select>
 
-    <button class="btn-modern" onclick="finaliserApprovisionnement()">Enregistrer Approvisionnement</button>
-  </div>
+    <div class="panier-approvisionnement">
+        <h2>Panier d'Achat</h2>
+        <div id="panierApproContent" class="list-container" style="margin-bottom: 15px;">
+            <p>Le panier est vide.</p>
+        </div>
+        
+        <label for="compteSelectAppro">Payer depuis le compte <span style="color: #d9534f;">*</span></label>
+        <select id="compteSelectAppro"></select>
 
-  <!-- Historique des approvisionnements -->
-  <div class="approvisionnement-history">
-    <h2>Historique des Approvisionnements</h2>
-    <div id="approvisionnementList" class="list-container">
-      <!-- Les éléments de l'historique seront affichés ici -->
+        <button class="btn-modern" onclick="finaliserApprovisionnement()">Enregistrer l'Achat</button>
     </div>
-  </div>
+
+    <div class="approvisionnement-history">
+        <h2>Historique des Achats</h2>
+        <div id="approvisionnementList" class="list-container">
+            </div>
+    </div>
 </section>
 
 <!-- Styles et JS spécifiques à la section Approvisionnement -->
 <style>
-  /* Styles isolés pour #screen-approvisionnement */
-  #screen-approvisionnement {
-    background-color: #ffffff;
+  /* =========================================================
+   MISE À JOUR DES STYLES POUR L'ÉCRAN D'APPROVISIONNEMENT
+   ========================================================= */
+
+/* On donne un fond gris clair à l'écran */
+#screen-approvisionnement {
+    background-color: #f5f7fa;
+    padding: 10px;
+}
+
+#screen-approvisionnement header h1 {
+    font-size: 20px;
+}
+
+/* On transforme .form-section en la nouvelle carte blanche */
+#screen-approvisionnement .form-section {
+    background: var(--white);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* Ombre plus subtile */
+    border-radius: var(--border-radius);
     padding: 20px;
-    min-height: calc(100vh - 60px);
-    font-family: 'Roboto', sans-serif;
-  }
-  #screen-approvisionnement header {
-    text-align: center;
-    margin-bottom: 15px;
-    position: relative;
-  }
-  #screen-approvisionnement header h1 {
-    font-size: 22px;
-    color: #000;
-  }
-  /* Bouton retour */
-  #screen-approvisionnement .back-btn {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #000;
-  }
-  /* Formulaire */
-  #screen-approvisionnement .form-section {
-    background: #ffffff;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  }
-  #screen-approvisionnement .form-section h2 {
-    margin-bottom: 15px;
-    color: #000;
-    font-size: 20px;
-    text-align: center;
-  }
-  #screen-approvisionnement .vente-form label {
-    font-weight: 500;
-    margin-bottom: 8px;
-    display: block;
-    font-size: 16px;
-    color: #000;
-  }
-  #screen-approvisionnement .input-container {
-    position: relative;
-    margin-bottom: 16px;
-  }
-  #screen-approvisionnement .input-container input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 16px;
-    color: #000;
-  }
-  #screen-approvisionnement .suggestion-list {
-    position: absolute;
-    background: #ffffff;
-    border: 1px solid #ccc;
-    z-index: 1000;
-    max-height: 150px;
-    overflow-y: auto;
-    width: 100%;
-    display: none;
-  }
-  #screen-approvisionnement .suggestion-item {
-    padding: 8px 10px;
-    cursor: pointer;
-    color: #000;
-  }
-  #screen-approvisionnement .suggestion-item:hover {
-    background: #f0f0f0;
-  }
-  /* Quantité */
-  #screen-approvisionnement .quantity-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-  #screen-approvisionnement .quantity-container button {
-    width: 40px;
-    height: 40px;
-    border: none;
-    background: #E4E6EB;
-    color: #000;
-    font-size: 20px;
-    border-radius: 50%;
-    cursor: pointer;
-  }
-  #screen-approvisionnement .quantity-container input {
-    text-align: center;
-    width: 60px;
-    margin: 0 8px;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 16px;
-    color: #000;
-  }
-  /* Champs de saisie */
-  #screen-approvisionnement input[type="number"],
-  #screen-approvisionnement input[type="text"] {
-    color: #000;
-  }
-  /* Bouton principal */
-  #screen-approvisionnement .btn-modern {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 14px;
+}
+
+/* On ajuste les titres des cartes */
+#screen-approvisionnement .form-section h2 {
     font-size: 18px;
-    font-weight: bold;
-    text-align: center;
-    border: none;
-    border-radius: 50px;
-    background: #E4E6EB;
-    color: #000;
-    box-shadow: none;
-    cursor: pointer;
-    margin-bottom: 10px;
-  }
-  /* Panier Approvisionnement */
-  .panier-approvisionnement {
-    background: #fafafa;
-    border-radius: 8px;
-    padding: 15px;
+    font-weight: 700;
+    color: #333;
     margin-bottom: 20px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  }
-  .panier-approvisionnement h2 {
-    font-size: 20px;
-    color: #000;
-    margin-bottom: 10px;
-    text-align: center;
-  }
-  .panier-approvisionnement .list-container {
-    margin-bottom: 15px;
-  }
-  .panier-approvisionnement .list-container .panier-item {
-    background: #ffffff;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 10px;
-    font-size: 16px;
-  }
-  .panier-approvisionnement .list-container .panier-item span.remove-item {
-    color: red;
-    cursor: pointer;
-    float: right;
-  }
-  /* Historique des approvisionnements */
-  #screen-approvisionnement .approvisionnement-history h2 {
-    text-align: center;
-    margin: 15px 0;
-    font-size: 20px;
-    color: #000;
-  }
-  #screen-approvisionnement .list-container {
-    padding: 10px;
-    background: #fafafa;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    max-height: 300px;
-    overflow-y: auto;
-  }
-  #screen-approvisionnement .history-item {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    text-align: left; /* On aligne à gauche */
+}
+
+/* Style pour les labels au-dessus des champs */
+#screen-approvisionnement .vente-form label {
     font-size: 14px;
-    color: #000;
-  }
-  #screen-approvisionnement .history-item:last-child {
-    border-bottom: none;
-  }
+    color: #555;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+/* Style pour les champs de saisie (input, select) */
+#screen-approvisionnement .vente-form input,
+#screen-approvisionnement .vente-form select {
+    width: 100%;
+    padding: 10px 4px; /* Plus d'espace vertical */
+    font-size: 16px;
+    border: none; /* On enlève toutes les bordures */
+    border-bottom: 1px solid #ccc; /* On ajoute la ligne en bas */
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none; /* On enlève l'ombre */
+}
+
+/* Effet au focus */
+#screen-approvisionnement .vente-form input:focus,
+#screen-approvisionnement .vente-form select:focus {
+    outline: none;
+    box-shadow: none; /* Pas d'ombre au focus */
+    border-bottom: 2px solid var(--primary-color); /* Ligne plus épaisse et colorée */
+}
+
+/* Cas particulier du sélecteur de quantité */
+#screen-approvisionnement .quantity-container {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ccc; /* On met la bordure sur le conteneur */
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+}
+#screen-approvisionnement .quantity-container input {
+    border: none !important; /* On s'assure qu'il n'a pas de bordure */
+    text-align: center;
+}
+#screen-approvisionnement .quantity-container button {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+}
+
+/* Style pour le bouton "Ajouter l'article" */
+#screen-approvisionnement .btn-modern.add-item-style {
+    color: var(--primary-color);
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    font-weight: bold;
+    box-shadow: none;
+}
+#screen-approvisionnement .btn-modern.add-item-style:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Unifier le style des autres cartes (Panier et Historique) */
+.panier-approvisionnement, .approvisionnement-history {
+    background: var(--white);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-top: 15px;
+}
+.panier-approvisionnement h2, .approvisionnement-history h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: left;
+}
 
 </style>
 
@@ -3322,6 +3749,7 @@ dbFirestore.collection("stock")
 
   // Fonction pour ajouter un article d'approvisionnement au panier
   // Fonction d’ajout d’un article d’approvisionnement, avec gestion de la catégorie
+// MODIFIÉ : ajouterApprovisionnementItem pour appeler le nouveau scanner
 function ajouterApprovisionnementItem() {
   const fournisseur = document.getElementById("fournisseurAppro").value.trim();
   const categorie   = document.getElementById("categorieAppro").value;
@@ -3351,8 +3779,8 @@ function ajouterApprovisionnementItem() {
     updatePanierApprovisionnement();
     showToast(`${item.produit} ajouté au panier.`);
   } else {
-    // Si c'est un téléphone, on ouvre le modal de scan
-    ouvrirModalScan(item);
+    // Si c'est un téléphone, on lance le NOUVEL écran de scan
+    lancerScanDynamsoft(item);
   }
 
   // Réinitialisation des champs du formulaire après l'action
@@ -3362,7 +3790,6 @@ function ajouterApprovisionnementItem() {
   document.getElementById("coutTotalAppro").value = "";
   document.getElementById("modeleAppro").focus();
 }
-
 
   function updatePanierApprovisionnement() {
   const container = document.getElementById("panierApproContent");
@@ -3563,162 +3990,186 @@ async function finaliserApprovisionnement() {
         console.error("Erreur lors du chargement des approvisionnements : " + error.message);
       });
   }
+
+  
 </script>
+<section id="screen-scan-dynamsoft" class="screen">
+  <header>
+    <button class="back-btn" onclick="annulerScan()">← Annuler</button>
+    <h1>Scanner les IMEI</h1>
+  </header>
 
-<div id="modalScanImei" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="fermerModalScan()">&times;</span>
-    <h2>Scanner les IMEI pour <strong id="scanProductName" style="color: var(--primary-color);"></strong></h2>
-    <p>Quantité requise : <strong id="scanTargetCount">0</strong>. Scannés : <strong id="scanCurrentCount">0</strong>.</p>
+  <div style="padding: 15px;">
+    <div class="form-section" style="padding: 15px; margin-bottom: 10px;">
+      <h2 id="scanProductNameDynamsoft" style="font-size: 18px; color: var(--primary-color);"></h2>
+      <p style="text-align: center; margin-top: 5px;">
+        Quantité requise : <strong id="scanTargetCountDynamsoft">0</strong> / Scannés : <strong id="scanCurrentCountDynamsoft">0</strong>
+      </p>
+    </div>
+
+    <div id="scan-container" style="min-height: 100px; border-radius: 8px; display: flex; justify-content: center; align-items: center; padding: 10px;">
+      </div>
     
-    <div id="reader" style="width: 100%; max-width: 400px; margin: 10px auto; border: 2px solid #eee; border-radius: 8px;"></div>
-    <p id="scanFeedback" style="text-align: center; color: var(--accent-color); height: 20px;"></p>
+    <p id="scanFeedbackDynamsoft" style="text-align: center; color: var(--accent-color); height: 20px; margin-top: 10px;"></p>
 
-    <div style="display: flex; gap: 8px; margin: 10px 0;">
-        <input type="number" id="manualImeiInput" placeholder="Ou saisir l'IMEI manuellement" style="flex-grow: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
-        <button onclick="ajouterImeiManuellement()" style="padding: 10px; border: none; background: var(--primary-color); color: white; border-radius: 5px; cursor: pointer;">
-            <i data-lucide="plus"></i>
-        </button>
+    <div style="display: flex; gap: 8px; margin: 15px 0;">
+      <input type="number" id="manualImeiInputDynamsoft" placeholder="Ou saisir l'IMEI manuellement" style="flex-grow: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+      <button onclick="ajouterImeiManuellementDynamsoft()" style="padding: 10px; border: none; background: var(--primary-color); color: white; border-radius: 5px; cursor: pointer;">
+        <i data-lucide="plus"></i>
+      </button>
     </div>
 
     <hr style="margin: 15px 0;">
 
     <h4>IMEI à Ajouter :</h4>
-    <ul id="scannedImeiList" style="list-style-type: none; padding: 10px; max-height: 120px; overflow-y: auto; background: #f9f9f9; border-radius: 5px;">
-      </ul>
-    
-    <button id="btnConfirmerScan" class="btn-modern" onclick="confirmerScanApprovisionnement()" style="margin-top: 15px;">
-        <i data-lucide="check-circle"></i> Confirmer et Ajouter au Panier
+    <ul id="scannedImeiListDynamsoft" style="list-style-type: none; padding: 10px; max-height: 120px; overflow-y: auto; background: #f9f9f9; border-radius: 5px;">
+    </ul>
+
+    <button id="btnConfirmerScanDynamsoft" class="btn-modern" onclick="confirmerScanApprovisionnementDynamsoft()" style="margin-top: 15px;">
+      <i data-lucide="check-circle"></i> Confirmer et Ajouter au Panier
     </button>
   </div>
-</div>
+</section>
+
 
 <script>
-// === Variables globales ===
-let html5QrcodeScanner;
+/* ====================================================================
+   LOGIQUE DE SCAN - VERSION FINALE, FIDÈLE AU HELLO WORLD
+   ==================================================================== */
+
+// --- Variables globales pour le scan ---
 let currentApproItemForScan = null;
 let tempScannedImeis = [];
-const scanFeedbackEl = document.getElementById('scanFeedback');
 
-// === Fonction pour ouvrir le modal ===
-function ouvrirModalScan(item) {
+// --- 1. Fonction principale pour démarrer le processus ---
+function lancerScanDynamsoft(item) {
   currentApproItemForScan = item;
   tempScannedImeis = [];
 
-  document.getElementById('scanProductName').textContent = item.produit;
-  document.getElementById('scanTargetCount').textContent = item.quantite;
-  document.getElementById('scanCurrentCount').textContent = '0';
-  document.getElementById('scannedImeiList').innerHTML = '';
-  document.getElementById('manualImeiInput').value = '';
-  scanFeedbackEl.textContent = 'Dirigez la caméra vers un code-barres';
-  document.getElementById('modalScanImei').style.display = 'flex';
+  // Mettre à jour l'interface
+  document.getElementById('scanProductNameDynamsoft').textContent = item.produit;
+  document.getElementById('scanTargetCountDynamsoft').textContent = item.quantite;
+  document.getElementById('scanCurrentCountDynamsoft').textContent = '0';
+  document.getElementById('scannedImeiListDynamsoft').innerHTML = '';
+  document.getElementById('manualImeiInputDynamsoft').value = '';
+  document.getElementById('btnConfirmerScanDynamsoft').disabled = true;
 
-  document.getElementById('btnConfirmerScan').disabled = true;
+  // Naviguer vers le nouvel écran de scan
+  window.location.hash = 'scan-dynamsoft';
 
-  html5QrcodeScanner = new Html5Qrcode("reader");
-
-  const config = {
-    fps: 10,
-    qrbox: { width: 250, height: 250 },
-    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-    formatsToSupport: [
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.QR_CODE
-    ],
-    disableFlip: true
-  };
-
-  html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
-  lucide.createIcons();
+  // Afficher le bouton pour lancer le premier scan
+  afficherBoutonDeScan();
+  lucide.createIcons(); // Pour l'icône dans le bouton de saisie manuelle
 }
 
-// === Fonction pour fermer le modal ===
-function fermerModalScan() {
-  if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-    html5QrcodeScanner.stop().catch(() => {});
-  }
-  document.getElementById('modalScanImei').style.display = 'none';
+// --- 2. Affiche le bouton "Scanner le prochain IMEI" ---
+function afficherBoutonDeScan() {
+    const container = document.getElementById('scan-container');
+    const numRestants = currentApproItemForScan.quantite - tempScannedImeis.length;
+    container.innerHTML = `<button class="btn-modern" onclick="demarrerUnScan()">Scanner IMEI (${numRestants} restant(s))</button>`;
+    document.getElementById('scanFeedbackDynamsoft').textContent = 'Prêt pour le prochain scan.';
 }
 
-// === Traitement d'un IMEI ===
+// --- 3. Démarre UN SEUL scan (LOGIQUE HELLO WORLD EXACTE) ---
+function demarrerUnScan() {
+    // On vide le conteneur pour que le scanner puisse s'y attacher
+    document.getElementById('scan-container').innerHTML = '';
+    document.getElementById('scanFeedbackDynamsoft').textContent = 'Lancement de la caméra...';
+    
+    // Configuration de l'instance du scanner
+    let config = {
+        license: "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTA0MTIyNDk4LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTA0MTIyNDk4Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTYyMTI2MTU4OH0=",
+        container: "#scan-container", // On dit au scanner de s'afficher dans notre div
+    };
+
+    // Création d'une nouvelle instance, comme dans l'exemple
+    const barcodeScanner = new Dynamsoft.BarcodeScanner(config);
+
+    // Lancement du scanner, comme dans l'exemple
+    barcodeScanner.launch().then((result) => {
+        // Le scanner a terminé, on traite le résultat
+        if (result.barcodeResults.length > 0) {
+            console.log(result.barcodeResults[0]);
+            processImei(result.barcodeResults[0].text);
+        } else {
+            showToast("Scan annulé ou aucun code-barres trouvé.");
+            // Si on n'a rien trouvé, on affiche de nouveau le bouton pour réessayer
+            afficherBoutonDeScan();
+        }
+    }).catch((error) => {
+        console.error(error);
+        alert("Erreur: " + error.message);
+        // En cas d'erreur, on affiche de nouveau le bouton
+        afficherBoutonDeScan();
+    });
+}
+
+
+// --- 4. Fonction qui traite chaque IMEI (logique métier) ---
 function processImei(rawInput) {
   const cleaned = rawInput.replace(/\D/g, '').slice(0, 15);
-  console.log("Scanned raw:", rawInput, "→ cleaned:", cleaned);
 
-  if (cleaned.length !== 15) {
-    scanFeedbackEl.textContent = "IMEI invalide. 15 chiffres requis.";
-    setTimeout(() => scanFeedbackEl.textContent = '', 2000);
-    return;
-  }
-
-  if (tempScannedImeis.includes(cleaned)) {
-    showToast("Cet IMEI a déjà été ajouté.");
+  if (cleaned.length !== 15 || tempScannedImeis.includes(cleaned)) {
+    showToast(cleaned.length !== 15 ? "IMEI invalide." : "IMEI déjà scanné.", "error");
+    afficherBoutonDeScan(); // Affiche le bouton pour le prochain essai
     return;
   }
 
   if (tempScannedImeis.length >= currentApproItemForScan.quantite) {
     showToast("Quantité requise déjà atteinte.");
-    scanFeedbackEl.textContent = "Quantité atteinte !";
-    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-      html5QrcodeScanner.stop();
-    }
     return;
   }
 
   tempScannedImeis.push(cleaned);
 
-  const list = document.getElementById('scannedImeiList');
+  // Mise à jour de l'interface
+  const list = document.getElementById('scannedImeiListDynamsoft');
   const listItem = document.createElement('li');
   listItem.textContent = cleaned;
   list.appendChild(listItem);
-
-  document.getElementById('scanCurrentCount').textContent = tempScannedImeis.length;
-  scanFeedbackEl.textContent = `IMEI ${cleaned} ajouté !`;
+  document.getElementById('scanCurrentCountDynamsoft').textContent = tempScannedImeis.length;
+  showToast(`IMEI ${cleaned} ajouté !`);
   if (navigator.vibrate) navigator.vibrate(100);
 
+  // Décider de la suite : soit on a fini, soit on affiche le bouton pour le prochain
   if (tempScannedImeis.length === currentApproItemForScan.quantite) {
-    document.getElementById('btnConfirmerScan').disabled = false;
-    scanFeedbackEl.textContent = "Tous les IMEI ont été ajoutés !";
-    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-      html5QrcodeScanner.stop();
-    }
+    document.getElementById('btnConfirmerScanDynamsoft').disabled = false;
+    document.getElementById('scanFeedbackDynamsoft').textContent = "Tous les IMEI ont été ajoutés !";
+    document.getElementById('scan-container').innerHTML = '<p style="color: green; font-weight: bold;">Terminé ! Vous pouvez confirmer.</p>';
     showToast("Prêt à confirmer.");
+  } else {
+    afficherBoutonDeScan(); // Affiche le bouton pour le suivant
   }
 }
 
-// === Callback scan réussi ===
-function onScanSuccess(decodedText, decodedResult) {
-  console.log("✅ SCAN:", decodedText);
-  processImei(decodedText);
-}
-
-// === Callback scan raté (inutile mais obligatoire) ===
-function onScanFailure(error) {
-  // Rien à faire ici
-}
-
-// === Saisie manuelle ===
-function ajouterImeiManuellement() {
-  const input = document.getElementById('manualImeiInput');
+// --- 5. Fonctions des boutons de l'interface (confirm, manual, cancel) ---
+function ajouterImeiManuellementDynamsoft() {
+  const input = document.getElementById('manualImeiInputDynamsoft');
   const imei = input.value.trim();
   if (imei) {
-    processImei(imei);
-    input.value = '';
+    // On ne traite que s'il reste de la place
+    if (tempScannedImeis.length < currentApproItemForScan.quantite) {
+        processImei(imei);
+        input.value = '';
+    } else {
+        showToast("Quantité requise déjà atteinte.");
+    }
   }
 }
 
-// === Confirmation finale ===
-function confirmerScanApprovisionnement() {
+function confirmerScanApprovisionnementDynamsoft() {
   if (tempScannedImeis.length !== currentApproItemForScan.quantite) {
     alert("Le nombre d'IMEI ne correspond pas à la quantité !");
     return;
   }
-
   currentApproItemForScan.imeis = tempScannedImeis;
   currentApproItems.push(currentApproItemForScan);
   updatePanierApprovisionnement();
-  fermerModalScan();
+  annulerScan(); // Quitte l'écran de scan
+}
+
+function annulerScan() {
+    window.location.hash = 'approvisionnement';
 }
 </script>
 
@@ -4915,13 +5366,20 @@ function voirHistoriqueStock(stockId, e) {
     case 'livraisons':
       afficherLivraisons();
       break;
+     case 'scan-dynamsoft':
+      // Rien de spécial à faire ici, l'écran sera déjà affiché.
+      // On s'assure que les icônes sont bien rendues.
+      lucide.createIcons(); 
+      break;
     case 'historique':
          filterHistory();
       break;
       case 'depenses':
   initEcranDepenses();        // ← nouvelle fonction
   break;
-
+case 'article-detail':
+  loadArticleDetail(); 
+  break;
 
     case 'tresorerie':
       updateBalanceDisplay();
@@ -4997,7 +5455,7 @@ if (!navigator.onLine) {
  /* ==========================================================
    PANIER – gestion centrale
    ========================================================== */
-
+let currentArticleId = null; // Variable pour garder l'ID de l'article sélectionné
 let currentItems = [];              // contenu du panier
 let cachedStock  = [];              // stock en mémoire (déjà chargé)
 
@@ -5772,58 +6230,63 @@ function continuerDepuisPanier() {
       document.getElementById("stock-category").style.display = "none";
       document.getElementById("stock-home").style.display = "block";
     }
-    function filterStockCategory(){
-  const searchTerm = document
+    function filterStockCategory() {
+    const searchTerm = document
         .getElementById("search-category")
         .value.toLowerCase();
 
-  getAllStockFirestore().then(stocks => {
+    getAllStockFirestore().then(stocks => {
+        /* -- filtrage + tri perso -- */
+        const filtered = stocks
+            .filter(p =>
+                p.category === currentStockCategory &&
+                p.name.toLowerCase().includes(searchTerm))
+            .sort((a, b) => {
+                const ordre = { tecno: 1, infinix: 2, itel: 3, redmi: 4 };
+                const rA = ordre[a.name.split(" ")[0].toLowerCase()] || 5;
+                const rB = ordre[b.name.split(" ")[0].toLowerCase()] || 5;
+                return rA !== rB ? rA - rB : a.name.localeCompare(b.name);
+            });
 
-    /* -- filtrage + tri perso (Tecno → Infinix → Itel → Redmi → autres) -- */
-    const filtered = stocks
-      .filter(p =>
-        p.category === currentStockCategory &&
-        p.name.toLowerCase().includes(searchTerm))
-      .sort((a,b)=>{
-        const ordre = {tecno:1,infinix:2,itel:3,redmi:4};
-        const rA = ordre[a.name.split(" ")[0].toLowerCase()] || 5;
-        const rB = ordre[b.name.split(" ")[0].toLowerCase()] || 5;
-        return rA !== rB ? rA - rB : a.name.localeCompare(b.name);
-      });
+        /* -- construction DOM -- */
+        const cont = document.getElementById("category-container");
+        cont.innerHTML = "";
+        if (filtered.length === 0) {
+            cont.innerHTML = "<p>Aucun produit trouvé.</p>";
+            return;
+        }
 
-    /* -- construction DOM -- */
-    const cont = document.getElementById("category-container");
-    cont.innerHTML = "";
-    if(filtered.length === 0){
-      cont.innerHTML = "<p>Aucun produit trouvé.</p>";
-      return;
-    }
+        filtered.forEach(prod => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = `
+                <button class="history-btn"
+                        onclick="voirHistoriqueStock('${prod.id}', event)"
+                        title="Historique">
+                  <i data-lucide="history"></i>
+                </button>
+                <div class="product-icon">${prod.icon}</div>
+                <div class="product-details">
+                  <h3>${prod.name}</h3>
+                  <p>🔹 Stock : ${prod.stock} unités</p>
+                  <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+                </div>
+              `;
 
-    filtered.forEach(prod =>{
-      const card = document.createElement("div");
-      card.className = "product-card";
+            // =========================================================
+            // === LA LIGNE MAGIQUE À AJOUTER EST ICI ===
+            // =========================================================
+            card.onclick = function() {
+                showArticleDetail(prod.id);
+            };
+            // =========================================================
 
-      /* ⬇⬇  ICI TOUT LE HTML DE LA CARTE ⬇⬇ */
-      card.innerHTML = `
-        <button class="history-btn"
-                onclick="voirHistoriqueStock('${prod.id}', event)"
-                title="Historique">
-          <i data-lucide="history"></i>
-        </button>
+            cont.appendChild(card);
+        });
 
-        <div class="product-icon">${prod.icon}</div>
-        <div class="product-details">
-          <h3>${prod.name}</h3>
-          <p>🔹 Stock : ${prod.stock} unités</p>
-          <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-        </div>
-      `;
-      cont.appendChild(card);
-    });
-
-    lucide.createIcons();           // indispensable pour les icônes
-  })
-  .catch(err => console.error("filterStockCategory :",err.message));
+        lucide.createIcons();
+    })
+    .catch(err => console.error("filterStockCategory :", err.message));
 }
 
     // Importation du stock depuis un fichier TXT
@@ -6232,33 +6695,81 @@ function majCartesTresorerie() {
         loadProductsList();
       }
     });
-    function loadProducts(query="") {
-      const searchQuery = query.toLowerCase();
-      getAllStockFirestore().then(stocks => {
+    function loadProducts(query = "") {
+    const searchQuery = query.toLowerCase();
+    getAllStockFirestore().then(stocks => {
         let filtered = stocks.filter(p => p.name.toLowerCase().includes(document.getElementById("searchProduitInput").value.toLowerCase()));
         const container = document.getElementById("searchResults");
         container.innerHTML = "";
-        if(filtered.length === 0) {
-          container.innerHTML = "<p>Aucun produit trouvé.</p>";
-          return;
+        if (filtered.length === 0) {
+            container.innerHTML = "<p>Aucun produit trouvé.</p>";
+            return;
         }
         filtered.forEach(prod => {
-          const card = document.createElement("div");
-          card.className = "product-card";
-          card.innerHTML = `
-            <div class="product-icon">${prod.icon}</div>
-            <div class="product-details">
-              <h3>${prod.name}</h3>
-              <p>🔹 Stock : ${prod.stock} unités</p>
-              <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
-            </div>`;
-          card.onclick = function() {
-            selectProduct(prod);
-          };
-          container.appendChild(card);
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = `
+              <div class="product-icon">${prod.icon}</div>
+              <div class="product-details">
+                <h3>${prod.name}</h3>
+                <p>🔹 Stock : ${prod.stock} unités</p>
+                <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+              </div>`;
+
+            // === LA CORRECTION EST ICI ===
+            card.onclick = function() {
+                // Au lieu d'afficher les détails, on ajoute le produit au panier
+                selectProduct(prod);
+            };
+            // ===========================
+
+            container.appendChild(card);
         });
-      });
-    }
+    });
+}
+    function showArticleDetail(articleId) {
+  currentArticleId = articleId;
+  window.location.hash = 'article-detail';
+}
+/**
+ * Récupère les données de l'article depuis Firestore et met à jour l'interface.
+ */
+function loadArticleDetail() {
+  if (!currentArticleId) {
+    console.error("Aucun ID d'article sélectionné.");
+    window.location.hash = 'stock'; // Retourne au stock si pas d'ID
+    return;
+  }
+
+  dbFirestore.collection("stock").doc(currentArticleId).get()
+    .then(doc => {
+      if (doc.exists) {
+        const data = doc.data();
+
+        // Remplissage des champs de la page de détail
+        document.getElementById('detail-product-title').textContent = data.name || 'Nom indisponible';
+
+        const sellingPrice = (data.price * 1.25) || 0; // Exemple: Marge de 25%
+        document.getElementById('detail-selling-price').textContent = `XOF ${sellingPrice.toLocaleString()}`;
+
+        const purchaseCost = data.price || 0;
+        document.getElementById('detail-purchase-cost').textContent = `XOF ${purchaseCost.toLocaleString()}`;
+
+        const stockOnHand = data.stock || 0;
+        document.getElementById('detail-stock-on-hand').textContent = stockOnHand;
+        document.getElementById('detail-available-for-sale').textContent = stockOnHand;
+
+      } else {
+        console.error("Document non trouvé !");
+        showToast("Erreur: Article non trouvé.", "error");
+        window.location.hash = 'stock';
+      }
+    })
+    .catch(error => {
+      console.error("Erreur lors de la récupération de l'article: ", error);
+      showToast("Erreur de chargement.", "error");
+    });
+}
     function loadProductsList() {
       loadProducts();
     }
