@@ -4071,24 +4071,25 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
     </div>
 
     <div class="panier-approvisionnement">
-        <h2>Panier d'Achat</h2>
-        <div id="panierApproContent" class="list-container" style="margin-bottom: 15px;">
-            <p>Le panier est vide.</p>
-        </div>
-
-        <label for="paymentMethodApproBasket">Mode de Paiement <span style="color: #d9534f;">*</span></label>
-        <select id="paymentMethodApproBasket" required onchange="togglePaymentAccount()">
-            <option value="cash">Cash</option>
-            <option value="credit">Crédit</option>
-        </select>
-
-        <div id="accountSelectionContainer">
-            <label for="compteSelectAppro">Payer depuis le compte <span style="color: #d9534f;">*</span></label>
-            <select id="compteSelectAppro" required></select>
-        </div>
-
-        <button class="btn-modern" onclick="finaliserApprovisionnement()">Enregistrer l'Achat</button>
+    <h2>Panier d'Achat</h2>
+    <div id="panierApproContent" class="list-container" style="margin-bottom: 15px;">
+        <p>Le panier est vide.</p>
     </div>
+
+    <label for="paymentMethodApproBasket">Mode de Paiement <span style="color: #d9534f;">*</span></label>
+    <select id="paymentMethodApproBasket" required onchange="togglePaymentAccount()">
+        <option value="" disabled selected>-- Choisir le mode --</option>
+        <option value="cash">Cash</option>
+        <option value="credit">Crédit</option>
+    </select>
+
+    <div id="accountSelectionContainer">
+        <label for="compteSelectAppro">Payer depuis le compte <span style="color: #d9534f;">*</span></label>
+        <select id="compteSelectAppro" required></select>
+    </div>
+
+    <button class="btn-modern" onclick="finaliserApprovisionnement()">Enregistrer l'Achat</button>
+</div>
 
     <div class="approvisionnement-history">
         <h2>Historique des Achats</h2>
@@ -4208,7 +4209,49 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
     margin-bottom: 20px;
     text-align: left;
 }
+/* Improved select styling */
+#screen-approvisionnement select {
+  padding: 10px;
+  border: 1px solid var(--border-color, #ccc); /* Use a CSS variable if you have one */
+  border-radius: var(--border-radius, 4px);
+  appearance: none; /* Remove default styling */
+  background-image: url("data:image/svg+xml,..."); /* Add a custom dropdown arrow */
+  background-repeat: no-repeat;
+  background-position: right 8px top 50%;
+  background-size: 16px;
+}
 
+#screen-approvisionnement select:focus {
+  outline: none;
+  border-color: var(--primary-color, blue); /* Use a CSS variable */
+  box-shadow: 0 0 4px rgba(0, 0, 255, 0.2); /* Example focus effect */
+}
+
+/* Distinct cart items */
+#panierApproContent .panier-item {
+  background-color: #f9f9f9;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+#panierApproContent .panier-item strong {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+#panierApproContent .panier-item span {
+  color: #777;
+}
+#accountSelectionContainer {
+  margin-top: 15px; /* Ajoutez cette ligne pour créer de l'espace au-dessus */
+}
+
+/* Vous pouvez aussi ajuster le margin-bottom du sélecteur principal si vous voulez plus d'espace */
+#screen-approvisionnement .vente-form select {
+  margin-bottom: 16px; /* Ajustez cette valeur si nécessaire */
+}
 </style>
 
 <script>
@@ -4433,132 +4476,148 @@ function togglePaymentAccount() {
   // Fonction de finalisation de l’approvisionnement, qui propage la catégorie au stock
 // Modified finaliserApprovisionnement function
 async function finaliserApprovisionnement() {
-  if (currentApproItems.length === 0) {
-    alert("Le panier d'approvisionnement est vide.");
-    return;
-  }
+    if (currentApproItems.length === 0) {
+        alert("Le panier d'approvisionnement est vide.");
+        return;
+    }
 
-  const fournisseur = currentApproItems[0].fournisseur; // Assuming all items for one procurement are from same supplier
-  const totalCost = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
-  const paymentMethod = document.getElementById("paymentMethodApproBasket").value; // Now from the basket selection
-  const compteId = document.getElementById("compteSelectAppro").value;
+    const fournisseur = currentApproItems[0].fournisseur; // Assuming all items for one procurement are from same supplier
+    const totalCost = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
+    const paymentMethod = document.getElementById("paymentMethodApproBasket").value; // Now from the basket selection
+    const compteId = document.getElementById("compteSelectAppro").value;
 
-  if (paymentMethod === 'cash' && !compteId) {
-    alert("Veuillez sélectionner un compte de trésorerie pour un achat en cash.");
-    return;
-  }
+    // Vérification ajoutée pour s'assurer qu'un mode de paiement est choisi
+    if (!paymentMethod) {
+        alert("Veuillez sélectionner un mode de paiement.");
+        return;
+    }
 
-  showSaleLoader();
+    if (paymentMethod === 'cash' && !compteId) {
+        alert("Veuillez sélectionner un compte de trésorerie pour un achat en cash.");
+        return;
+    }
 
-  try {
-    const batch = dbFirestore.batch();
-    const now = new Date();
+    showSaleLoader();
 
-    const stockUpdatePromises = currentApproItems.map(item => {
-      return dbFirestore.collection("stock").where("name", "==", item.produit).get().then(snapshot => ({ item, snapshot }));
-    });
+    try {
+        const batch = dbFirestore.batch();
+        const now = new Date();
 
-    const stockDocs = await Promise.all(stockUpdatePromises);
-
-    for (const { item, snapshot } of stockDocs) {
-      let stockDocRef;
-      let newStock;
-
-      if (snapshot.empty) {
-        stockDocRef = dbFirestore.collection("stock").doc();
-        newStock = item.quantite;
-        const icon = item.category === "accessoires" ? "🎧" : "📱";
-        batch.set(stockDocRef, {
-          name: item.produit,
-          category: item.category,
-          stock: newStock,
-          price: item.prixAchat,
-          icon: icon,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        const stockUpdatePromises = currentApproItems.map(item => {
+            return dbFirestore.collection("stock").where("name", "==", item.produit).get().then(snapshot => ({
+                item,
+                snapshot
+            }));
         });
-      } else {
-        stockDocRef = snapshot.docs[0].ref;
-        const stockData = snapshot.docs[0].data();
-        const oldStock = stockData.stock || 0;
-        const oldPrice = stockData.price || 0;
-        newStock = oldStock + item.quantite;
-        const newPrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * item.prixAchat)) / newStock : 0;
 
-        batch.update(stockDocRef, { stock: newStock, price: newPrice });
-      }
+        const stockDocs = await Promise.all(stockUpdatePromises);
 
-      const historyRef = stockDocRef.collection("history").doc();
-      batch.set(historyRef, {
-        timestamp: now.getTime(),
-        change: +item.quantite,
-        newStock: newStock,
-        type: 'approvisionnement'
-      });
+        for (const {
+                item,
+                snapshot
+            } of stockDocs) {
+            let stockDocRef;
+            let newStock;
 
-      if (item.imeis && item.imeis.length > 0) {
-        item.imeis.forEach(imei => {
-          const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
-          batch.set(imeiDocRef, {
-            status: "disponible",
-            dateEntree: now
-          });
+            if (snapshot.empty) {
+                stockDocRef = dbFirestore.collection("stock").doc();
+                newStock = item.quantite;
+                const icon = item.category === "accessoires" ? "🎧" : "📱";
+                batch.set(stockDocRef, {
+                    name: item.produit,
+                    category: item.category,
+                    stock: newStock,
+                    price: item.prixAchat,
+                    icon: icon,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } else {
+                stockDocRef = snapshot.docs[0].ref;
+                const stockData = snapshot.docs[0].data();
+                const oldStock = stockData.stock || 0;
+                const oldPrice = stockData.price || 0;
+                newStock = oldStock + item.quantite;
+                const newPrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * item.prixAchat)) / newStock : 0;
+
+                batch.update(stockDocRef, {
+                    stock: newStock,
+                    price: newPrice
+                });
+            }
+
+            const historyRef = stockDocRef.collection("history").doc();
+            batch.set(historyRef, {
+                timestamp: now.getTime(),
+                change: +item.quantite,
+                newStock: newStock,
+                type: 'approvisionnement'
+            });
+
+            if (item.imeis && item.imeis.length > 0) {
+                item.imeis.forEach(imei => {
+                    const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
+                    batch.set(imeiDocRef, {
+                        status: "disponible",
+                        dateEntree: now
+                    });
+                });
+            }
+        }
+
+        const approRef = dbFirestore.collection("approvisionnement").doc();
+        batch.set(approRef, {
+            fournisseur,
+            items: currentApproItems,
+            timestamp: now.getTime(),
+            paymentMethod: paymentMethod, // Store the chosen payment method
+            isPaid: paymentMethod === 'cash',
+            remainingAmount: paymentMethod === 'credit' ? totalCost : 0,
+            totalCost: totalCost // Store total cost for all cases
         });
-      }
+
+        // Only record a functional expense if it's a cash purchase
+        if (paymentMethod === 'cash') {
+            const depenseRef = dbFirestore.collection("depenses").doc();
+            batch.set(depenseRef, {
+                montant: totalCost,
+                description: `Approvisionnement ${fournisseur} (Cash)`,
+                type: "depense fonctionnelle",
+                timestamp: now.getTime(),
+                date: now.toISOString(),
+                dateString: now.toLocaleDateString("fr-FR")
+            });
+        }
+
+        await batch.commit();
+
+        // Only record a treasury movement if it's a cash purchase
+        if (paymentMethod === 'cash') {
+            await enregistrerMouvementTresorerie({
+                compteId,
+                type: 'appro',
+                sens: 'out',
+                montant: totalCost,
+                description: `Approvisionnement ${fournisseur}`
+            });
+        }
+
+        alert(`Approvisionnement enregistré avec succès ! Mode de paiement: ${paymentMethod}`);
+
+    } catch (error) {
+        console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
+        alert("Une erreur est survenue : " + error.message);
+    } finally {
+        currentApproItems = [];
+        updatePanierApprovisionnement();
+        document.getElementById("fournisseurAppro").value = "";
+        // Réinitialisation sur le placeholder vide
+        document.getElementById("paymentMethodApproBasket").value = "";
+        togglePaymentAccount(); // Re-apply visibility based on default
+        chargerApprovisionnements();
+        updateStockSummary();
+        updateBalanceDisplay();
+        hideSaleLoader();
     }
-
-    const approRef = dbFirestore.collection("approvisionnement").doc();
-    batch.set(approRef, {
-      fournisseur,
-      items: currentApproItems,
-      timestamp: now.getTime(),
-      paymentMethod: paymentMethod, // Store the chosen payment method
-      isPaid: paymentMethod === 'cash',
-      remainingAmount: paymentMethod === 'credit' ? totalCost : 0,
-      totalCost: totalCost // Store total cost for all cases
-    });
-
-    // Only record a functional expense if it's a cash purchase
-    if (paymentMethod === 'cash') {
-      const depenseRef = dbFirestore.collection("depenses").doc();
-      batch.set(depenseRef, {
-        montant: totalCost,
-        description: `Approvisionnement ${fournisseur} (Cash)`,
-        type: "depense fonctionnelle",
-        timestamp: now.getTime(),
-        date: now.toISOString(),
-        dateString: now.toLocaleDateString("fr-FR")
-      });
-    }
-
-    await batch.commit();
-
-    // Only record a treasury movement if it's a cash purchase
-    if (paymentMethod === 'cash') {
-      await enregistrerMouvementTresorerie({
-        compteId,
-        type: 'appro',
-        sens: 'out',
-        montant: totalCost,
-        description: `Approvisionnement ${fournisseur}`
-      });
-    }
-
-    alert(`Approvisionnement enregistré avec succès ! Mode de paiement: ${paymentMethod}`);
-
-  } catch (error) {
-    console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
-    alert("Une erreur est survenue : " + error.message);
-  } finally {
-    currentApproItems = [];
-    updatePanierApprovisionnement();
-    document.getElementById("fournisseurAppro").value = "";
-    document.getElementById("paymentMethodApproBasket").value = "cash"; // Reset to default
-    togglePaymentAccount(); // Re-apply visibility based on default
-    chargerApprovisionnements();
-    updateStockSummary();
-    updateBalanceDisplay();
-    hideSaleLoader();
-  }
 }
 
   // Charger l'historique dès l'accès à la page Approvisionnement
