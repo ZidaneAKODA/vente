@@ -2260,310 +2260,340 @@ function displaySalesHistory(salesList) {
 
 </script>
 <section id="screen-dettes-fournisseurs" class="screen">
-    <style>
-        /* Styles spécifiques pour l'écran Dettes Fournisseurs */
-        #screen-dettes-fournisseurs {
-            background-color: var(--bg-color);
-            padding: 15px;
-        }
+  <style>
+    /* Styles spécifiques pour l'écran Dettes Fournisseurs */
+    #screen-dettes-fournisseurs ion-header {
+      --background: var(--ion-background-color, #f5f7fa);
+      /* Utilisez la couleur de fond de l'application ou une couleur neutre */
+      box-shadow: none;
+      /* Pas d'ombre pour l'en-tête */
+    }
 
-        #screen-dettes-fournisseurs header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
+    #screen-dettes-fournisseurs ion-toolbar {
+      --background: var(--ion-background-color, #f5f7fa);
+      --border-width: 0;
+      /* Pas de bordure pour la toolbar */
+      padding: 0 10px;
+      /* Petit padding pour aligner les éléments */
+    }
 
-        #screen-dettes-fournisseurs header h1 {
-            font-size: 22px;
-            color: var(--primary-color);
-            margin: 0 auto; /* Centre le titre */
-        }
+    #screen-dettes-fournisseurs ion-title {
+      font-size: 22px;
+      color: var(--primary-color);
+      /* Couleur principale de votre application */
+      text-align: center;
+      padding: 0;
+    }
 
-        #screen-dettes-fournisseurs .btn-refresh {
-            background: none;
-            border: none;
-            color: var(--primary-color);
-            font-size: 24px;
-            cursor: pointer;
-        }
+    #screen-dettes-fournisseurs ion-buttons {
+      color: var(--primary-color);
+    }
 
-        .summary-card {
-            background: var(--white);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+    #screen-dettes-fournisseurs ion-button {
+      --color: var(--primary-color);
+      /* Couleur des icônes de bouton */
+      --padding-start: 8px;
+      --padding-end: 8px;
+    }
 
-        .summary-card h2 {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 10px;
-        }
+    #screen-dettes-fournisseurs ion-icon {
+      font-size: 24px;
+    }
 
-        .summary-card p {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
+    #screen-dettes-fournisseurs ion-content {
+      --background: var(--bg-color, #f5f7fa);
+      /* S'assure que le contenu a le bon fond */
+    }
 
-        /* Style pour chaque carte de dette fournisseur */
-        .dette-card {
-            background: var(--white);
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-            padding: 15px;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            border-left: 4px solid #FF9800; /* Jaune/Orange pour "en cours" */
-        }
+    .summary-card-ionic {
+      background: var(--white);
+      /* Utilise votre variable --white */
+      border-radius: var(--border-radius);
+      /* Utilise votre variable --border-radius */
+      padding: 20px;
+      margin-bottom: 15px;
+      text-align: center;
+      border: 1px solid #e0e0e0;
+      /* Bordure fine pour délimiter sans ombre */
+      box-shadow: none;
+      /* Aucune ombre */
+    }
 
-        .dette-card.paid {
-            border-left-color: #4CAF50; /* Vert si payé */
-        }
+    .summary-card-ionic h2 {
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 10px;
+    }
 
-        .dette-card .info-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-            font-size: 16px;
-        }
+    .summary-card-ionic p {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
 
-        .dette-card .info-row strong {
-            color: var(--text-color);
-        }
+    /* Style pour chaque carte de dette fournisseur */
+    .dette-card-ionic {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      border: 1px solid #e0e0e0;
+      /* Bordure fine */
+      box-shadow: none;
+      /* Aucune ombre */
+      padding: 15px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border-left: 4px solid #FF9800;
+      /* Jaune/Orange pour "en cours" */
+    }
 
-        .dette-card .info-row span {
-            color: #555;
-        }
+    .dette-card-ionic.paid {
+      border-left-color: #4CAF50;
+      /* Vert si payé */
+    }
 
-        .dette-card .pay-button {
-            background-color: var(--accent-color); /* Orange vif pour le bouton Payer */
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 50px; /* Plus arrondi */
-            margin-top: 10px;
-            cursor: pointer;
-            align-self: flex-end; /* Aligne le bouton à droite */
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
+    .dette-card-ionic .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 16px;
+    }
 
-        .dette-card .details-btn-link {
-            font-size: 14px;
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
-        }
+    .dette-card-ionic .info-row strong {
+      color: var(--text-color);
+    }
 
-        /* Styles pour le modal de paiement de dette */
-        #modalPaiementDette .modal-content h2 {
-            color: var(--primary-color);
-            text-align: center;
-            margin-bottom: 15px;
-        }
+    .dette-card-ionic .info-row span {
+      color: #555;
+    }
 
-        #modalPaiementDette .modal-content p {
-            font-size: 16px;
-            margin-bottom: 8px;
-        }
+    .dette-card-ionic .pay-button-ionic {
+      --background: var(--accent-color);
+      /* Orange vif pour le bouton Payer */
+      --background-activated: #e65100;
+      /* Plus foncé au clic */
+      --color: white;
+      border-radius: 50px;
+      /* Plus arrondi */
+      margin-top: 10px;
+      align-self: flex-end;
+      /* Aligne le bouton à droite */
+      font-size: 14px;
+      font-weight: 500;
+      --padding-start: 15px;
+      --padding-end: 15px;
+      --padding-top: 8px;
+      --padding-bottom: 8px;
+      box-shadow: none;
+      /* Aucune ombre */
+    }
 
-        #modalPaiementDette .modal-content label {
-            font-weight: 500;
-            margin-bottom: 5px;
-            display: block;
-        }
+    .dette-card-ionic .details-btn-link-ionic {
+      font-size: 14px;
+      color: var(--primary-color);
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      /* Espace entre le texte et l'icône si vous en ajoutez une */
+    }
 
-        #modalPaiementDette .modal-content input,
-        #modalPaiementDette .modal-content select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: var(--border-radius);
-            font-size: 16px;
-        }
+    /* Styles pour la vue détaillée d'un fournisseur */
+    #supplier-dettes-detail-ionic {
+      display: none;
+      padding-top: 15px;
+    }
 
-        #modalPaiementDette .btn-modern.primary {
-            width: 100%;
-        }
+    #supplier-dettes-detail-ionic .detail-header-ionic {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
 
-        /* Styles pour la vue détaillée d'un fournisseur */
-        #supplier-dettes-detail {
-            display: none;
-            padding-top: 15px;
-        }
+    #supplier-dettes-detail-ionic .detail-header-ionic h2 {
+      flex-grow: 1;
+      text-align: center;
+      font-size: 20px;
+      color: var(--primary-color);
+      margin: 0;
+    }
 
-        #supplier-dettes-detail .detail-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
+    .detail-item-card-ionic {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      border: 1px solid #e0e0e0;
+      /* Bordure fine */
+      box-shadow: none;
+      /* Aucune ombre */
+      padding: 12px;
+      margin-bottom: 10px;
+      border-left: 4px solid #007BFF;
+      display: flex;
+      flex-direction: column;
+    }
 
-        #supplier-dettes-detail .detail-header h2 {
-            flex-grow: 1;
-            text-align: center;
-            font-size: 20px;
-            color: var(--primary-color);
-            margin: 0;
-        }
+    .detail-item-card-ionic strong {
+      color: var(--text-color);
+    }
 
-        .detail-item-card {
-            background: var(--white);
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-            padding: 12px;
-            margin-bottom: 10px;
-            border-left: 4px solid #007BFF;
-            display: flex;
-            flex-direction: column;
-        }
-        .detail-item-card strong {
-            color: var(--text-color);
-        }
-        .detail-item-card span {
-            color: #555;
-            font-size: 14px;
-        }
-    </style>
+    .detail-item-card-ionic span {
+      color: #555;
+      font-size: 14px;
+    }
 
-    <header>
-        <button class="back-btn" onclick="window.location.hash='menu'">
-            <i data-lucide="arrow-left"></i> Retour
-        </button>
-        <h1>Dettes Fournisseurs</h1>
-        <button class="btn-refresh" onclick="chargerDettesFournisseurs()">
-            <i data-lucide="rotate-ccw"></i> Actualiser
-        </button>
-    </header>
+    /* Masquer le header et le content par défaut pour les gérer avec Ionic */
+    #screen-dettes-fournisseurs header,
+    #screen-dettes-fournisseurs .container {
+      display: none;
+    }
+  </style>
 
-    <div class="container" id="dettes-fournisseurs-main-view">
-        <div class="summary-card">
-            <h2>Total Dû (tous fournisseurs)</h2>
-            <p id="totalDuesAmount">0 FCFA</p>
+  <ion-app>
+    <ion-header class="ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button onclick="window.location.hash='menu'">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Dettes Fournisseurs</ion-title>
+        <ion-buttons slot="end">
+          <ion-button onclick="chargerDettesFournisseurs()">
+            <ion-icon name="sync-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <div id="dettes-fournisseurs-main-view-ionic">
+        <div class="summary-card-ionic">
+          <h2>Total Dû (tous fournisseurs)</h2>
+          <p id="totalDuesAmountIonic">0 FCFA</p>
         </div>
 
-        <div class="list-container" id="dettesFournisseursList">
-            <p style="text-align:center;">Chargement des dettes...</p>
+        <div class="list-container" id="dettesFournisseursListIonic">
+          <p style="text-align:center;">Chargement des dettes...</p>
         </div>
-    </div>
+      </div>
 
-    <div class="container" id="supplier-dettes-detail" style="display: none;">
-        <div class="detail-header">
-            <button class="back-btn" onclick="hideSupplierDebtDetails()">
-                <i data-lucide="arrow-left"></i> Retour
-            </button>
-            <h2 id="supplierDetailName">Dettes de [Fournisseur]</h2>
+      <div id="supplier-dettes-detail-ionic">
+        <ion-header class="ion-no-border">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button onclick="hideSupplierDebtDetailsIonic()">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+              </ion-button>
+            </ion-buttons>
+            <ion-title id="supplierDetailNameIonic">Dettes de [Fournisseur]</ion-title>
+          </ion-toolbar>
+        </ion-header>
+        <div id="supplierDebtDetailListIonic" class="list-container">
         </div>
-        <div id="supplierDebtDetailList" class="list-container">
-            </div>
-    </div>
+      </div>
 
-    <div id="modalPaiementDette" class="modal">
+      <div id="modalPaiementDette" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="fermerModalPaiementDette()">&times;</span>
-            <h2>Enregistrer un Paiement</h2>
-            <form id="formEnregistrerPaiement" class="vente-form">
-                <p>Fournisseur: <strong id="modalDetteFournisseur"></strong></p>
-                <p style="display:none;">Montant dû initial: <span id="modalDetteTotalInitial"></span> FCFA</p>
-                <p>Montant total restant: <span id="modalDetteRestant"></span> FCFA</p>
+          <span class="close" onclick="fermerModalPaiementDette()">&times;</span>
+          <h2>Enregistrer un Paiement</h2>
+          <form id="formEnregistrerPaiement" class="vente-form">
+            <p>Fournisseur: <strong id="modalDetteFournisseur"></strong></p>
+            <p style="display:none;">Montant dû initial: <span id="modalDetteTotalInitial"></span> FCFA</p>
+            <p>Montant total restant: <span id="modalDetteRestant"></span> FCFA</p>
 
-                <label for="montantPaiementDette">Montant du Paiement (FCFA)</label>
-                <input type="number" id="montantPaiementDette" placeholder="Saisir le montant à payer" required step="100" />
+            <label for="montantPaiementDette">Montant du Paiement (FCFA)</label>
+            <input type="number" id="montantPaiementDette" placeholder="Saisir le montant à payer" required
+              step="100" />
 
-                <label for="comptePaiementDette">Payer depuis le compte</label>
-                <select id="comptePaiementDette" required></select>
+            <label for="comptePaiementDette">Payer depuis le compte</label>
+            <select id="comptePaiementDette" required></select>
 
-                <button type="submit" class="btn-modern primary">Enregistrer Paiement</button>
-            </form>
+            <button type="submit" class="btn-modern primary">Enregistrer Paiement</button>
+          </form>
         </div>
-    </div>
+      </div>
+    </ion-content>
+  </ion-app>
 
-    <script>
-        // Variables globales pour cette section
-        let allSupplierDebts = [];
-        let currentSupplierToPay = null;
+  <script>
+    // Variables globales pour cette section
+    let allSupplierDebts = [];
+    let currentSupplierToPay = null;
 
-        /**
-         * Charge et agrège les dettes par fournisseur, puis affiche une carte pour chacun.
-         */
-        async function chargerDettesFournisseurs() {
-            const mainView = document.getElementById("dettes-fournisseurs-main-view");
-            const detailView = document.getElementById("supplier-dettes-detail");
-            mainView.style.display = "block";
-            detailView.style.display = "none";
+    /**
+     * Charge et agrège les dettes par fournisseur, puis affiche une carte pour chacun.
+     */
+    async function chargerDettesFournisseurs() {
+      const mainView = document.getElementById("dettes-fournisseurs-main-view-ionic");
+      const detailView = document.getElementById("supplier-dettes-detail-ionic");
+      mainView.style.display = "block";
+      detailView.style.display = "none";
 
-            const container = document.getElementById("dettesFournisseursList");
-            const totalDuesAmountEl = document.getElementById("totalDuesAmount");
-            container.innerHTML = '<p style="text-align:center;">Chargement des dettes...</p>';
-            totalDuesAmountEl.textContent = 'Chargement...';
+      const container = document.getElementById("dettesFournisseursListIonic");
+      const totalDuesAmountEl = document.getElementById("totalDuesAmountIonic");
+      container.innerHTML = '<p style="text-align:center;">Chargement des dettes...</p>';
+      totalDuesAmountEl.textContent = 'Chargement...';
 
-            allSupplierDebts = [];
-            let totalDuesGlobal = 0;
-            const debtsBySupplier = {};
+      allSupplierDebts = [];
+      let totalDuesGlobal = 0;
+      const debtsBySupplier = {};
 
-            try {
-                // On récupère uniquement les approvisionnements à crédit et non entièrement payés
-                const snapshot = await dbFirestore.collection("approvisionnement")
-                    .where("paymentMethod", "==", "credit")
-                    .where("isPaid", "==", false)
-                    .orderBy("timestamp", "desc")
-                    .get();
+      try {
+        // On récupère uniquement les approvisionnements à crédit et non entièrement payés
+        const snapshot = await dbFirestore.collection("approvisionnement")
+          .where("paymentMethod", "==", "credit")
+          .where("isPaid", "==", false)
+          .orderBy("timestamp", "desc")
+          .get();
 
-                if (snapshot.empty) {
-                    container.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 Aucune dette fournisseur en cours. Tout est payé !</p>';
-                    totalDuesAmountEl.textContent = '0 FCFA';
-                    return;
-                }
+        if (snapshot.empty) {
+          container.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 Aucune dette fournisseur en cours. Tout est payé !</p>';
+          totalDuesAmountEl.textContent = '0 FCFA';
+          return;
+        }
 
-                snapshot.forEach(doc => {
-                    const dette = doc.data();
-                    dette.id = doc.id;
-                    
-                    const remaining = parseFloat(dette.remainingAmount || 0);
+        snapshot.forEach(doc => {
+          const dette = doc.data();
+          dette.id = doc.id;
 
-                    if (remaining > 0) {
-                        const supplierName = dette.fournisseur || "Fournisseur Inconnu";
-                        totalDuesGlobal += remaining;
-                        
-                        if (!debtsBySupplier[supplierName]) {
-                            debtsBySupplier[supplierName] = {
-                                totalDue: 0,
-                                procurements: []
-                            };
-                        }
-                        debtsBySupplier[supplierName].totalDue += remaining;
-                        debtsBySupplier[supplierName].procurements.push(dette);
-                        allSupplierDebts.push(dette);
-                    }
-                });
+          const remaining = parseFloat(dette.remainingAmount || 0);
 
-                container.innerHTML = ""; 
+          if (remaining > 0) {
+            const supplierName = dette.fournisseur || "Fournisseur Inconnu";
+            totalDuesGlobal += remaining;
 
-                if (Object.keys(debtsBySupplier).length === 0) {
-                    container.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 Aucune dette fournisseur en cours. Tout est payé !</p>';
-                    totalDuesAmountEl.textContent = '0 FCFA';
-                    return;
-                }
+            if (!debtsBySupplier[supplierName]) {
+              debtsBySupplier[supplierName] = {
+                totalDue: 0,
+                procurements: []
+              };
+            }
+            debtsBySupplier[supplierName].totalDue += remaining;
+            debtsBySupplier[supplierName].procurements.push(dette);
+            allSupplierDebts.push(dette);
+          }
+        });
 
-                const sortedSuppliers = Object.keys(debtsBySupplier).sort();
+        container.innerHTML = "";
 
-                sortedSuppliers.forEach(supplierName => {
-                    const supplierData = debtsBySupplier[supplierName];
-                    const card = document.createElement("div");
-                    card.className = `dette-card`;
+        if (Object.keys(debtsBySupplier).length === 0) {
+          container.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 Aucune dette fournisseur en cours. Tout est payé !</p>';
+          totalDuesAmountEl.textContent = '0 FCFA';
+          return;
+        }
 
-                    card.innerHTML = `
+        const sortedSuppliers = Object.keys(debtsBySupplier).sort();
+
+        sortedSuppliers.forEach(supplierName => {
+          const supplierData = debtsBySupplier[supplierName];
+          const card = document.createElement("div");
+          card.className = `dette-card-ionic`; // Utilisez la nouvelle classe Ionic
+
+          card.innerHTML = `
                         <div class="info-row">
                             <strong>Fournisseur:</strong> <span>${supplierName}</span>
                         </div>
@@ -2571,170 +2601,173 @@ function displaySalesHistory(salesList) {
                             <strong>Total Dû:</strong> <span>${supplierData.totalDue.toLocaleString('fr-FR')} FCFA</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
-                            <a class="details-btn-link" onclick="showSupplierDebtDetails('${supplierName}')">Voir détails</a>
-                            <button class="pay-button" onclick="ouvrirModalPaiementGlobal('${supplierName}', ${supplierData.totalDue})">
-                                Payer <i data-lucide="wallet"></i>
-                            </button>
+                            <a class="details-btn-link-ionic" onclick="showSupplierDebtDetailsIonic('${supplierName}')">Voir détails</a>
+                            <ion-button class="pay-button-ionic" onclick="ouvrirModalPaiementGlobal('${supplierName}', ${supplierData.totalDue})">
+                                Payer <ion-icon name="wallet-outline"></ion-icon>
+                            </ion-button>
                         </div>
                     `;
-                    container.appendChild(card);
-                });
-
-                totalDuesAmountEl.textContent = totalDuesGlobal.toLocaleString('fr-FR') + ' FCFA';
-                lucide.createIcons();
-            } catch (error) {
-                console.error("Erreur lors du chargement des dettes fournisseurs:", error);
-                container.innerHTML = '<p style="text-align:center; color:red;">Erreur de chargement des dettes.</p>';
-                totalDuesAmountEl.textContent = 'Erreur';
-            }
-        }
-
-        /**
-         * Ouvre le modal de paiement pour la dette globale d'un fournisseur.
-         * @param {string} fournisseurName - Le nom du fournisseur.
-         * @param {number} totalDue - Le montant total dû au fournisseur.
-         */
-        async function ouvrirModalPaiementGlobal(fournisseurName, totalDue) {
-            currentSupplierToPay = { name: fournisseurName, totalDue: totalDue };
-
-            document.getElementById("modalDetteFournisseur").textContent = fournisseurName;
-            document.getElementById("modalDetteRestant").textContent = totalDue.toLocaleString('fr-FR');
-            document.getElementById("modalDetteTotalInitial").closest('p').style.display = 'none'; 
-            
-            const montantInput = document.getElementById("montantPaiementDette");
-            montantInput.value = '';
-            montantInput.placeholder = `Jusqu'à ${totalDue.toLocaleString('fr-FR')} FCFA`;
-            montantInput.max = totalDue;
-
-            remplirTousSelectComptes(document.getElementById("comptePaiementDette"));
-
-            document.getElementById("modalPaiementDette").style.display = "flex";
-        }
-
-        /**
-         * Ferme le modal de paiement et réinitialise l'état.
-         */
-        function fermerModalPaiementDette() {
-            document.getElementById("modalPaiementDette").style.display = "none";
-            document.getElementById("modalDetteTotalInitial").closest('p').style.display = 'block';
-            currentSupplierToPay = null;
-            document.getElementById("formEnregistrerPaiement").reset();
-        }
-
-        /**
-         * Gère la soumission du formulaire de paiement global.
-         */
-        document.getElementById("formEnregistrerPaiement").addEventListener("submit", async function(e) {
-            e.preventDefault();
-
-            if (!currentSupplierToPay) {
-                alert("Aucun fournisseur sélectionné pour le paiement.");
-                return;
-            }
-
-            const paiementAmount = parseFloat(document.getElementById("montantPaiementDette").value);
-            const compteId = document.getElementById("comptePaiementDette").value;
-            const fournisseurName = currentSupplierToPay.name;
-
-            if (isNaN(paiementAmount) || paiementAmount <= 0) {
-                alert("Veuillez entrer un montant de paiement valide.");
-                return;
-            }
-            if (paiementAmount > currentSupplierToPay.totalDue) {
-                alert(`Le montant du paiement dépasse le solde dû (${currentSupplierToPay.totalDue.toLocaleString()} FCFA).`);
-                return;
-            }
-            if (!compteId) {
-                alert("Veuillez sélectionner un compte pour le paiement.");
-                return;
-            }
-
-            showSaleLoader();
-
-            try {
-                // Utilise une transaction pour garantir l'intégrité des données
-                await dbFirestore.runTransaction(async t => {
-                    // 1. Récupérer toutes les dettes non réglées, de la plus ancienne à la plus récente (FIFO)
-                    const dettesSnapshot = await dbFirestore.collection("approvisionnement")
-                        .where("fournisseur", "==", fournisseurName)
-                        .where("isPaid", "==", false)
-                        .orderBy("timestamp", "asc")
-                        .get();
-
-                    let paiementRestant = paiementAmount;
-
-                    for (const doc of dettesSnapshot.docs) {
-                        if (paiementRestant <= 0) break;
-
-                        const detteData = doc.data();
-                        const montantRestantSurDette = parseFloat(detteData.remainingAmount);
-                        const montantAPayerSurDette = Math.min(paiementRestant, montantRestantSurDette);
-
-                        const nouveauMontantRestant = montantRestantSurDette - montantAPayerSurDette;
-                        
-                        // 2. Mettre à jour chaque document de dette
-                        t.update(doc.ref, {
-                            remainingAmount: nouveauMontantRestant,
-                            isPaid: nouveauMontantRestant <= 0
-                        });
-
-                        paiementRestant -= montantAPayerSurDette;
-                    }
-                });
-
-                // 3. Enregistrer UN SEUL mouvement de trésorerie
-                await enregistrerMouvementTresorerie({
-                    compteId: compteId,
-                    type: 'paiement_dette_fournisseur',
-                    sens: 'out',
-                    montant: paiementAmount,
-                    description: `Paiement dette fournisseur: ${fournisseurName}`,
-                    refId: fournisseurName
-                });
-                
-                // 4. Mettre à jour les affichages
-                alert("Paiement enregistré avec succès !");
-                fermerModalPaiementDette();
-                chargerDettesFournisseurs(); // Recharger la liste principale
-                updateBalanceDisplay();
-
-            } catch (error) {
-                console.error("Erreur lors de l'enregistrement du paiement global:", error);
-                alert("Erreur : " + error.message);
-            } finally {
-                hideSaleLoader();
-            }
+          container.appendChild(card);
         });
 
-        /**
-         * Affiche la vue de détail pour un fournisseur spécifique.
-         */
-        function showSupplierDebtDetails(supplierName) {
-            document.getElementById("dettes-fournisseurs-main-view").style.display = "none";
-            document.getElementById("supplier-dettes-detail").style.display = "block";
-            document.getElementById("supplierDetailName").textContent = `Détails des dettes : ${supplierName}`;
-            
-            const detailListContainer = document.getElementById("supplierDebtDetailList");
-            detailListContainer.innerHTML = '';
+        totalDuesAmountEl.textContent = totalDuesGlobal.toLocaleString('fr-FR') + ' FCFA';
+        // lucide.createIcons(); // Remplacé par ionicons
+      } catch (error) {
+        console.error("Erreur lors du chargement des dettes fournisseurs:", error);
+        container.innerHTML = '<p style="text-align:center; color:red;">Erreur de chargement des dettes.</p>';
+        totalDuesAmountEl.textContent = 'Erreur';
+      }
+    }
 
-            const supplierDebts = allSupplierDebts.filter(dette => dette.fournisseur === supplierName);
+    /**
+     * Ouvre le modal de paiement pour la dette globale d'un fournisseur.
+     * @param {string} fournisseurName - Le nom du fournisseur.
+     * @param {number} totalDue - Le montant total dû au fournisseur.
+     */
+    async function ouvrirModalPaiementGlobal(fournisseurName, totalDue) {
+      currentSupplierToPay = {
+        name: fournisseurName,
+        totalDue: totalDue
+      };
 
-            if (supplierDebts.length === 0) {
-                detailListContainer.innerHTML = '<p>Aucune dette détaillée trouvée.</p>';
-                return;
-            }
+      document.getElementById("modalDetteFournisseur").textContent = fournisseurName;
+      document.getElementById("modalDetteRestant").textContent = totalDue.toLocaleString('fr-FR');
+      document.getElementById("modalDetteTotalInitial").closest('p').style.display = 'none';
 
-            supplierDebts.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // Plus ancien en premier
+      const montantInput = document.getElementById("montantPaiementDette");
+      montantInput.value = '';
+      montantInput.placeholder = `Jusqu'à ${totalDue.toLocaleString('fr-FR')} FCFA`;
+      montantInput.max = totalDue;
 
-            supplierDebts.forEach(dette => {
-                const totalInitial = parseFloat(dette.totalCost || 0);
-                const remaining = parseFloat(dette.remainingAmount || 0);
-                
-                let itemsListHtml = (dette.items || []).map(item => `<span>• ${item.produit} (Qté: ${item.quantite})</span>`).join('');
+      remplirTousSelectComptes(document.getElementById("comptePaiementDette"));
 
-                const detailCard = document.createElement("div");
-                detailCard.className = `detail-item-card`;
-                detailCard.innerHTML = `
+      document.getElementById("modalPaiementDette").style.display = "flex";
+    }
+
+    /**
+     * Ferme le modal de paiement et réinitialise l'état.
+     */
+    function fermerModalPaiementDette() {
+      document.getElementById("modalPaiementDette").style.display = "none";
+      document.getElementById("modalDetteTotalInitial").closest('p').style.display = 'block';
+      currentSupplierToPay = null;
+      document.getElementById("formEnregistrerPaiement").reset();
+    }
+
+    /**
+     * Gère la soumission du formulaire de paiement global.
+     */
+    document.getElementById("formEnregistrerPaiement").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      if (!currentSupplierToPay) {
+        alert("Aucun fournisseur sélectionné pour le paiement.");
+        return;
+      }
+
+      const paiementAmount = parseFloat(document.getElementById("montantPaiementDette").value);
+      const compteId = document.getElementById("comptePaiementDette").value;
+      const fournisseurName = currentSupplierToPay.name;
+
+      if (isNaN(paiementAmount) || paiementAmount <= 0) {
+        alert("Veuillez entrer un montant de paiement valide.");
+        return;
+      }
+      if (paiementAmount > currentSupplierToPay.totalDue) {
+        alert(`Le montant du paiement dépasse le solde dû (${currentSupplierToPay.totalDue.toLocaleString()} FCFA).`);
+        return;
+      }
+      if (!compteId) {
+        alert("Veuillez sélectionner un compte pour le paiement.");
+        return;
+      }
+
+      showSaleLoader();
+
+      try {
+        // Utilise une transaction pour garantir l'intégrité des données
+        await dbFirestore.runTransaction(async t => {
+          // 1. Récupérer toutes les dettes non réglées, de la plus ancienne à la plus récente (FIFO)
+          const dettesSnapshot = await dbFirestore.collection("approvisionnement")
+            .where("fournisseur", "==", fournisseurName)
+            .where("isPaid", "==", false)
+            .orderBy("timestamp", "asc")
+            .get();
+
+          let paiementRestant = paiementAmount;
+
+          for (const doc of dettesSnapshot.docs) {
+            if (paiementRestant <= 0) break;
+
+            const detteData = doc.data();
+            const montantRestantSurDette = parseFloat(detteData.remainingAmount);
+            const montantAPayerSurDette = Math.min(paiementRestant, montantRestantSurDette);
+
+            const nouveauMontantRestant = montantRestantSurDette - montantAPayerSurDette;
+
+            // 2. Mettre à jour chaque document de dette
+            t.update(doc.ref, {
+              remainingAmount: nouveauMontantRestant,
+              isPaid: nouveauMontantRestant <= 0
+            });
+
+            paiementRestant -= montantAPayerSurDette;
+          }
+        });
+
+        // 3. Enregistrer UN SEUL mouvement de trésorerie
+        await enregistrerMouvementTresorerie({
+          compteId: compteId,
+          type: 'paiement_dette_fournisseur',
+          sens: 'out',
+          montant: paiementAmount,
+          description: `Paiement dette fournisseur: ${fournisseurName}`,
+          refId: fournisseurName
+        });
+
+        // 4. Mettre à jour les affichages
+        alert("Paiement enregistré avec succès !");
+        fermerModalPaiementDette();
+        chargerDettesFournisseurs(); // Recharger la liste principale
+        updateBalanceDisplay();
+
+      } catch (error) {
+        console.error("Erreur lors de l'enregistrement du paiement global:", error);
+        alert("Erreur : " + error.message);
+      } finally {
+        hideSaleLoader();
+      }
+    });
+
+    /**
+     * Affiche la vue de détail pour un fournisseur spécifique.
+     */
+    function showSupplierDebtDetailsIonic(supplierName) {
+      document.getElementById("dettes-fournisseurs-main-view-ionic").style.display = "none";
+      document.getElementById("supplier-dettes-detail-ionic").style.display = "block";
+      document.getElementById("supplierDetailNameIonic").textContent = `Détails des dettes : ${supplierName}`;
+
+      const detailListContainer = document.getElementById("supplierDebtDetailListIonic");
+      detailListContainer.innerHTML = '';
+
+      const supplierDebts = allSupplierDebts.filter(dette => dette.fournisseur === supplierName);
+
+      if (supplierDebts.length === 0) {
+        detailListContainer.innerHTML = '<p>Aucune dette détaillée trouvée.</p>';
+        return;
+      }
+
+      supplierDebts.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // Plus ancien en premier
+
+      supplierDebts.forEach(dette => {
+        const totalInitial = parseFloat(dette.totalCost || 0);
+        const remaining = parseFloat(dette.remainingAmount || 0);
+
+        let itemsListHtml = (dette.items || []).map(item => `<span>• ${item.produit} (Qté: ${item.quantite})</span>`).join('');
+
+        const detailCard = document.createElement("div");
+        detailCard.className = `detail-item-card-ionic`; // Utilisez la nouvelle classe Ionic
+        detailCard.innerHTML = `
                     <strong>Date: ${new Date(dette.timestamp).toLocaleDateString('fr-FR')}</strong>
                     <span>Montant initial: ${totalInitial.toLocaleString('fr-FR')} FCFA</span>
                     <span style="color: #dc3545; font-weight:bold;">Montant restant: ${remaining.toLocaleString('fr-FR')} FCFA</span>
@@ -2743,20 +2776,20 @@ function displaySalesHistory(salesList) {
                         ${itemsListHtml || '<span>Aucun article détaillé</span>'}
                     </div>
                 `;
-                detailListContainer.appendChild(detailCard);
-            });
-            lucide.createIcons();
-        }
+        detailListContainer.appendChild(detailCard);
+      });
+      // lucide.createIcons(); // Remplacé par ionicons
+    }
 
-        /**
-         * Cache la vue de détail et retourne à la liste principale.
-         */
-        function hideSupplierDebtDetails() {
-            document.getElementById("dettes-fournisseurs-main-view").style.display = "block";
-            document.getElementById("supplier-dettes-detail").style.display = "none";
-            chargerDettesFournisseurs();
-        }
-    </script>
+    /**
+     * Cache la vue de détail et retourne à la liste principale.
+     */
+    function hideSupplierDebtDetailsIonic() {
+      document.getElementById("dettes-fournisseurs-main-view-ionic").style.display = "block";
+      document.getElementById("supplier-dettes-detail-ionic").style.display = "none";
+      chargerDettesFournisseurs();
+    }
+  </script>
 </section>
 
     <!-- Screen 6: Menu Principal (Thème Clair) -->
@@ -8636,3 +8669,4 @@ function chargerHistoriqueStock(stockId) {
 
 </body>
 </html>
+
