@@ -2257,6 +2257,349 @@ function displaySalesHistory(salesList) {
   window.addEventListener('load', setupArticleTabs);
 
 </script>
+<section id="screen-approvisionnement-historique" class="screen">
+    <ion-app>
+        <ion-header class="ion-no-border">
+            <ion-toolbar>
+                <ion-buttons slot="start">
+                    <ion-button onclick="window.location.hash='menu'">
+                        <ion-icon name="menu-outline"></ion-icon>
+                    </ion-button>
+                </ion-buttons>
+                <ion-title>Historique des Achats</ion-title>
+                <ion-buttons slot="end">
+                    <ion-button>
+                        <ion-icon name="search-outline"></ion-icon>
+                    </ion-button>
+                    <ion-button>
+                        <ion-icon name="ellipsis-vertical-outline"></ion-icon>
+                    </ion-button>
+                </ion-buttons>
+            </ion-toolbar>
+            <ion-toolbar class="segment-toolbar">
+                <ion-segment value="all" id="purchase-tabs">
+                    <ion-segment-button value="all">
+                        <ion-label>Tout</ion-label>
+                    </ion-segment-button>
+                    <ion-segment-button value="credit">
+                        <ion-label>Crédit</ion-label>
+                    </ion-segment-button>
+                    <ion-segment-button value="paid">
+                        <ion-label>Payé</ion-label>
+                    </ion-segment-button>
+                </ion-segment>
+                <ion-buttons slot="end">
+                    <ion-button>
+                        <ion-icon name="options-outline"></ion-icon>
+                    </ion-button>
+                </ion-buttons>
+            </ion-toolbar>
+        </ion-header>
+
+        <ion-content fullscreen>
+            <ion-list lines="full" id="approvisionnementHistoryList">
+                <ion-item>
+                    <ion-label style="text-align:center; padding: 20px; color: #888;">Chargement des approvisionnements...</ion-label>
+                </ion-item>
+            </ion-list>
+
+            <ion-fab vertical="bottom" horizontal="end" slot="fixed" onclick="window.location.hash='approvisionnement'">
+                <ion-fab-button>
+                    <ion-icon name="add-outline"></ion-icon>
+                </ion-fab-button>
+            </ion-fab>
+        </ion-content>
+    </ion-app>
+    <style>
+/* ==============================================================
+   STYLES POUR L'HISTORIQUE DES APPROVISIONNEMENTS (Zoho Inventory Like - SANS OMBRE)
+   ============================================================== */
+
+#screen-approvisionnement-historique {
+    --ion-background-color: #f5f7fa; /* Un arrière-plan très léger */
+    --ion-text-color: #2e3748; /* Couleur de texte principale */
+    font-family: 'Roboto', sans-serif; /* Assure la police globale */
+}
+
+/* Cache la bottom-nav quand l'écran de l'historique d'appro est actif */
+#screen-approvisionnement-historique.active ~ .bottom-nav-pro {
+    display: none;
+}
+
+/* En-tête (Header) - Design plat */
+#screen-approvisionnement-historique ion-header {
+    /* box-shadow: none !important;  PAS D'OMBRE SUR L'EN-TÊTE */
+    border-bottom: 1px solid #e0e0e0; /* Ligne de séparation fine */
+}
+
+#screen-approvisionnement-historique ion-toolbar {
+    --background: #fff; /* Fond blanc */
+    --border-width: 0 !important; /* Pas de bordure */
+    --box-shadow: none !important; /* PAS D'OMBRE */
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+#screen-approvisionnement-historique ion-title {
+    font-weight: 600;
+    color: #333; /* Plus sombre pour le titre */
+    font-size: 18px;
+    padding-inline-start: 0;
+}
+
+#screen-approvisionnement-historique ion-buttons ion-button {
+    --color: #333; /* Couleur des icônes pour rester plat */
+    font-size: 1.5em;
+    --padding-end: 8px;
+    --padding-start: 8px;
+}
+
+/* Segment (Onglets : Tout, Crédit, Payé) */
+#screen-approvisionnement-historique .segment-toolbar {
+    --background: #fff; /* Fond blanc pour la toolbar du segment */
+    border-bottom: 1px solid #e0e0e0; /* Ligne de séparation fine */
+    padding-bottom: 5px;
+    --box-shadow: none !important; /* PAS D'OMBRE */
+}
+
+#screen-approvisionnement-historique ion-segment {
+    --background: transparent;
+    --indicator-color: #6D5DFD; /* Couleur de la barre indicatrice comme sur l'image */
+    --indicator-height: 2px;
+    flex-grow: 1;
+    margin: 0 5px;
+}
+
+#screen-approvisionnement-historique ion-segment-button {
+    --color: #a0a0a0;
+    --color-checked: #2e3748;
+    --indicator-box-shadow: none;
+    text-transform: none;
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 0;
+    min-height: 40px;
+}
+
+/* Conteneur des items (liste) */
+#approvisionnementHistoryList {
+    background-color: transparent; /* Pour que le fond de la liste soit celui de l'écran */
+    padding: 0; /* Supprime le padding par défaut si la liste le gère elle-même */
+    margin-top: 10px; /* Espace après les onglets */
+}
+
+/* Styles des ion-item individuels (remplace les anciennes cartes) */
+#approvisionnementHistoryList ion-item {
+    --background: #ffffff; /* Fond blanc pour chaque élément de la liste */
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --inner-padding-end: 16px;
+    --border-width: 0; /* Pas de bordure interne par défaut d'Ionic */
+    /* box-shadow: none !important;  PAS D'OMBRE SUR LES ITEMS */
+    border-radius: 0; /* PAS DE COINS ARRONDIS pour un effet "liste propre" */
+    margin-bottom: 0; /* La bordure seule gérera la séparation */
+    min-height: 70px; /* Hauteur minimale pour l'item */
+    align-items: center; /* Aligner le contenu au centre verticalement */
+    padding-top: 12px;
+    padding-bottom: 12px;
+    position: relative; /* Pour les pseudo-éléments si besoin */
+    border-bottom: 1px solid #eee; /* Ligne de séparation fine entre les éléments */
+}
+
+/* Pour le dernier élément, pas de bordure en bas */
+#approvisionnementHistoryList ion-item:last-child {
+    border-bottom: none;
+}
+
+/* Pas de bordure par défaut, on les gère par l'ombre et la marge */
+#approvisionnementHistoryList ion-list {
+    --ion-item-border-color: transparent;
+    background-color: #ffffff; /* Fond blanc pour la liste entière */
+    border-radius: 8px; /* Coins arrondis pour la liste complète */
+    overflow: hidden; /* Important pour que les coins arrondis s'appliquent sur le contenu */
+    margin: 10px 16px; /* Marges latérales pour que la liste flotte un peu */
+}
+
+
+/* Mise en forme du contenu d'un ion-item pour qu'il ressemble à la capture Zoho */
+#approvisionnementHistoryList ion-item .main-content-wrapper {
+    display: flex;
+    justify-content: space-between; /* Pour pousser le montant à droite */
+    align-items: center; /* Aligner verticalement */
+    width: 100%;
+}
+
+#approvisionnementHistoryList ion-item .left-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Permet de prendre l'espace restant */
+}
+
+#approvisionnementHistoryList ion-item .supplier-name {
+    font-weight: 500; /* Moins gras que 700 */
+    font-size: 16px; /* Taille un peu plus petite */
+    color: #333; /* Couleur de texte sombre */
+    margin-bottom: 4px; /* Espace sous le nom */
+}
+
+#approvisionnementHistoryList ion-item .purchase-date {
+    font-size: 13px; /* Plus petite */
+    color: #888; /* Couleur plus discrète */
+}
+
+#approvisionnementHistoryList ion-item .right-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Aligner le texte à droite */
+    margin-left: 15px; /* Espace entre les deux colonnes */
+}
+
+#approvisionnementHistoryList ion-item .total-amount {
+    font-weight: 600; /* Plus léger que 700 */
+    font-size: 18px; /* Correspond à l'image */
+    color: #333; /* Couleur de texte par défaut */
+    margin-bottom: 4px; /* Espace sous le montant */
+}
+#approvisionnementHistoryList ion-item.status-paid .total-amount {
+    color: #3880ff; /* Bleu pour "Paid" comme Zoho */
+}
+#approvisionnementHistoryList ion-item.status-credit .total-amount {
+    color: #f04141; /* Rouge pour "Due" comme Zoho */
+}
+
+
+#approvisionnementHistoryList ion-item .payment-method {
+    font-size: 13px;
+    color: #888;
+    text-transform: uppercase; /* CASH / DUE / PAID */
+    font-weight: 500;
+}
+
+/* Floating Action Button (FAB) - inchangé car déjà plat par Ionic */
+ion-fab-button {
+    --background: #2e3748;
+    --background-activated: #000;
+    --box-shadow: none !important; /* Supprime toute ombre résiduelle */
+}
+    </style>
+
+    <script>
+   function chargerApprovisionnements() {
+  const container = document.getElementById("approvisionnementHistoryList");
+  container.innerHTML = "";
+
+  dbFirestore.collection("approvisionnement")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        container.innerHTML = `
+          <ion-item>
+            <ion-label style="text-align:center; padding: 20px; color: #888;">
+              <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+              Aucun achat enregistré.
+            </ion-label>
+          </ion-item>
+        `;
+        if (typeof renderIoniconsInElement === 'function') {
+          renderIoniconsInElement(container);
+        }
+        return;
+      }
+
+      snapshot.forEach(doc => {
+        const appro = doc.data();
+        appro.id = doc.id;
+
+        const dateAppro = new Date(appro.timestamp).toLocaleDateString("fr-FR", {day: '2-digit', month: 'short', year: 'numeric'});
+        const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
+
+        let paymentStatusText = '';
+        let statusClass = '';
+
+        if (appro.paymentMethod === 'cash') {
+          paymentStatusText = 'CASH';
+          statusClass = 'status-paid';
+        } else if (appro.paymentMethod === 'credit') {
+          if (appro.remainingAmount > 0) {
+            paymentStatusText = 'DUE';
+            statusClass = 'status-credit';
+          } else {
+            paymentStatusText = 'PAID';
+            statusClass = 'status-paid';
+          }
+        }
+
+        // Construct the item list HTML
+        let itemListHTML = '';
+        if (appro.items && Array.isArray(appro.items)) {
+          appro.items.forEach(item => {
+            itemListHTML += `<p>${item.quantite} x ${item.produit} - ${item.prixAchat} FCFA</p>`;
+          });
+        } else {
+          itemListHTML = '<p>Aucun article</p>';
+        }
+
+        const ionItem = document.createElement('ion-item');
+        ionItem.classList.add(statusClass);
+
+        // Include the item list in the card's HTML
+        ionItem.innerHTML = `
+          <ion-label>
+            <div class="main-content-wrapper">
+              <div class="left-info">
+                <div class="supplier-name">${appro.fournisseur || 'Fournisseur Inconnu'}</div>
+                <div class="purchase-date">${dateAppro}</div>
+                ${itemListHTML}
+              </div>
+              <div class="right-info">
+                <div class="total-amount">XOF${totalCostDisplay}</div>
+                <div class="payment-method">${paymentStatusText}</div>
+              </div>
+            </div>
+          </ion-label>
+          <ion-ripple-effect></ion-ripple-effect>
+        `;
+
+        ionItem.addEventListener('click', () => {
+          console.log("Afficher les détails de l'approvisionnement :", appro.id);
+          // showApproDetail(appro.id);
+        });
+
+        container.appendChild(ionItem);
+      });
+
+      if (typeof renderIoniconsInElement === 'function') {
+        renderIoniconsInElement(container);
+      }
+    })
+    .catch(error => {
+      console.error("Erreur lors du chargement des approvisionnements :", error);
+      container.innerHTML = `
+        <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+          <ion-label style="text-align:center; color:red; padding:20px;">
+            Erreur de chargement des approvisionnements.
+          </ion-label>
+        </ion-item>
+      `;
+    });
+}
+
+// Assure-toi que cette fonction est bien présente dans ton script si elle ne l'est pas déjà
+// Elle est nécessaire pour que les icônes Ionic s'affichent correctement quand tu les injectes via innerHTML
+function renderIoniconsInElement(element) {
+    const ionicons = element.querySelectorAll('ion-icon');
+    ionicons.forEach(icon => {
+        if (icon.name && !icon.src) { 
+            icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
+        }
+    });
+}
+    </script>
+
+  
+</section>
+
 <section id="screen-dettes-fournisseurs" class="screen">
   <style>
    /* --- NEW & UPDATED STYLES FOR DETTES FOURNISSEURS --- */
@@ -2609,6 +2952,9 @@ function displaySalesHistory(salesList) {
     --padding-end: 16px;
     --padding-top: 16px; /* Adjust as needed */
     --padding-bottom: 16px;
+}
+#screen-dettes-fournisseurs.active ~ .bottom-nav-pro {
+  display: none;
 }
   </style>
 
@@ -5061,72 +5407,12 @@ async function finaliserApprovisionnement() {
   }
 }
 
-  // Charger l'historique dès l'accès à la page Approvisionnement
-  window.addEventListener('load', function() {
-    if(window.location.hash === '#approvisionnement'){
-      chargerApprovisionnements();
-    }
-  });
 
-  // Fonction pour charger l'historique des approvisionnements
-  function chargerApprovisionnements() {
-  dbFirestore.collection("approvisionnement")
-    .orderBy("timestamp", "desc")
-    .get()
-    .then(snapshot => {
-      const approList = document.getElementById("approvisionnementList");
-      approList.innerHTML = "";
-      if (snapshot.empty) {
-        approList.innerHTML = "<p>Aucun achat enregistré.</p>";
-        return;
-      }
-      snapshot.forEach(doc => {
-        const appro = doc.data();
-        const div = document.createElement("div");
-        div.className = "history-item";
-        let itemsText = "";
-        if (appro.items && Array.isArray(appro.items)) {
-          appro.items.forEach(item => {
-            itemsText += `${item.produit} (Qté: ${item.quantite}, Prix: ${item.prixAchat} FCFA, Total: ${item.coutTotal} FCFA)<br>`;
-          });
-        }
-        let paymentStatus = `Mode: ${appro.paymentMethod === 'cash' ? 'Cash' : 'Crédit'}`;
-        // Display remaining amount for credit purchases
-        if (appro.paymentMethod === 'credit' && appro.remainingAmount > 0) {
-            paymentStatus += ` (Dû: ${parseFloat(appro.remainingAmount).toLocaleString()} FCFA)`;
-        } else if (appro.paymentMethod === 'credit' && appro.remainingAmount === 0 && appro.isPaid) {
-            paymentStatus += ` (Payé)`; // Explicitly show 'Payé' for credit purchases that are fully paid
-        }
-
-        // Add a "Payer" button if it's a credit purchase and not fully paid
-        let payButton = '';
-        if (appro.paymentMethod === 'credit' && appro.remainingAmount > 0) {
-            payButton = `<button class="btn-modern secondary" onclick="recordCreditPayment('${doc.id}', ${appro.remainingAmount})">Payer</button>`;
-        }
-
-
-        div.innerHTML = `
-          <div>
-            <strong>Fournisseur: ${appro.fournisseur}</strong><br>
-            ${itemsText}
-            <small>${paymentStatus} - ${new Date(appro.timestamp).toLocaleString()}</small>
-          </div>
-          ${payButton}
-        `;
-        approList.appendChild(div);
-      });
-    })
-    .catch(error => {
-      console.error("Erreur lors du chargement des approvisionnements : " + error.message);
-    });
-}
-
-
+  
 // Initial call to set up the correct visibility when the page loads or hash changes to 'approvisionnement'
 window.addEventListener('hashchange', () => {
     if (window.location.hash === '#approvisionnement') {
         togglePaymentAccount(); // Set initial state
-        chargerApprovisionnements(); // Load history
     }
 });
 window.addEventListener('load', togglePaymentAccount); // Also on initial page load
@@ -5897,6 +6183,9 @@ function annulerScan() {
         <i data-lucide="clock"></i>
         <span>Historique</span>
       </div>
+      <div class="nav-item" id="nav-appro-hist" onclick="window.location.hash='approvisionnement-historique'">
+        <i data-lucide="archive"></i> <span>Achats</span>
+    </div>
       <div class="nav-item" id="nav-menu" onclick="window.location.hash='menu'">
         <i data-lucide="menu"></i>
         <span>Menu</span>
@@ -6634,6 +6923,9 @@ case 'article-detail':
   case 'dettes-fournisseurs':
             chargerDettesFournisseurs();
             break;
+   case 'approvisionnement-historique':
+        chargerApprovisionnements(); // Appelle la fonction de chargement des données pour ce nouvel écran
+        break;
 
   }
 }
