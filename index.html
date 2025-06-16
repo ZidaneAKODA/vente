@@ -2475,107 +2475,129 @@ ion-fab-button {
     </style>
 
     <script>
-   function chargerApprovisionnements() {
+async function chargerApprovisionnements() {
   const container = document.getElementById("approvisionnementHistoryList");
-  container.innerHTML = "";
+  container.innerHTML = ""; // Vider le contenu actuel
 
-  dbFirestore.collection("approvisionnement")
-    .orderBy("timestamp", "desc")
-    .get()
-    .then(snapshot => {
-      if (snapshot.empty) {
-        container.innerHTML = `
-          <ion-item>
-            <ion-label style="text-align:center; padding: 20px; color: #888;">
-              <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
-              Aucun achat enregistré.
-            </ion-label>
-          </ion-item>
-        `;
-        if (typeof renderIoniconsInElement === 'function') {
-          renderIoniconsInElement(container);
-        }
-        return;
-      }
+  // Afficher le spinner avant de commencer le chargement
+  container.innerHTML = `
+    <ion-item>
+      <ion-label style="text-align:center; padding: 20px; color: #888;">
+        <ion-spinner name="crescent" style="width: 30px; height: 30px;"></ion-spinner><br>
+        Chargement des approvisionnements...
+      </ion-label>
+    </ion-item>
+  `;
+  // Assurez-vous que les icônes Ionic (y compris le spinner) sont rendues
+  renderIoniconsInElement(container);
 
-      snapshot.forEach(doc => {
-        const appro = doc.data();
-        appro.id = doc.id;
+  try {
+    const today = new Date();
+    // Début de la journée (00:00:00)
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
+    // Fin de la journée (23:59:59.999)
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
 
-        const dateAppro = new Date(appro.timestamp).toLocaleDateString("fr-FR", {day: '2-digit', month: 'short', year: 'numeric'});
-        const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
+    const snapshot = await dbFirestore.collection("approvisionnement")
+      .where("timestamp", ">=", startOfToday)
+      .where("timestamp", "<=", endOfToday)
+      .orderBy("timestamp", "desc") // Trie par le plus récent d'abord
+      .get();
 
-        let paymentStatusText = '';
-        let statusClass = '';
+    container.innerHTML = ""; // Vider le spinner une fois les données récupérées
 
-        if (appro.paymentMethod === 'cash') {
-          paymentStatusText = 'CASH';
-          statusClass = 'status-paid';
-        } else if (appro.paymentMethod === 'credit') {
-          if (appro.remainingAmount > 0) {
-            paymentStatusText = 'DUE';
-            statusClass = 'status-credit';
-          } else {
-            paymentStatusText = 'PAID';
-            statusClass = 'status-paid';
-          }
-        }
-
-        // Construct the item list HTML
-        let itemListHTML = '';
-        if (appro.items && Array.isArray(appro.items)) {
-          appro.items.forEach(item => {
-            itemListHTML += `<p>${item.quantite} x ${item.produit} - ${item.prixAchat} FCFA</p>`;
-          });
-        } else {
-          itemListHTML = '<p>Aucun article</p>';
-        }
-
-        const ionItem = document.createElement('ion-item');
-        ionItem.classList.add(statusClass);
-
-        // Include the item list in the card's HTML
-        ionItem.innerHTML = `
-          <ion-label>
-            <div class="main-content-wrapper">
-              <div class="left-info">
-                <div class="supplier-name">${appro.fournisseur || 'Fournisseur Inconnu'}</div>
-                <div class="purchase-date">${dateAppro}</div>
-                ${itemListHTML}
-              </div>
-              <div class="right-info">
-                <div class="total-amount">XOF${totalCostDisplay}</div>
-                <div class="payment-method">${paymentStatusText}</div>
-              </div>
-            </div>
-          </ion-label>
-          <ion-ripple-effect></ion-ripple-effect>
-        `;
-
-        ionItem.addEventListener('click', () => {
-          console.log("Afficher les détails de l'approvisionnement :", appro.id);
-          // showApproDetail(appro.id);
-        });
-
-        container.appendChild(ionItem);
-      });
-
-      if (typeof renderIoniconsInElement === 'function') {
-        renderIoniconsInElement(container);
-      }
-    })
-    .catch(error => {
-      console.error("Erreur lors du chargement des approvisionnements :", error);
+    if (snapshot.empty) {
       container.innerHTML = `
-        <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
-          <ion-label style="text-align:center; color:red; padding:20px;">
-            Erreur de chargement des approvisionnements.
+        <ion-item>
+          <ion-label style="text-align:center; padding: 20px; color: #888;">
+            <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+            Aucun achat enregistré pour aujourd'hui.
           </ion-label>
         </ion-item>
       `;
-    });
-}
+      // Assurez-vous que les icônes Ionic sont rendues pour l'état vide
+      renderIoniconsInElement(container);
+      return;
+    }
 
+    snapshot.forEach(doc => {
+      const appro = doc.data();
+      appro.id = doc.id;
+
+      const dateAppro = new Date(appro.timestamp).toLocaleDateString("fr-FR", {day: '2-digit', month: 'short', year: 'numeric'});
+      const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
+
+      let paymentStatusText = '';
+      let statusClass = '';
+
+      if (appro.paymentMethod === 'cash') {
+        paymentStatusText = 'CASH';
+        statusClass = 'status-paid';
+      } else if (appro.paymentMethod === 'credit') {
+        if (appro.remainingAmount > 0) {
+          paymentStatusText = 'DUE';
+          statusClass = 'status-credit';
+        } else {
+          paymentStatusText = 'PAID';
+          statusClass = 'status-paid';
+        }
+      }
+
+      // Construire le HTML de la liste des articles de l'approvisionnement
+      let itemListHTML = '';
+      if (appro.items && Array.isArray(appro.items)) {
+        appro.items.forEach(item => {
+          itemListHTML += `<p>${item.quantite} x ${item.produit} - ${parseFloat(item.prixAchat).toLocaleString('fr-FR')} FCFA</p>`;
+        });
+      } else {
+        itemListHTML = '<p>Aucun article</p>';
+      }
+
+      const ionItem = document.createElement('ion-item');
+      ionItem.classList.add(statusClass);
+      ionItem.setAttribute('button', 'true'); // Rend l'item cliquable avec l'effet ripple
+
+      ionItem.innerHTML = `
+        <ion-label>
+          <div class="main-content-wrapper">
+            <div class="left-info">
+              <div class="supplier-name">${appro.fournisseur || 'Fournisseur Inconnu'}</div>
+              <div class="purchase-date">${dateAppro}</div>
+              ${itemListHTML}
+            </div>
+            <div class="right-info">
+              <div class="total-amount">XOF ${totalCostDisplay}</div>
+              <div class="payment-method">${paymentStatusText}</div>
+            </div>
+          </div>
+        </ion-label>
+        <ion-ripple-effect></ion-ripple-effect>
+      `;
+
+      ionItem.addEventListener('click', () => {
+        console.log("Afficher les détails de l'approvisionnement :", appro.id);
+        // Ici, vous pouvez appeler une fonction pour afficher les détails, par exemple :
+        // showApproDetail(appro.id);
+      });
+
+      container.appendChild(ionItem);
+    });
+
+    // S'assurer que toutes les icônes Ionic sont bien rendues après l'injection HTML
+    renderIoniconsInElement(container);
+
+  } catch (error) {
+    console.error("Erreur lors du chargement des approvisionnements :", error);
+    container.innerHTML = `
+      <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+        <ion-label style="text-align:center; color:red; padding:20px;">
+          Erreur de chargement des approvisionnements.
+        </ion-label>
+      </ion-item>
+    `;
+    renderIoniconsInElement(container); // Rendre l'icône d'erreur si elle est ajoutée
+  }
+}
 // Assure-toi que cette fonction est bien présente dans ton script si elle ne l'est pas déjà
 // Elle est nécessaire pour que les icônes Ionic s'affichent correctement quand tu les injectes via innerHTML
 function renderIoniconsInElement(element) {
