@@ -1,53 +1,9172 @@
-// service-worker.js
+<!--
+  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  ┃  MOBILE-FIRST APPLICATION                                ┃
+  ┃  ------------------------------------------------------  ┃
+  ┃  ⚠️ Ce projet est conçu pour un usage mobile :          ┃
+  ┃    • Responsive et tactile avant tout                    ┃
+  ┃    • Écrans petits, interactions optimisées pour le touch┃
+  ┃    • Performance et chargement optimisé réseaux mobiles  ┃
+  ┃    • Pas de dépendance aux fonctionnalités desktop (hover┃
+  ┃      ou survol intensif, grandes résolutions, etc.)      ┃
+  ┃                                                          ┃
+  ┃  Merci de respecter ce paradigme lors de toute modification.┃
+  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+-->
 
-// ⚠️ Incrémentez ce nom à chaque déploiement !
-const CACHE_NAME = 'africaphone-cache-v11';
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AFRICA PHONE - Gestion des Ventes</title>
+  <!-- jsPDF and jsPDF-AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-auth-compat.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!-- Link to the manifest -->
+<link rel="manifest" href="manifest.json">
+<!-- Charger SheetJS pour générer des .xlsx -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dynamsoft-barcode-reader-bundle@10.5.3000/dist/dbr.bundle.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
+<script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 
-const urlsToCache = [
-  '/index.html',
-  '/login.html',
-  '/manifest.json',
-  // Bibliothèques externes
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js',
-  'https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/9.17.2/firebase-auth-compat.js',
-  'https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore-compat.js',
-  'https://unpkg.com/lucide@latest'
-];
+<!-- Set the theme color (should match the one in your manifest) -->
+<meta name="theme-color" content="#006064">
+  <style>
+        /* Masquage automatique des prix pour les employés */
+    body.role-employe .price-label {
+      display: none !important;
+    }
 
-self.addEventListener('install', event => {
-  console.log('[SW] Install');
-  // Passe directement à l'état "activated" sans attendre la fermeture des onglets
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
-});
+    /* Désactivation globale de la sélection de texte (sauf input et textarea) */
+    body *:not(input):not(textarea) {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
 
-self.addEventListener('activate', event => {
-  console.log('[SW] Activate');
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)  // supprime les anciens caches
-          .map(key => caches.delete(key))
-      )
-    ).then(() => {
-      // Prend le contrôle immédiat de toutes les pages clients
-      return self.clients.claim();
+  /* CORRECTIF POUR LE SCROLL APRÈS L'AJOUT D'IONIC
+  */
+  .screen {
+    /* Permet à chaque écran d'avoir sa propre barre de défilement si le contenu dépasse */
+    overflow-y: auto; 
+    
+    /* On s'assure que l'écran ne dépasse pas de la vue visible.
+       100vh = 100% de la hauteur de l'écran.
+       On soustrait la hauteur de votre barre de navigation du bas (~60px) 
+       et le padding du conteneur #app (~15px) pour éviter une double barre de scroll.
+    */
+    height: calc(100vh - 75px); 
+  }
+
+  /* On exclut l'écran de détail de cette règle, car Ionic s'en occupe déjà */
+  #screen-article-detail {
+      height: auto;
+      overflow-y: initial;
+  }
+
+  /* On exclut aussi l'écran de démarrage qui doit être centré */
+   #screen-start-day {
+      height: 100vh;
+      overflow-y: hidden;
+   }
+
+    /* Désactivation de l'effet de sélection (outline) sur boutons, liens et éléments cliquables */
+    button, a, div.section, div.nav-item, div.shortcut {
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    /* Preloader Styles */
+    #preloader {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5000;
+      background-color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid var(--primary-color);
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* Sale Loader Popup Styles */
+    #saleLoader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 6000;
+      background: rgba(255,255,255,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #saleLoader .loader-content {
+      text-align: center;
+    }
+    #saleLoader .loader-content p {
+      font-size: 16px;
+      color: var(--primary-color);
+      margin-top: 10px;
+    }
+    /* Toast Notification */
+    #toast {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #007BFF;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 5px;
+      z-index: 3000;
+      font-size: 16px;
+    }
+    /* Sale Stepper Styles */
+    .sale-step {
+      display: none;
+      animation: slideIn 0.3s ease-in-out;
+    }
+    .sale-step.active {
+      display: block;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(100%); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .step-navigation {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    /* Barre de progression fluide */
+    .progress-container {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--primary-color);
+      transition: width 0.4s ease;
+    }
+    #progressText {
+      margin-top: 5px;
+      font-size: 14px;
+      color: var(--text-color);
+      text-align: center;
+      display: block;
+    }
+    /* CSS Variables */
+    :root {
+      --primary-color: #006064;
+      --secondary-color: #004d40;
+      --accent-color: #ff6f00;
+      --bg-color: #f5f7fa;
+      --white: #ffffff;
+      --text-color: #333;
+      --border-radius: 8px;
+      --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    /* Global Reset & Mobile Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+    }
+    input, button, textarea, select {
+      font-family: inherit;
+      font-size: 18px;
+    }
+    /* App container and screens */
+    #app {
+      padding-bottom: 60px;
+    }
+    .screen {
+      display: none;
+      padding: 15px;
+    }
+    .screen.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    header {
+      text-align: center;
+      margin-bottom: 15px;
+      position: relative;
+    }
+    header h1 {
+      font-size: 22px;
+      color: var(--primary-color);
+    }
+    .back-btn {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--primary-color);
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin-bottom: 5px;
+    }
+    .timestamp {
+      font-size: 14px;
+      color: var(--secondary-color);
+      margin-top: 5px;
+    }
+    /* Form sections */
+    .form-section {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .form-section h2 {
+      margin-bottom: 15px;
+      color: var(--primary-color);
+      font-size: 20px;
+      text-align: center;
+    }
+    .vente-form label {
+      font-weight: 500;
+      margin-bottom: 8px;
+      display: block;
+      font-size: 16px;
+    }
+    .vente-form input,
+    .vente-form textarea,
+    .vente-form button,
+    .vente-form select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      font-size: 16px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .vente-form input:focus,
+    .vente-form textarea:focus,
+    .vente-form select:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
+      outline: none;
+    }
+    /* Modern Input Fields with Icons */
+    .input-with-icon {
+      position: relative;
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .input-with-icon i {
+      position: absolute;
+      left: 10px;
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .input-with-icon input {
+      width: 100%;
+      padding: 10px 10px 10px 40px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .input-with-icon input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(0, 96, 100, 0.2);
+      outline: none;
+    }
+    /* Boutons Modernes Inspirés des Apps Mobiles */
+    .btn-modern {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(45deg, #1877F2, #0056b3);
+      color: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: transform 0.1s ease-in-out, box-shadow 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .btn-modern:active {
+      transform: scale(0.96);
+    }
+    .btn-modern::after {
+      content: "";
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.3);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      border-radius: 50%;
+      transition: transform 0.4s ease-out;
+      pointer-events: none;
+    }
+    .btn-modern:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .btn-modern i {
+      margin-right: 8px;
+      font-size: 24px;
+    }
+    .btn-modern.secondary {
+      background: #E4E6EB;
+      color: black;
+      box-shadow: none;
+    }
+    /* Stock Section */
+    .cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .product-card {
+      background: var(--white);
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      width: calc(50% - 10px);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+    }
+    #stock-category .product-card {
+      width: 100% !important;
+    }
+    .product-icon {
+      font-size: 36px;
+      margin-right: 10px;
+    }
+    .product-details h3 {
+      margin: 0 0 5px;
+      font-size: 18px;
+    }
+    .price-item {
+      background: var(--white);
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+    .modal-content {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90%;
+      overflow-y: auto;
+      padding: 15px;
+      position: relative;
+      box-shadow: var(--shadow);
+    }
+    .modal-content h2 {
+      margin-bottom: 10px;
+      text-align: center;
+      font-size: 20px;
+      color: var(--primary-color);
+    }
+    .modal .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 26px;
+      font-weight: bold;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+    /* Bottom Navigation Modernisée */
+    .bottom-nav-pro {
+      display: flex;
+      justify-content: space-around;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 5px 0;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      font-size: 12px;
+      color: #555;
+      transition: color 0.3s ease;
+      padding: 5px 0;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+    .nav-item.active {
+      color: var(--primary-color);
+      font-weight: bold;
+      background: rgba(0, 96, 100, 0.1);
+      border-radius: 12px;
+    }
+    .nav-item i {
+      font-size: 24px;
+      margin-bottom: 2px;
+    }
+    .nav-item::after {
+      content: "";
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.3);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      border-radius: 50%;
+      transition: transform 0.4s ease-out;
+      pointer-events: none;
+    }
+    .nav-item:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    /* Sales History Cards */
+    .list-container {
+      padding: 5px;
+    }
+    .vente-card {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      position: relative;
+      width: 100%;
+    }
+    .vente-card p {
+      margin-bottom: 6px;
+    }
+    .vente-card button {
+      width: auto;
+      padding: 10px 14px;
+      font-size: 16px;
+      background-color: var(--primary-color);
+      color: var(--white);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .vente-card button:hover {
+      background-color: var(--secondary-color);
+    }
+    .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: red;
+      cursor: pointer;
+    }
+    .echouee {
+      border: 2px solid red;
+    }
+    .panier-item {
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+ /* ===============================
+   Interface Menu (Thème Clair)
+   =============================== */
+#screen-menu {
+    /* Garder le padding de base ou ajuster si nécessaire */
+    padding: 0; /* Suppression du padding ici pour le gérer au niveau des .menu-group */
+}
+
+#screen-menu .menu {
+    padding: 15px; /* Padding général pour l'ensemble du contenu du menu */
+}
+
+#screen-menu .header,
+#screen-menu .profile-section {
+    /* Garder ces styles car ils sont déjà bons */
+    margin-bottom: 20px; /* Légère augmentation pour plus d'espace */
+}
+
+/* NOUVEAUX STYLES POUR LES GROUPES DE MENU ET LEURS ÉLÉMENTS */
+
+.menu-group {
+    margin-bottom: 25px; /* Espace entre chaque groupe de menu */
+}
+
+.menu-group-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #555; /* Couleur de texte plus foncée pour le titre de groupe */
+    margin-bottom: 10px; /* Espace sous le titre du groupe */
+    padding-left: 5px; /* Petite indentation pour aligner avec les icônes */
+    text-transform: uppercase; /* Comme dans l'exemple eBay */
+    letter-spacing: 0.5px;
+}
+
+.menu-list {
+    list-style: none; /* Supprime les puces par défaut des listes */
+    padding: 0;
+    margin: 0;
+    background-color: var(--white); /* Fond blanc pour la liste */
+    border-radius: var(--border-radius); /* Bords arrondis */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Légère ombre pour la profondeur */
+    overflow: hidden; /* Pour que les bords arrondis s'appliquent bien */
+}
+
+.menu-list-item {
+    display: flex; /* Permet d'aligner l'icône et le texte */
+    align-items: center; /* Aligne verticalement au centre */
+    padding: 15px; /* Espacement interne confortable */
+    color: var(--text-color);
+    font-size: 17px; /* Taille de police plus lisible */
+    font-weight: 500;
+    border-bottom: 1px solid #eee; /* Ligne de séparation entre les éléments */
+    cursor: pointer;
+    transition: background-color 0.1s ease-in-out; /* Effet de transition pour le clic */
+}
+
+.menu-list-item:last-child {
+    border-bottom: none; /* Pas de bordure après le dernier élément de la liste */
+}
+
+.menu-list-item:active {
+    background-color: #f0f0f0; /* Couleur de fond au clic/toucher */
+}
+
+.menu-list-item i {
+    font-size: 24px; /* Taille des icônes */
+    margin-right: 15px; /* Espacement entre l'icône et le texte */
+    color: var(--primary-color); /* Couleur des icônes */
+}
+
+/* Ajustements pour les éléments "Déconnexion", "FAQ", etc. pour qu'ils aient la même apparence */
+/* Ciblez spécifiquement si nécessaire, ou laissez le .menu-list-item général s'appliquer */
+.menu-list-item[onclick="deconnexion()"] {
+    color: #dc3545; /* Rouge pour Déconnexion */
+}
+.menu-list-item[onclick="deconnexion()"] i {
+    color: #dc3545; /* Icône rouge aussi */
+}
+    /* CSS pour l'écran de recherche d'article */
+    #searchProduitInput {
+      width: 100%;
+      padding: 10px;
+      border-radius: var(--border-radius);
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+    /* Styles ajoutés pour la liste de suggestions */
+.suggestion-list {
+  /* REMPLACEZ 'position: absolute;' par la ligne ci-dessous ou supprimez-la. */
+  /* position: absolute; */ /* Ligne à commenter ou supprimer */
+  position: static; /* NOUVELLE LIGNE: pour la remettre dans le flux */
+  background: var(--white);
+  border: 1px solid #ccc;
+  /* z-index: 1000; */ /* Ligne à commenter ou supprimer, car pas nécessaire pour un élément statique */
+  max-height: 150px;
+  overflow-y: auto;
+  width: 100%;
+  display: none; /* Toujours caché par défaut via CSS */
+  margin-top: 5px; /* Optionnel: ajoute un petit espace */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Ajoute une légère ombre comme une carte */
+  border-radius: var(--border-radius); /* Bords légèrement arrondis */
+}
+    .suggestion-item {
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    .suggestion-item:hover {
+      background: #f0f0f0;
+    }
+
+    /* Style pour l'option "Ajouter nouveau fournisseur" */
+.suggestion-item.add-new-supplier {
+  background-color: #e0f2f7; /* Un fond bleu/vert très clair pour le distinguer */
+  color: var(--primary-color); /* Couleur du texte principale */
+  font-weight: 500;
+  padding: 8px 10px;
+  border-top: 1px solid #cce9ef; /* Une petite ligne de séparation subtile */
+  cursor: pointer;
+  display: flex; /* Pour aligner l'icône et le texte */
+  align-items: center;
+  gap: 5px; /* Espace entre l'icône et le texte */
+  font-size: 14px; /* Rendre le texte plus petit */
+  transition: background-color 0.2s ease;
+}
+
+.suggestion-item.add-new-supplier:hover {
+  background-color: #cce9ef; /* Un peu plus foncé au survol */
+}
+
+.suggestion-item.add-new-supplier i {
+  font-size: 16px; /* Taille de l'icône plus petite */
+  margin-right: 2px;
+}
+
+
+  </style>
+  <!-- Styles spécifiques aux suggestions déjà existants -->
+  <style>
+
+
+    /* Icône panier + badge */
+.cart-icon {
+  position: relative;
+  cursor: pointer;
+  font-size: 24px;
+  color: var(--primary-color);
+}
+
+/* Au lieu de cacher tout le container, on cache juste le badge */
+#searchCartCount {
+  display: none;
+}
+
+
+.cart-icon .cart-badge {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  background: #f44336;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+    
+.accounts-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+.account-card {
+  flex: 1;
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.account-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #006064;
+}
+.account-card p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* === Cart Footer === */
+.cart-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 56px;              /* laisse la place à la bottom-nav-pro (hauteur ~56px) */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px; 
+  background: var(--white);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  z-index: 1001;
+  /* === NOUVEAU : coins arrondis en haut === */
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.cart-footer .footer-info,
+.cart-footer .footer-total {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.cart-footer .footer-label {
+  font-size: 14px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.cart-footer #footerQuantity,
+.cart-footer #footerTotal {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+/* Réduire le bouton “Suivant” du panier */
+#cartFooter .btn-modern {
+  padding: 6px 12px;      /* moins d’espace intérieur */
+  font-size: 14px;        /* texte un peu plus petit */
+  border-radius: 30px;    /* coins un peu moins arrondis */
+  /* si besoin, limiter la largeur max : */
+  max-width: 120px;
+}
+#screen-panier header {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  /* si vous voulez une ligne en dessous : */
+  border-bottom: 1px solid #e0e0e0;
+}
+#screen-panier header h1 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--primary-color);
+}
+#screen-panier .header-icons {
+  margin-left: auto;    /* pousse les icônes tout à droite */
+}
+#screen-panier .header-icons i {
+  font-size: 24px;
+  margin-left: 16px;    /* espace entre chaque icône */
+  cursor: pointer;
+}
+
+#screen-panier header .header-icons {
+  display: flex;      /* assure-toi que c'est un flex container */
+  gap: 35px;          /* espace entre chaque icône */
+  padding: 0 15px;    /* éventuellement un peu de padding autour */
+  align-items: center;
+}
+
+.btn-search {
+  position: relative;
+  overflow: hidden;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.btn-search .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.15);
+  transform: scale(0);
+  animation: ripple 0.6s linear;
+  pointer-events: none;
+}
+
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   BOUTON  "HISTORY"  SUR CHAQUE CARTE PRODUIT (STOCK)
+   ============================================================ */
+   .product-card {           /* ta carte existante : on ajoute…   */
+  position: relative;     /* …un contexte pour l'absolute       */
+}
+
+/* bouton rond translucide */
+.product-card .history-btn{
+  position:absolute;
+  top:6px; right:6px;                 /* coin haut-droit          */
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  border:none; border-radius:50%;
+  background:rgba(0,0,0,.05);
+  cursor:pointer;
+  transition:background .25s;
+}
+.product-card .history-btn i{
+  width:18px; height:18px;
+  color:var(--primary-color);
+}
+
+.product-card .history-btn:hover i{
+  color:#fff;
+}
+
+/* Écran Démarrer la journée */
+#screen-start-day {                   /* caché par défaut */
+  background: var(--bg-color);
+  height: 100vh;
+  text-align: center;
+  padding-top: 40vh;                  /* bouton centré verticalement */
+}
+#screen-start-day.active {           /* devient visible quand on ajoute .active */
+  display: block;
+}
+/* Cache la bottom-nav quand l’écran #screen-start-day est actif */
+#screen-start-day.active ~ .bottom-nav-pro {
+  display: none;
+}
+
+.start-day-container {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-start-day {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent-color);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-start-day:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+}
+
+.btn-start-day:active {
+  transform: scale(0.95);
+}
+/* =========================================================
+   NOUVEAU STYLE POUR LES CARTES D'HISTORIQUE DES VENTES
+   ========================================================= */
+
+/* On retire la classe .vente-card pour la remplacer par .history-card */
+#ventesContainer .history-card {
+    display: flex;
+    align-items: center;
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    padding: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    border-left: 4px solid transparent; /* Bordure de statut */
+}
+
+/* --- Statuts colorés --- */
+.history-card.status-reussie { border-left-color: #4CAF50; } /* Vert */
+.history-card.status-echouee { border-left-color: #F44336; } /* Rouge */
+.history-card.status-en-cours { border-left-color: #FF9800; } /* Orange */
+.history-card.status-vente-directe { border-left-color: #2196F3; } /* Bleu */
+
+
+/* --- Conteneur de l'icône à gauche --- */
+.history-card .icon-container {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+}
+.history-card.status-reussie .icon-container { background-color: #e8f5e9; }
+.history-card.status-echouee .icon-container { background-color: #ffebee; }
+.history-card.status-en-cours .icon-container { background-color: #fff3e0; }
+.history-card.status-vente-directe .icon-container { background-color: #e3f2fd; }
+
+.history-card .icon-container i {
+    width: 22px;
+    height: 22px;
+}
+.history-card.status-reussie i { color: #4CAF50; }
+.history-card.status-echouee i { color: #F44336; }
+.history-card.status-en-cours i { color: #FF9800; }
+.history-card.status-vente-directe i { color: #2196F3; }
+
+
+/* --- Bloc d'informations central --- */
+.history-card .info-container {
+    flex-grow: 1;
+}
+
+.history-card .client-name {
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--text-color);
+    margin-bottom: 4px;
+}
+
+.history-card .meta-info {
+    font-size: 13px;
+    color: #666;
+}
+
+/* --- Bloc montant à droite --- */
+.history-card .amount-container {
+    text-align: right;
+    margin-left: 10px;
+}
+
+.history-card .total-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.history-card .sale-time {
+    font-size: 12px;
+    color: #777;
+}
+
+/* --- Bouton Annuler (icône) --- */
+.history-card .cancel-btn-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 5px;
+}
+.history-card .cancel-btn-icon:hover {
+    color: #F44336;
+}
+
+/* --- Bouton Détails (plus discret) --- */
+.history-card .details-btn-link {
+    font-size: 13px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 6px;
+    display: inline-block;
+}
+  </style>
+</head>
+<body>
+  <!-- Preloader -->
+  <div id="preloader">
+    <div class="spinner"></div>
+  </div>
+  
+  <!-- Sale Loader Popup -->
+  <div id="saleLoader">
+    <div class="loader-content">
+      <div class="spinner" style="width:40px; height:40px; border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-color);"></div>
+      <p>Enregistrement de la vente...</p>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <!-- Message de progression pour les téléchargements -->
+  <div id="downloadProgress" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:var(--white); padding:10px 20px; border-radius:5px; z-index:3000;"></div>
+  
+  <div id="app" style="display: none;">
+    <!-- Screen 1: Nouvelle Vente - Multi-steps -->
+    <section id="screen-vendre" class="screen active">
+      <header>
+        <!-- Entête retiré selon la demande -->
+      </header>
+      
+
+      <div id="saleSteps">
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <span id="progressText">Étape 1 / 5</span>
+        <div class="sale-step active" id="step1">
+          <h2>Étape 1 : Ajouter des Articles</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="produit">Article</label>
+            <div class="input-container">
+              <input type="text" id="produit" placeholder="Rechercher un article" autocomplete="off" />
+              <div id="suggestionList" class="suggestion-list"></div>
+            </div>
+            <label for="prix">Prix Unitaire</label>
+            <input type="number" id="prix" placeholder="Prix unitaire" oninput="calculerTotalArticle()" />
+            <label for="quantite">Quantité</label>
+            <div class="quantity-container">
+              <button type="button" onclick="decrementQuantity()">–</button>
+              <input type="number" id="quantite" min="1" value="1" oninput="calculerTotalArticle()" />
+              <button type="button" onclick="incrementQuantity()">+</button>
+            </div>
+            <label for="totalArticle">Montant Total</label>
+            <input type="number" id="totalArticle" readonly placeholder="Calcul automatique" />
+            <button type="button" class="btn-modern" onclick="ajouterArticle()">
+              <i data-lucide="shopping-cart"></i> Ajouter Article
+            </button>
+          </form>
+          <button class="btn-modern secondary" onclick="ouvrirPanier()">
+            <i data-lucide="shopping-bag"></i> Voir Panier
+          </button>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button id="installBtn" style="display: none;">
+  📲 Installer l'application
+</button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 2 : Informations Client -->
+        <div class="sale-step" id="step2">
+          <h2>Étape 2 : Informations Client</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="clientNom">Nom du Client</label>
+            <div class="input-with-icon">
+              <i data-lucide="user"></i>
+              <input type="text" id="clientNom" placeholder="Nom du client" required />
+            </div>
+            <label for="clientNumero">WhatsApp</label>
+            <div class="input-with-icon">
+              <i data-lucide="phone"></i>
+              <input type="text" id="clientNumero" placeholder="Numéro WhatsApp" required />
+            </div>
+          </form>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 3 : Informations Vendeur -->
+        <div class="sale-step" id="step3">
+          <h2>Étape 3 : Informations Vendeur</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="vendeurSelect">Vendeur</label>
+            <select id="vendeurSelect">
+              <!-- Options générées via Firestore -->
+            </select>
+            <!-- ====== NOUVEAU : choix du compte ====== -->
+            <label for="compteSelectVente">Compte de trésorerie <span style="color:red;">*</span></label>
+            <select id="compteSelectVente" required>
+              <option value="" disabled selected>— Choisissez un compte —</option>
+              <!-- Les options sont ensuite injectées dynamiquement -->
+            </select>
+            
+<!-- ======================================= -->
+
+            <label for="photoFacture">Photo de la facture</label>
+            <input type="file" accept="image/*" capture="camera" id="photoFacture" />
+            <label for="observationsVendeur">Observations</label>
+            <textarea id="observationsVendeur" placeholder="Observations (facultatif)"></textarea>
+            <label for="isDelivery">
+              <input type="checkbox" id="isDelivery" onchange="toggleDeliveryFields()" /> Vente avec Livraison
+            </label>
+          </form>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 4 : Informations Livraison -->
+        <div class="sale-step" id="step4">
+          <h2>Étape 4 : Informations Livraison</h2>
+          <form class="vente-form" onsubmit="event.preventDefault();">
+            <label for="livreurNom">Nom du Livreur</label>
+            <input type="text" id="livreurNom" placeholder="Nom du livreur" />
+            <label for="livreurNumero">Numéro du Livreur</label>
+            <input type="text" id="livreurNumero" placeholder="Numéro du livreur" />
+            <label for="lieuLivraison">Lieu de Livraison</label>
+            <input type="text" id="lieuLivraison" placeholder="Lieu de livraison" />
+          </form>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" onclick="nextStep()">
+              Suivant <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Étape 5 : Confirmation -->
+        <div class="sale-step" id="step5">
+          <h2>Étape 5 : Confirmation</h2>
+          <div id="saleRecap">
+            <!-- Récapitulatif dynamique de la vente -->
+          </div>
+          <div class="step-navigation">
+            <button class="btn-modern secondary" onclick="prevStep()">
+              <i data-lucide="arrow-left"></i> Retour
+            </button>
+            <button class="btn-modern" id="btnValider" onclick="if(confirm(getValidationMessage())) { validerVente(); }">
+              Confirmer la Vente
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Screen 2: Livraisons -->
+    <section id="screen-livraisons" class="screen">
+      <header>
+        <h1>Historique des Livraisons</h1>
+        <div class="timestamp">
+          <span id="dateLivraison"></span>
+        </div>
+      </header>
+      <div id="livraisonsContainer" class="list-container"></div>
+    </section>
+    
+    <!-- Screen 3: Historique des Ventes -->
+    <section id="screen-historique" class="screen">
+      <header>
+        <h1>Historique des Ventes</h1>
+        <div class="timestamp">
+          <span id="dateAfficheHist"></span>
+        </div>
+      </header>
+
+      <div id="history-filters" style="padding:10px; text-align:center;">
+        <input type="date" id="filterHistoryDate" onchange="filterHistory()" />
+        <div id="totalPhonesSold" style="margin-top:10px; font-weight:bold;"></div>
+      </div>
+      <div id="ventesContainer" class="list-container"></div>
+    </section>
+
+    <script>
+      // Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
+      window.addEventListener("load", () => {
+        const todayISO = new Date().toISOString().split("T")[0];
+        document.getElementById("filterHistoryDate").value = todayISO;
+        filterHistory(); // Charge automatiquement les ventes d'aujourd'hui
+      });
+    
+      // Fonction pour filtrer l'historique des ventes en fonction de la date sélectionnée
+      function filterHistory() {
+        const dateInput = document.getElementById("filterHistoryDate").value;
+        if (!dateInput) {
+          console.warn("Aucune date sélectionnée");
+          return;
+        }
+        // Convertir la date ISO en format "fr-FR" (par exemple "19/03/2025")
+        const selectedDate = new Date(dateInput).toLocaleDateString("fr-FR");
+    
+        dbFirestore.collection("ventes")
+          .where("dateVente", "==", selectedDate)
+          .get()
+          .then(querySnapshot => {
+            let totalPhones = 0;
+            const salesList = [];
+            
+            querySnapshot.forEach(doc => {
+              const sale = doc.data();
+              sale.id = doc.id;
+              salesList.push(sale);
+              
+              // Calculer le total des téléphones vendus.
+              // Si l'article ne contient pas de propriété "category", on suppose que c'est un téléphone.
+              if (sale.items && Array.isArray(sale.items)) {
+                sale.items.forEach(item => {
+                  if (!item.category || item.category.toLowerCase() === "telephones") {
+                    totalPhones += parseInt(item.quantite) || 0;
+                  }
+                });
+              }
+            });
+            
+            // Met à jour l'affichage du nombre total de téléphones vendus
+            document.getElementById("totalPhonesSold").innerText =
+              "Total Téléphones vendus : " + totalPhones;
+            
+            // Affiche l'historique des ventes
+            displaySalesHistory(salesList);
+          })
+          .catch(err => {
+            console.error("Erreur lors du filtrage des ventes par date:", err);
+          });
+      }
+    
+ /**
+ * Génère une facture PDF pour une vente donnée en utilisant jsPDF et jsPDF-AutoTable,
+ * en respectant le style visuel du document "Facture AFRICA 9.pdf".
+ * Cette version corrigée gère les nombres contenant des slashes (ex: "11/000").
+ * @param {object} sale - L'objet de la vente contenant les détails nécessaires.
+ */
+ /**
+ * Génère une facture PDF pour une vente donnée en utilisant jsPDF et jsPDF-AutoTable,
+ * en respectant le style visuel du document "Facture AFRICA 9.pdf".
+ * Cette version corrigée gère les nombres contenant des slashes (ex: "11/000") et utilise le helper fmt.
+ * @param {object} sale - L'objet de la vente contenant les détails nécessaires.
+ */
+function generateInvoicePDF(sale) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'pt', 'a4'); // Utilise les points comme unité pour un meilleur contrôle
+
+    // --- Fonction utilitaire pour la conversion de nombre en lettres ---
+    // Cible : "vingt cinq mille quatre cent"
+    const numberToWordsFr = (n) => {
+        if (n === 0) return 'zéro';
+
+        const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+        const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+        const tens = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+
+        const convertChunk = (num) => {
+            let chunkWords = "";
+            if (num >= 100) {
+                const hundreds = Math.floor(num / 100);
+                chunkWords += (hundreds > 1 ? units[hundreds] + ' ' : '') + 'cent';
+                num %= 100;
+                if (num > 0) chunkWords += ' ';
+            }
+            if (num >= 10) {
+                if (num < 20) {
+                    chunkWords += teens[num - 10];
+                } else {
+                    const ten = Math.floor(num / 10);
+                    chunkWords += tens[ten];
+                    if (num % 10 === 1 && ten < 8) { // soixante et un, etc.
+                         chunkWords += ' et ' + units[num % 10];
+                    } else if (num % 10 !== 0) {
+                         chunkWords += ' ' + units[num % 10];
+                    }
+                }
+            } else if (num > 0) {
+                chunkWords += units[num];
+            }
+            return chunkWords;
+        };
+        
+        if (n < 1000) return convertChunk(n);
+
+        const thousands = Math.floor(n / 1000);
+        const remainder = n % 1000;
+
+        let words = "";
+        if (thousands === 1) {
+            words = 'mille';
+        } else {
+            words = convertChunk(thousands) + ' mille';
+        }
+
+        if (remainder > 0) {
+            words += ' ' + convertChunk(remainder);
+        }
+
+        return words.trim().replace(/-/g, ' ');
+    };
+
+    // --- Fonction utilitaire pour nettoyer les nombres ---
+    const cleanNumber = (input) => {
+        if (typeof input === 'number') return input;
+        // Retire les slashes et les espaces, puis convertit en nombre
+        return parseFloat(String(input).replace(/[\/\s]/g, '')) || 0;
+    };
+
+
+    try {
+        // --- En-tête de l'entreprise (Haut Gauche) ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("AFRICA PHONE", 40, 50);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text("RB/ABC/24 B 8356", 40, 65);
+        doc.text("N° Ifu: 3202413299289", 40, 78);
+        doc.text("Ilot: 168, Agori, Abomey-Calavi, Bénin", 40, 91);
+        doc.text("E-mail: africaphone24@gmail.com", 40, 104);
+        doc.text("+229 54 15 15 22", 40, 117);
+
+        // --- Titre "FACTURE" (Centré) ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(28);
+        doc.text("FACTURE", doc.internal.pageSize.getWidth() / 2, 80, { align: 'center' });
+
+        // --- Ligne de séparation ---
+        doc.setLineWidth(1);
+        doc.line(40, 135, 555, 135);
+
+        // --- Informations sur la facture ---
+        let y = 160;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+
+        doc.text("Référence :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(`AFPNE${(sale.id || '00000').substring(0, 5).toUpperCase()}`, 150, y);
+
+        y += 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Date :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(sale.dateVente || 'N/A', 150, y);
+
+        y += 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Objet de la facture :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text("Achat de téléphone portable", 150, y);
+
+        y += 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Client :", 40, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(sale.clientNom || 'Client Inconnu', 150, y);
+
+
+        // --- Tableau des articles ---
+        const tableColumn = ["Désignation", "P.U.", "Qté", "Montant"];
+        const tableRows = [];
+
+        sale.items.forEach(item => {
+            const pu = cleanNumber(item.prix);
+            const total = cleanNumber(item.total);
+            
+            const itemData = [
+                item.produit || "Article inconnu",
+                fmt(pu),
+                item.quantite || "0",
+                `${fmt(total)} FCFA`
+            ];
+            tableRows.push(itemData);
+        });
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: y + 30,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [220, 220, 220],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold'
+            },
+            styles: {
+                font: 'helvetica',
+                fontSize: 10
+            },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { halign: 'right' },
+                2: { halign: 'center' },
+                3: { halign: 'right' }
+            },
+            margin: { left: 40, right: 40 }
+        });
+
+        // ==========================================================
+        //          DÉBUT DU PIED DE PAGE CORRIGÉ (AVEC footerY)
+        // ==========================================================
+
+        // On définit notre position de départ ('footerY') juste en dessous du tableau des articles
+        let footerY = doc.lastAutoTable.finalY + 30; // Marge de 30pt sous le tableau
+
+        // --- TOTAL HT ---
+        // On aligne le total à droite
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        const overallTotal = cleanNumber(sale.overallTotal);
+        const totalText = `TOTAL HT: ${fmt(overallTotal)} FCFA`;
+        doc.text(totalText, 555, footerY, { align: 'right' });
+
+        // --- Garantie 1 an ---
+        // On aligne cette mention à gauche, sur la même ligne visuelle que le total
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.text("Avec Garantie de 1an (12 mois)", 40, footerY);
+
+        // On descend pour la suite
+        footerY += 30;
+
+        // --- Montant en lettres ---
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        const totalAmountInWords = numberToWordsFr(overallTotal);
+        const fullText = `Arrêté la présente facture à la somme de ${totalAmountInWords} FCFA.`;
+        const splitText = doc.splitTextToSize(fullText, 515); // On gère le retour à la ligne
+        doc.text(splitText, 40, footerY);
+
+        // On se décale vers le bas de la hauteur du texte qu'on vient d'écrire, plus une marge
+        footerY += (splitText.length * 12) + 20; // 12pt de hauteur par ligne + 20pt de marge
+
+        // --- Section des Conditions de Garantie ---
+
+        // On vérifie qu'on a assez de place, sinon on crée une nouvelle page
+        if (footerY > 680) {
+            doc.addPage();
+            footerY = 40; // On repart en haut de la nouvelle page
+        }
+
+        // 1. Ligne de séparation
+        doc.setDrawColor(200, 200, 200); // Gris clair
+        doc.setLineWidth(0.5);
+        doc.line(40, footerY, 555, footerY); // Ligne horizontale sur toute la largeur
+        footerY += 25;
+
+        // 2. Titre des conditions
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("Conditions de Garantie", doc.internal.pageSize.getWidth() / 2, footerY, { align: 'center' });
+        footerY += 25;
+
+        // 3. Le contenu des conditions
+        const warrantyParagraphs = [
+            "Couverture : La garantie s’applique uniquement aux défauts de fabrication ou problèmes techniques du téléphone.",
+            "Exclusions : Tout dommage causé par l’utilisateur (chute, contact avec l’eau, mauvaise utilisation, etc.) est exclu de la garantie.",
+            "Procédure de retour :",
+            "a. Le produit doit être examiné pour confirmer le problème.",
+            "b. Une réparation sera tentée en priorité.",
+            "c. Un remplacement ne sera envisagé que si la réparation est impossible.",
+            "Délais : Le temps de réparation varie selon la nature de la panne et la disponibilité des techniciens.",
+            "Conditions de prise en charge : Aucun service de garantie ne sera effectué si le téléphone n’est pas retourné avec son emballage d’origine complet (boîte, accessoires, etc.) et en bon état."
+        ];
+
+        // 4. On dessine les paragraphes
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        
+        warrantyParagraphs.forEach(p => {
+            const isListItem = p.match(/^[a-z]\./);
+            const xPosition = isListItem ? 55 : 40; // Indentation pour les listes a,b,c
+            
+            const lines = doc.splitTextToSize(p, 515);
+            doc.text(lines, xPosition, footerY);
+            
+            footerY += (lines.length * 10) + (isListItem ? 2 : 6); // On descend après chaque paragraphe
+        });
+
+        // ==========================================================
+        //            FIN DU PIED DE PAGE CORRIGÉ
+        // ==========================================================
+
+
+        // --- Sauvegarde du PDF ---
+        doc.save(`Facture_AFONE_${(sale.clientNom || 'Vente').replace(/ /g, '_')}_${sale.id.substring(0, 5)}.pdf`);
+        showToast('Facture PDF générée avec succès.');
+
+    } catch (e) {
+        console.error("Erreur lors de la génération de la facture PDF :", e);
+        alert("Une erreur est survenue lors de la génération de la facture.");
+    }
+}
+
+// Remplacez votre fonction displaySalesHistory par celle-ci
+function displaySalesHistory(salesList) {
+    const container = document.getElementById("ventesContainer");
+    container.innerHTML = "";
+    
+    if (salesList.length === 0) {
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
+                <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+                <p style="font-size: 18px; color: #888; margin-top: 20px;">Aucune vente enregistrée…</p>
+            </div>`;
+        lucide.createIcons();
+        return;
+    }
+    
+    // On trie les ventes par ordre décroissant (la plus récente en premier)
+    salesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    salesList.forEach(sale => {
+        const card = document.createElement("div");
+
+        // Déterminer le statut et l'icône de la vente
+        let statusClass = 'status-vente-directe';
+        let iconName = 'shopping-bag';
+        let statusText = 'Vente directe';
+
+        if (sale.isDelivery) {
+            iconName = 'truck';
+            switch (sale.deliveryStatus) {
+                case 'réussie':
+                    statusClass = 'status-reussie';
+                    statusText = 'Livraison réussie';
+                    break;
+                case 'échouée':
+                    statusClass = 'status-echouee';
+                    statusText = 'Livraison échouée';
+                    break;
+                default:
+                    statusClass = 'status-en-cours';
+                    statusText = 'Livraison en cours';
+                    break;
+            }
+        }
+        
+        card.className = `history-card ${statusClass}`;
+        
+        const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
+        
+        // Construire le HTML de la carte en ajoutant le bouton de téléchargement
+        card.innerHTML = `
+            <div class="icon-container">
+                <i data-lucide="${iconName}"></i>
+            </div>
+            <div class="info-container">
+                <div class="client-name">${sale.clientNom || 'Client Inconnu'}</div>
+                <div class="meta-info">
+                    👤 ${sale.vendeur || 'N/A'} • 
+                    ${sale.items ? sale.items.length : 0} article(s) • 
+                    <span style="font-weight:500;">${statusText}</span>
+                </div>
+                <div style="margin-top: 6px;">
+                    <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">Détails</a>
+                    
+                    <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="margin-left: 15px; cursor:pointer;">
+                        <i data-lucide="download" style="width:16px; height:16px; vertical-align: -3px; margin-right: 4px;"></i>
+                        Facture
+                    </a>
+                </div>
+            </div>
+            <div class="amount-container">
+                <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
+                <div class="sale-time">${sale.heureVente || ''}</div>
+            </div>
+            <button class="cancel-btn-icon" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">
+                <i data-lucide="x-circle" style="width:18px; height:18px;"></i>
+            </button>
+        `;
+        container.appendChild(card);
+    });
+
+    // Attacher les écouteurs d'événements pour les nouveaux boutons de téléchargement
+    container.querySelectorAll('.download-invoice-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation(); 
+            const saleId = event.currentTarget.getAttribute('data-sale-id');
+            const saleData = salesList.find(s => s.id === saleId);
+
+            if (saleData) {
+                generateInvoicePDF(saleData);
+            } else {
+                console.error('Données de vente non trouvées pour ID :', saleId);
+                alert('Erreur: Impossible de trouver les données de la vente.');
+            }
+        });
+    });
+
+    // Recharger les icônes Lucide pour toute la page
+    lucide.createIcons();
+}
+    </script>
+    
+    <!-- Screen  : Démarrer la journée -->
+<section id="screen-start-day" class="screen">
+  <div class="start-day-container">
+    <button id="btnStartDay" class="btn-start-day">
+      <span>▶ Démarrer la journée</span>
+    </button>
+  </div>
+</section>
+
+
+    <!-- Screen 4: Stock -->
+    <section id="screen-stock" class="screen">
+      <header>
+        <h1>Stock</h1>
+        <div class="timestamp">
+          <span id="dateStock"></span>
+        </div>
+      </header>
+      <div id="stock-home">
+        <div class="summary" style="padding: 15px; background: var(--white); border-radius: var(--border-radius); box-shadow: var(--shadow); margin-bottom: 15px;">
+          <p><strong>Total Téléphones :</strong> <span id="total-telephones">0</span></p>
+          <p><strong>Total Accessoires :</strong> <span id="total-accessoires">0</span></p>
+        </div>
+        <div class="card-buttons" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+          <button class="btn-modern" onclick="showStockCategory('telephones')">
+            <i data-lucide="package"></i> Téléphones
+          </button>
+          <button class="btn-modern" onclick="showStockCategory('accessoires')">
+            <i data-lucide="headphones"></i> Accessoires
+          </button>
+          <!-- NOUVEAU BOUTON -->
+          <button id="exportStockBtn" class="btn-modern secondary">
+            <i data-lucide="download"></i> Exporter stock Excel
+          </button>
+        </div>
+        
+      </div>
+      <div id="stock-category" style="display: none;">
+        <button class="btn-modern secondary" onclick="backToStockHome()">
+          <i data-lucide="arrow-left"></i> Retour
+        </button>
+        <input type="text" id="search-category" placeholder="Rechercher..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: var(--border-radius);" oninput="filterStockCategory()">
+        <div id="category-container" class="cards-container"></div>
+      </div>
+    </section>
+
+<!-- === Screen Stock : Historique (avec contenu) === -->
+<section id="screen-stock-history" class="screen">
+  <header>
+    <button class="back-btn" onclick="window.location.hash='stock'">← Retour</button>
+    <h1>Historique du Stock</h1>
+  </header>
+  <div id="stockHistoryContainer" class="list-container">
+    <!-- JS injectera ici les variations -->
+  </div>
+</section>
+
+
+
+    <!-- Screen 5: Entrée de Stock -->
+    <section id="screen-entree-stock" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='parametres'">← Retour</button>
+        <h1>Nouvelle Entrée de Stock</h1>
+      </header>
+      <div class="form-section">
+        <h2>Ajouter un Article</h2>
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterEntreeStock();">
+          <label for="categorieEntree">Catégorie</label>
+          <select id="categorieEntree">
+            <option value="telephones">Téléphones</option>
+            <option value="accessoires">Accessoires</option>
+          </select>
+          <label for="produitEntree">Article</label>
+          <div class="input-with-icon">
+            <i data-lucide="package"></i>
+            <input type="text" id="produitEntree" placeholder="Rechercher un article" autocomplete="off" />
+            <div id="suggestionListEntree" class="suggestion-list"></div>
+          </div>
+          <label for="prixEntree">Prix d'Achat Unitaire</label>
+          <div class="input-with-icon">
+            <i data-lucide="dollar-sign"></i>
+            <input type="number" id="prixEntree" placeholder="Prix d'achat unitaire" oninput="calculerTotalEntree()" />
+          </div>
+          <label for="quantiteEntree">Quantité</label>
+          <input type="number" id="quantiteEntree" min="1" value="1" oninput="calculerTotalEntree()" />
+          <label for="totalEntree">Montant Total</label>
+          <div class="input-with-icon">
+            <i data-lucide="calculator"></i>
+            <input type="number" id="totalEntree" readonly placeholder="Calcul automatique" />
+          </div>
+          <button class="btn-modern" type="submit">Ajouter Entrée</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Section Avance de Paiement -->
+<section id="screen-advance" class="screen">
+  <header>
+    <button class="back-btn" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i> Retour
+    </button>
+    <h1>Enregistrer une Avance</h1>
+  </header>
+  <div class="form-section">
+    <h2>Avance de Paiement</h2>
+    <form id="formAdvance" onsubmit="event.preventDefault(); enregistrerAvance();">
+      <label for="saleId">ID de la Vente</label>
+      <input type="text" id="saleId" placeholder="Entrez l'ID de la vente" required />
+
+      <label for="avanceAmount">Montant de l'Avance (FCFA)</label>
+      <input type="number" id="avanceAmount" placeholder="Montant de l'avance" required />
+
+      <label for="modePaiement">Mode de Paiement</label>
+      <select id="modePaiement">
+        <option value="espèces">Espèces</option>
+        <option value="carte">Carte bancaire</option>
+        <option value="virement">Virement</option>
+      </select>
+
+      <button type="submit" class="btn-modern">Enregistrer l'Avance</button>
+    </form>
+  </div>
+</section>
+
+<!-- Script pour la gestion des avances -->
+<script>
+  /**
+   * Fonction pour enregistrer une avance de paiement sur une vente.
+   * Elle récupère le document de vente par son ID, vérifie le solde restant,
+   * ajoute le paiement dans la sous-collection "paiements" puis met à jour le document.
+   */
+  function enregistrerAvance() {
+    const saleId = document.getElementById("saleId").value.trim();
+    const avanceAmount = parseFloat(document.getElementById("avanceAmount").value);
+    const modePaiement = document.getElementById("modePaiement").value;
+
+    if (!saleId) {
+      alert("Veuillez saisir l'ID de la vente.");
+      return;
+    }
+    if (isNaN(avanceAmount) || avanceAmount <= 0) {
+      alert("Veuillez saisir un montant d'avance valide.");
+      return;
+    }
+
+    // Récupérer le document de vente dans la collection "ventes"
+    const saleRef = dbFirestore.collection("ventes").doc(saleId);
+    saleRef.get().then(doc => {
+      if (!doc.exists) {
+        alert("Vente introuvée !");
+        return;
+      }
+      const saleData = doc.data();
+      // Si la vente est déjà réglée, on ne peut pas enregistrer d'avance
+      if (saleData.status === "complet") {
+        alert("La vente est déjà réglée en totalité.");
+        return;
+      }
+      // Calculer le solde restant (en utilisant le champ remainingBalance si présent)
+      const remaining = saleData.remainingBalance !== undefined
+                        ? saleData.remainingBalance
+                        : saleData.totalAmount - (saleData.paidAmount || 0);
+      if (avanceAmount > remaining) {
+        alert("Le montant d'avance dépasse le solde restant (" + remaining.toLocaleString() + " FCFA).");
+        return;
+      }
+      // Créer un document de paiement dans la sous-collection "paiements"
+      const paiement = {
+        montant: avanceAmount,
+        datePaiement: new Date().toISOString(),
+        modePaiement: modePaiement
+      };
+      saleRef.collection("paiements").add(paiement)
+        .then(() => {
+          // Mettre à jour le document de vente avec le nouveau cumul et recalculer le solde
+          const newPaidAmount = (saleData.paidAmount || 0) + avanceAmount;
+          const newRemaining = saleData.totalAmount - newPaidAmount;
+          const newStatus = newRemaining <= 0 ? "complet" : "avance partielle";
+          return saleRef.update({
+            paidAmount: newPaidAmount,
+            remainingBalance: newRemaining,
+            status: newStatus
+          });
+        })
+        .then(() => {
+          alert("Avance enregistrée avec succès !");
+          document.getElementById("formAdvance").reset();
+        })
+        .catch(err => {
+          console.error("Erreur lors de l'enregistrement de l'avance :", err);
+          alert("Erreur lors de l'enregistrement de l'avance : " + err.message);
+        });
     })
-  );
+    .catch(error => {
+      console.error("Erreur lors de la récupération de la vente :", error);
+      alert("Erreur lors de la récupération de la vente : " + error.message);
+    });
+  }
+</script>
+
+<section id="screen-article-detail" class="screen">
+  <ion-app>
+    <ion-header class="ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button onclick="window.location.hash='stock'">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Détail de l'article</ion-title>
+        <ion-buttons slot="end">
+          <ion-button>
+            <ion-icon slot="icon-only" name="pencil-outline"></ion-icon>
+          </ion-button>
+          <ion-button>
+            <ion-icon slot="icon-only" name="ellipsis-vertical-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <div class="main-content">
+        <div class="product-info-grid">
+          <div class="product-details">
+            <h1 id="detail-product-title" class="product-title">Chargement...</h1>
+            
+            <span class="product-price-label">Prix de vente</span>
+            <span id="detail-selling-price" class="product-price-value">...</span>
+
+            <span class="product-price-label">Coût d'achat</span>
+            <span id="detail-purchase-cost" class="product-price-value">...</span>
+          </div>
+          
+          <div class="add-image-box">
+            <span>+ Add</span>
+            <span>Image</span>
+          </div>
+        </div>
+
+        <ion-segment value="details" id="article-tabs">
+  <ion-segment-button value="details">
+    <ion-label>Détails</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="transactions">
+    <ion-label>Transactions</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="history">
+    <ion-label>Historique</ion-label>
+  </ion-segment-button>
+</ion-segment>
+
+<div id="detailsContent" class="tab-content">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="stats-chart-outline"></ion-icon>
+        Stock Summary
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="summary-grid">
+        <div></div>
+        <div class="summary-header">Comptable</div>
+        <div class="summary-header">Physique</div>
+        <div class="summary-label">Stock disponible</div>
+        <div id="detail-stock-on-hand" class="summary-value">...</div>
+        <div class="summary-value">...</div>
+        <div class="summary-label">Stock engagé</div>
+        <div class="summary-value">0.00</div>
+        <div class="summary-value">0.00</div>
+        <div class="summary-label">Disponible à la vente</div>
+        <div id="detail-available-for-sale" class="summary-value">...</div>
+        <div class="summary-value">...</div>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="cube-outline"></ion-icon>
+        Stock Status
+      </ion-card-title>
+    </ion-header>
+    <ion-card-content>
+       <div class="status-grid">
+         </div>
+    </ion-card-content>
+  </ion-card>
+</div>
+
+<div id="transactionsContent" class="tab-content" style="display: none;">
+  </div>
+
+<div id="historyContent" class="tab-content" style="display: none;">
+  </div>
+    </ion-content>
+  </ion-app>
+</section>
+<style>
+  /* Styles spécifiques pour l'écran de détail d'article */
+#screen-article-detail {
+    --ion-background-color: #f5f4fa; 
+    --ion-text-color: #2e3748; 
+    --ion-font-family: 'Inter', sans-serif;
+}
+#screen-article-detail ion-header ion-toolbar {
+    --background: var(--ion-background-color);
+    --border-width: 0 !important;
+    box-shadow: none;
+}
+#screen-article-detail ion-content {
+    --background: var(--ion-background-color);
+}
+#screen-article-detail ion-toolbar {
+    --padding-start: 10px;
+    --padding-end: 10px;
+}
+#screen-article-detail ion-toolbar ion-title {
+    font-weight: 600;
+    color: var(--ion-text-color);
+}
+#screen-article-detail ion-toolbar ion-buttons ion-icon {
+    font-size: 24px;
+    color: var(--ion-text-color);
+}
+#screen-article-detail .main-content {
+    padding: 0 16px;
+}
+#screen-article-detail .product-info-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 16px;
+    margin-bottom: 24px;
+}
+#screen-article-detail .product-details {
+    display: flex;
+    flex-direction: column;
+}
+#screen-article-detail .product-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ion-text-color);
+    margin-bottom: 12px;
+}
+#screen-article-detail .product-price-label {
+    font-size: 14px;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+#screen-article-detail .product-price-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ion-text-color);
+    margin-bottom: 12px;
+}
+#screen-article-detail .add-image-box {
+    width: 100px;
+    height: 100px;
+    border: 2px dashed #d0d0e0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    color: #8a92a6;
+    background-color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+}
+#screen-article-detail ion-segment {
+    --background: var(--ion-background-color);
+    box-shadow: none;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 16px;
+}
+#screen-article-detail ion-segment-button {
+    --color: #6c757d;
+    --color-checked: var(--ion-text-color);
+    --indicator-color: var(--ion-text-color);
+    --indicator-height: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    box-shadow: none !important;
+}
+#screen-article-detail ion-card {
+    --background: #ffffff;
+    box-shadow: none;
+    border-radius: 8px;
+    border: 1px solid #edeaf2;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 16px;
+}
+#screen-article-detail ion-card-header {
+    padding-bottom: 8px;
+}
+#screen-article-detail ion-card-title {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-text-color);
+}
+#screen-article-detail ion-card-title ion-icon {
+    font-size: 20px;
+    margin-right: 8px;
+}
+#screen-article-detail ion-card-content {
+    padding-top: 8px;
+}
+#screen-article-detail .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px 16px;
+    font-size: 14px;
+}
+#screen-article-detail .summary-header {
+    font-weight: 600;
+    color: #6c757d;
+    text-align: right;
+}
+#screen-article-detail .summary-label {
+    color: var(--ion-text-color);
+}
+#screen-article-detail .summary-value {
+    text-align: right;
+    color: var(--ion-text-color);
+    font-weight: 500;
+}
+#screen-article-detail .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    font-size: 14px;
+}
+#screen-article-detail .status-item {
+    display: flex;
+    flex-direction: column;
+}
+#screen-article-detail .status-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-text-color);
+}
+#screen-article-detail .status-label {
+    color: #6c757d;
+}
+/* Cache la barre de navigation quand l'écran de détail d'un article est actif */
+#screen-article-detail.active ~ .bottom-nav-pro {
+    display: none;
+}
+</style>
+<script>
+  /**
+   * Initialise les écouteurs d'événements pour les onglets de la page de détail.
+   * Doit être appelé une seule fois au chargement de la page.
+   */
+  function setupArticleTabs() {
+    const tabs = document.getElementById('article-tabs');
+    // On vérifie si l'écouteur n'a pas déjà été attaché pour éviter les doublons
+    if (tabs && !tabs.listenerAttached) {
+      tabs.addEventListener('ionChange', (event) => {
+        const selectedTab = event.detail.value;
+        handleTabChange(selectedTab);
+      });
+      tabs.listenerAttached = true; // On marque l'écouteur comme attaché
+    }
+  }
+
+  /**
+   * Gère le changement d'onglet et charge les données appropriées.
+   * @param {string} tabValue - La valeur de l'onglet sélectionné ('details', 'transactions', 'history').
+   */
+  function handleTabChange(tabValue) {
+    // Masquer tous les conteneurs de contenu des onglets
+    document.querySelectorAll('#screen-article-detail .tab-content').forEach(content => {
+      content.style.display = 'none';
+    });
+
+    // Afficher le conteneur sélectionné et charger ses données si nécessaire
+    switch (tabValue) {
+      case 'details':
+        document.getElementById('detailsContent').style.display = 'block';
+        // Les détails sont déjà chargés par loadArticleDetail(), donc rien à faire de plus.
+        break;
+      case 'transactions':
+        document.getElementById('transactionsContent').style.display = 'block';
+        loadArticleTransactions(currentArticleId);
+        break;
+      case 'history':
+        document.getElementById('historyContent').style.display = 'block';
+        loadArticleStockHistory(currentArticleId);
+        break;
+    }
+  }
+
+  /**
+   * Charge et affiche l'historique des ventes et approvisionnements pour un article.
+   * @param {string} articleId - L'ID de l'article dans la collection 'stock'.
+   */
+  async function loadArticleTransactions(articleId) {
+    const container = document.getElementById('transactionsContent');
+    container.innerHTML = '<p>Chargement des transactions...</p>';
+
+    try {
+      const stockDoc = await dbFirestore.collection("stock").doc(articleId).get();
+      if (!stockDoc.exists) {
+        container.innerHTML = '<p>Article non trouvé.</p>';
+        return;
+      }
+      const articleName = stockDoc.data().name;
+
+      // Récupérer les ventes récentes qui contiennent cet article
+      const salesSnapshot = await dbFirestore.collection("ventes")
+        .orderBy("timestamp", "desc")
+        .limit(50) // On limite pour ne pas surcharger
+        .get();
+
+      const transactions = [];
+
+      salesSnapshot.forEach(doc => {
+        const sale = doc.data();
+        // On vérifie si un des articles de la vente correspond à notre article
+        const relevantItem = sale.items && sale.items.find(item => item.produit === articleName);
+        if (relevantItem) {
+          transactions.push({
+            date: new Date(sale.timestamp).toLocaleDateString('fr-FR'),
+            type: 'Vente',
+            details: `Client: ${sale.clientNom || 'N/A'}`,
+            montant: relevantItem.total
+          });
+        }
+      });
+      
+      // Ici, vous pourriez ajouter une logique similaire pour les approvisionnements
+
+      if (transactions.length === 0) {
+        container.innerHTML = '<p>Aucune transaction récente pour cet article.</p>';
+        return;
+      }
+
+      // Afficher les transactions trouvées
+      container.innerHTML = '<h3>Transactions Récentes</h3>';
+      transactions.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'vente-card'; // Réutilisation d'un style existant
+        div.style.marginBottom = '8px';
+        div.innerHTML = `<p><strong>${t.date} - ${t.type}</strong><br>${t.details}<br>Montant: <strong>${t.montant.toLocaleString()} FCFA</strong></p>`;
+        container.appendChild(div);
+      });
+
+    } catch (error) {
+        console.error("Erreur lors du chargement des transactions :", error);
+        container.innerHTML = '<p>Erreur lors du chargement des transactions.</p>';
+    }
+  }
+
+  /**
+   * Charge et affiche l'historique des variations de stock pour un article.
+   * @param {string} articleId - L'ID de l'article dans la collection 'stock'.
+   */
+  function loadArticleStockHistory(articleId) {
+    const container = document.getElementById("historyContent");
+    container.innerHTML = "<p>Chargement de l’historique du stock…</p>";
+
+    dbFirestore.collection("stock").doc(articleId).collection("history")
+      .orderBy("timestamp", "desc").limit(50) // On limite aux 50 derniers mouvements
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          container.innerHTML = "<p>Aucune variation de stock enregistrée pour cet article.</p>";
+          return;
+        }
+
+        container.innerHTML = '<h3>Historique des Mouvements de Stock</h3>';
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const date = new Date(d.timestamp).toLocaleString("fr-FR");
+          const change = d.change || 0;
+          const signe = change > 0 ? "+" : "";
+          const color = change > 0 ? "green" : "red";
+          const typeMouvement = d.type === 'approvisionnement' ? 'Approvisionnement' : 'Vente';
+
+          const row = document.createElement("div");
+          row.className = "vente-card"; // Réutilisation d'un style existant
+          row.style.marginBottom = '8px';
+          row.innerHTML = `
+            <p>
+              <strong>${date}</strong> - <span>${typeMouvement}</span><br>
+              Mouvement : <span style="color:${color}; font-weight:bold;">${signe}${change}</span> unités<br>
+              Nouveau Stock : <strong>${d.newStock}</strong>
+            </p>`;
+          container.appendChild(row);
+        });
+      })
+      .catch(err => {
+        console.error("Erreur chargement historique stock:", err);
+        container.innerHTML = "<p>Erreur de chargement de l'historique.</p>";
+      });
+  }
+
+  // Lancement de la configuration des onglets au chargement de la page.
+  window.addEventListener('load', setupArticleTabs);
+
+</script>
+<section id="screen-dettes-fournisseurs" class="screen">
+  <style>
+   /* --- NEW & UPDATED STYLES FOR DETTES FOURNISSEURS --- */
+#screen-dettes-fournisseurs ion-header {
+    /* Subtle shadow for the header */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#screen-dettes-fournisseurs ion-toolbar {
+    /* Override Ionic default toolbar styles for a cleaner look */
+    --background: #fdfdfd; /* Light background for the toolbar */
+    --border-width: 0 !important;
+    box-shadow: none !important;
+}
+
+#screen-dettes-fournisseurs ion-title {
+    font-size: 18px; /* Slightly larger title */
+    font-weight: 600;
+    color: #333; /* Darker text for prominence */
+    text-align: left; /* Align to left as per example */
+    padding-inline-start: 12px;
+}
+
+#screen-dettes-fournisseurs ion-buttons ion-button {
+    --color: #006064; /* Your primary brand color for icons */
+    font-weight: 500;
+    text-transform: none; /* Keep text natural */
+    font-size: 14px;
+}
+#screen-dettes-fournisseurs ion-buttons ion-icon {
+    font-size: 22px; /* Standard icon size */
+    margin-right: 4px; /* Space between icon and text for buttons like "Actualiser" */
+}
+
+#screen-dettes-fournisseurs ion-content {
+    --background: #f5f7fa; /* Match your app's general background color */
+}
+
+/* Filter Bar styles */
+.filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Distribute items */
+    background-color: #f0efff; /* Light purple-blue background */
+    padding: 10px 16px; /* Comfortable padding */
+    border-bottom: 1px solid #ddd;
+    font-size: 14px;
+    color: #555;
+    font-weight: 500;
+}
+
+.filter-bar .total-due {
+    font-weight: bold;
+    color: #333; /* Stronger color for emphasis */
+    flex-grow: 1; /* Allow it to take available space */
+}
+.filter-bar .total-due span {
+    color: #dc3545; /* Red for total debt */
+    font-size: 16px;
+}
+
+.filter-bar .divider {
+    margin: 0 10px;
+    color: #bbb;
+}
+
+.filter-bar .dropdown,
+.filter-bar .sort {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 4px 8px; /* Make clickable area larger */
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.filter-bar .dropdown:active,
+.filter-bar .sort:active {
+    background-color: #e0e0e0; /* Feedback on tap */
+}
+
+/* Supplier Card Styles (Core of the new design) */
+#dettesFournisseursListIonic ion-card {
+    background: white;
+    border-radius: 12px; /* Softer rounded corners */
+    margin: 10px 16px; /* Consistent margin from page edges */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); /* Subtle shadow, not none as in example, for card depth */
+    position: relative; /* For ripple effect if added back */
+    overflow: hidden;
+    cursor: pointer; /* Indicate clickability for the whole card */
+}
+
+#dettesFournisseursListIonic ion-card.paid {
+    border-left: 4px solid #4CAF50; /* Green border for paid */
+}
+#dettesFournisseursListIonic ion-card:not(.paid) {
+    border-left: 4px solid #FF9800; /* Orange border for outstanding */
+}
+
+
+#dettesFournisseursListIonic ion-card-content {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px; /* Adjust padding for content */
+}
+
+.avatar-circle {
+    background-color: #6daaf2; /* Blue, as in example */
+    color: white;
+    border-radius: 50%;
+    min-width: 44px; /* Slightly larger avatar */
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 15px; /* Larger font for initials */
+    margin-right: 12px; /* Space from content */
+}
+
+.info-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* Reduce gap between info lines */
+    flex-grow: 1;
+}
+
+.customer-name {
+    font-weight: 700; /* Bolder for names */
+    font-size: 17px; /* Slightly larger */
+    color: #333;
+}
+
+.sub-info {
+    color: #666; /* Slightly darker grey */
+    font-size: 13px; /* Slightly larger for readability */
+}
+
+.credit-info {
+    display: flex;
+    gap: 20px; /* Space between Debt and Credits info */
+}
+.credit-info div {
+    line-height: 1.3; /* Better line spacing */
+}
+.credit-info span {
+    display: block; /* Force total amounts to new line */
+    font-weight: bold;
+    color: #000;
+    font-size: 16px;
+    margin-top: 2px; /* Small space between label and amount */
+}
+
+/* Action buttons inside the card (e.g., Pay Button) */
+.card-actions {
+    display: flex;
+    justify-content: flex-end; /* Align actions to the right */
+    padding: 0 16px 10px; /* Padding for the action row */
+    gap: 10px;
+}
+.card-actions ion-button {
+    --background: #006064; /* Use your primary color for the main action */
+    --background-activated: #004d40;
+    --border-radius: 20px;
+    font-size: 14px;
+    height: 38px; /* Consistent button height */
+    box-shadow: none; /* Remove Ionic's default button shadow */
+}
+.card-actions ion-button.secondary-action {
+    --background: #f0f0f0; /* Lighter background for secondary actions */
+    --color: #333;
+    --background-activated: #e0e0e0;
+}
+.card-actions ion-button ion-icon {
+    font-size: 20px; /* Icons inside action buttons */
+    margin-left: 6px;
+    margin-right: 0; /* Remove default margin */
+}
+
+/* Ensure padding on content for general screen layout */
+.ion-padding-horizontal {
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+/* Modal specific tweaks to fit new design */
+#modalPaiementDette .modal-content {
+    border-radius: 12px;
+    padding: 20px;
+}
+#modalPaiementDette h2 {
+    font-size: 20px;
+    color: #006064;
+    text-align: center;
+    margin-bottom: 20px;
+}
+#modalPaiementDette label,
+#modalPaiementDette input,
+#modalPaiementDette select {
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px; /* Slightly rounded corners for inputs */
+}
+#modalPaiementDette .btn-modern {
+    margin-top: 20px;
+}
+
+/* New Supplier Modal specific styles */
+#addSupplierModal .modal-content {
+    border-radius: 12px;
+    padding: 20px;
+}
+#addSupplierModal h2 {
+    font-size: 20px;
+    color: #006064;
+    text-align: center;
+    margin-bottom: 20px;
+}
+#addSupplierModal label,
+#addSupplierModal input {
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px; /* Slightly rounded corners for inputs */
+}
+#addSupplierModal .btn-modern {
+    margin-top: 20px;
+}
+
+/* Styles for the supplier detail view within screen-dettes-fournisseurs */
+#supplierDettesDetailIonic {
+    position: absolute; /* Take over the entire screen area */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--ion-background-color, #f5f7fa); /* Match main content background */
+    z-index: 10; /* Ensure it appears above the list */
+    display: none; /* Hidden by default */
+}
+
+#supplierDettesDetailIonic ion-header ion-toolbar {
+    --background: #fdfdfd; /* Match the main list header */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Consistent header shadow */
+}
+
+#supplierDettesDetailIonic ion-title {
+    font-size: 18px; /* Consistent title size */
+    font-weight: 600;
+    color: #333;
+    text-align: left;
+    padding-inline-start: 12px;
+}
+
+#supplierDettesDetailIonic .summary-card-ionic {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 15px;
+    text-align: center; /* Center content for summary */
+}
+#supplierDettesDetailIonic .summary-card-ionic h2 {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 5px;
+    border-bottom: none; /* Remove border from the summary card title */
+    padding-bottom: 0;
+}
+#supplierDettesDetailIonic .summary-card-ionic p {
+    font-size: 24px; /* Larger total amount */
+    font-weight: bold;
+    color: #dc3545; /* Red for debt */
+    margin-top: 5px;
+}
+
+/* Styles for individual debt items within the detail view */
+.detail-item-card-ionic {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Lighter shadow for sub-cards */
+    margin: 8px 0; /* Adjust margins to be tighter within the list */
+    padding: 15px;
+    border-left: 5px solid #2196F3; /* A neutral blue for general procurements */
+    display: flex;
+    flex-direction: column;
+}
+.detail-item-card-ionic.paid {
+    border-left-color: #4CAF50; /* Green if fully paid */
+}
+.detail-item-card-ionic ion-card-header {
+  padding: 0 0 10px 0; /* Adjust padding within card */
+}
+.detail-item-card-ionic .debt-item-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+.detail-item-card-ionic ion-card-subtitle {
+    font-size: 12px;
+    color: #999;
+}
+.detail-item-card-ionic ion-card-content {
+    padding: 0; /* Adjust padding within card content */
+}
+.detail-item-card-ionic p {
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #555;
+}
+.detail-item-card-ionic .item-list {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #777;
+}
+.detail-item-card-ionic .detail-item-line {
+    display: block; /* Each item on a new line */
+    margin-bottom: 2px;
+}
+.detail-item-card-ionic .payment-history-section {
+    margin-top: 15px;
+    border-top: 1px dashed #eee;
+    padding-top: 10px;
+}
+.detail-item-card-ionic .payment-history-section p {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 5px;
+}
+.detail-item-card-ionic .payment-history-section ul {
+    list-style-type: disc; /* Use a disc for payment list */
+    margin-left: 20px;
+    padding: 0;
+}
+.detail-item-card-ionic .payment-history-section li {
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 2px;
+}
+
+/* General Ionic overrides for padding within ion-content */
+#screen-dettes-fournisseurs ion-content.ion-padding {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+}
+#supplierDettesDetailIonic ion-content.ion-padding {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 16px; /* Adjust as needed */
+    --padding-bottom: 16px;
+}
+  </style>
+
+   <ion-app>
+    <ion-header class="ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button onclick="window.location.hash='menu'">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Dettes Fournisseurs</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" onclick="chargerDettesFournisseurs()">
+            <ion-icon name="sync-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" id="addSupplierButton">
+            <ion-icon name="person-add-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content fullscreen>
+        <div id="dettesFournisseursMainViewIonic">
+            <div class="filter-bar">
+                <div class="total-due">Total dû <span id="totalDuesAmountIonic">0 FCFA</span></div>
+                <div class="divider">|</div>
+                <div class="dropdown">Filtrer <ion-icon name="caret-down-outline"></ion-icon></div>
+                <div class="sort">Trier <ion-icon name="swap-vertical-outline"></ion-icon></div>
+            </div>
+            <div id="dettesFournisseursListIonic" class="ion-padding-horizontal">
+                <p style="text-align:center; padding: 20px; color: #888;">Chargement des dettes...</p>
+            </div>
+        </div>
+
+        <div id="supplierDettesDetailIonic" style="display: none;">
+            <ion-header class="ion-no-border">
+                <ion-toolbar>
+                    <ion-buttons slot="start">
+                        <ion-button onclick="hideSupplierDebtDetailsIonic()">
+                            <ion-icon name="arrow-back-outline"></ion-icon>
+                        </ion-button>
+                    </ion-buttons>
+                    <ion-title id="supplierDetailNameIonic">Détails des dettes : [Fournisseur]</ion-title>
+                    <ion-buttons slot="end">
+                      </ion-buttons>
+                </ion-toolbar>
+            </ion-header>
+            <ion-content class="ion-padding">
+                <ion-card style="margin: 0 0 16px 0;"> <ion-card-content class="summary-card-ionic">
+                    <h2>Total dû pour <span id="supplierDetailNameSummary" style="color: #006064;"></span></h2>
+                    <p id="supplierDetailTotalDue" style="font-size: 28px; font-weight: bold; color: #dc3545;"></p>
+                  </ion-card-content>
+                </ion-card>
+                <div id="supplierDebtDetailListIonic">
+                    </div>
+            </ion-content>
+        </div>
+    </ion-content>
+  </ion-app>
+
+  <div id="modalPaiementDette" class="modal">...</div>
+  <div id="addSupplierModal" class="modal">...</div>
+
+  <script>
+    // --- Global variables for this section (ensure they are defined at a higher scope if not already) ---
+let allSupplierDebts = []; // To store all outstanding debts for detail view filtering
+let currentSupplierToPay = null; // Stores info about the supplier whose debt is being paid
+let currentSupplierDetails = null; // Stores info about the supplier whose details are being viewed
+
+
+// --- Functions related to Supplier Debts (Dettes Fournisseurs) ---
+
+/**
+ * Loads and aggregates supplier debts, then displays them in Ionic cards.
+ */
+async function chargerDettesFournisseurs() {
+    const container = document.getElementById("dettesFournisseursListIonic");
+    const totalDuesAmountEl = document.getElementById("totalDuesAmountIonic");
+
+    // Clear previous content and show loading indicator
+    container.innerHTML = `
+        <p style="text-align:center; padding: 20px; color: #888;">
+            <ion-spinner name="crescent" style="width: 30px; height: 30px;"></ion-spinner>
+            <br>Chargement des dettes...
+        </p>
+    `;
+    totalDuesAmountEl.textContent = 'Chargement...';
+
+    // Ensure the main list view is displayed and detail view is hidden
+    document.getElementById("dettesFournisseursMainViewIonic").style.display = "block";
+    document.getElementById("supplierDettesDetailIonic").style.display = "none";
+
+    allSupplierDebts = []; // Reset global array
+    let totalDuesGlobal = 0;
+    const debtsBySupplier = {}; // Aggregated data by supplier name
+
+    try {
+        // Query for all credit procurements that are not fully paid
+        const snapshot = await dbFirestore.collection("approvisionnement")
+            .where("paymentMethod", "==", "credit")
+            .orderBy("timestamp", "desc") // Order by timestamp to get latest first
+            .get();
+
+        if (snapshot.empty) {
+            container.innerHTML = `
+                <div style="text-align:center; padding: 40px; color: #888;">
+                    <ion-icon name="happy-outline" style="font-size: 60px; margin-bottom: 15px; color: #ccc;"></ion-icon>
+                    <p style="font-size: 18px;">🎉 Aucune dette fournisseur en cours. Tout est payé !</p>
+                </div>`;
+            totalDuesAmountEl.textContent = '0 FCFA';
+            // Ensure Ionicons are rendered for the empty state icon
+            renderIoniconsInElement(container);
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const dette = doc.data();
+            dette.id = doc.id; // Store Firestore document ID
+
+            const remaining = parseFloat(dette.remainingAmount || 0);
+
+            if (remaining > 0) { // Only process outstanding portions of debts
+                const supplierName = dette.fournisseur || "Fournisseur Inconnu";
+                totalDuesGlobal += remaining;
+
+                if (!debtsBySupplier[supplierName]) {
+                    debtsBySupplier[supplierName] = {
+                        name: supplierName,
+                        totalDue: 0,
+                        procurements: [] // Stores individual procurement documents
+                    };
+                }
+                debtsBySupplier[supplierName].totalDue += remaining;
+                debtsBySupplier[supplierName].procurements.push(dette);
+                allSupplierDebts.push(dette); // Keep a flat list of all outstanding debts
+            }
+        });
+
+        container.innerHTML = ""; // Clear loading message
+
+        if (Object.keys(debtsBySupplier).length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding: 40px; color: #888;">
+                    <ion-icon name="happy-outline" style="font-size: 60px; margin-bottom: 15px; color: #ccc;"></ion-icon>
+                    <p style="font-size: 18px;">🎉 Aucune dette fournisseur en cours. Tout est payé !</p>
+                </div>`;
+            totalDuesAmountEl.textContent = '0 FCFA';
+            renderIoniconsInElement(container);
+            return;
+        }
+
+        // Sort suppliers alphabetically by name
+        const sortedSuppliers = Object.keys(debtsBySupplier).sort();
+
+        sortedSuppliers.forEach(supplierName => {
+            const supplierData = debtsBySupplier[supplierName];
+            const initials = supplierName ? supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '??';
+
+            const ionCard = document.createElement("ion-card");
+            ionCard.classList.add('dette-card-ionic');
+
+            // Attach a click listener to the card to show details
+            ionCard.addEventListener('click', () => showSupplierDebtDetailsIonic(supplierData));
+
+            ionCard.innerHTML = `
+                <ion-card-content class="card-content">
+                    <div class="avatar-circle">${initials}</div>
+                    <div class="info-section">
+                        <div class="customer-name">${supplierName}</div>
+                        <div class="credit-info sub-info">
+                            <div>Dettes Fournisseurs<br><span>${supplierData.totalDue.toLocaleString('fr-FR')} FCFA</span></div>
+                            <div>Dettes en cours<br><span>${supplierData.procurements.length}</span></div>
+                        </div>
+                    </div>
+                </ion-card-content>
+                <div class="card-actions">
+                    <ion-button fill="clear" size="small" class="secondary-action" onclick="event.stopPropagation(); showSupplierDebtDetailsIonic(${JSON.stringify(supplierData).replace(/'/g, "\\'")})">
+                        <ion-icon slot="start" name="eye-outline"></ion-icon> Voir détails
+                    </ion-button>
+                    <ion-button expand="block" class="pay-button-ionic" onclick="event.stopPropagation(); ouvrirModalPaiementGlobal('${supplierName}', ${supplierData.totalDue})">
+                        Payer <ion-icon slot="end" name="cash-outline"></ion-icon>
+                    </ion-button>
+                </div>
+            `;
+            container.appendChild(ionCard);
+        });
+
+        totalDuesAmountEl.textContent = totalDuesGlobal.toLocaleString('fr-FR') + ' FCFA';
+        renderIoniconsInElement(container); // Render Ionicons after dynamic content is added
+
+    } catch (error) {
+        console.error("Erreur lors du chargement des dettes fournisseurs:", error);
+        container.innerHTML = '<p style="text-align:center; color:red;">Erreur de chargement des dettes.</p>';
+        totalDuesAmountEl.textContent = 'Erreur';
+    }
+}
+
+/**
+ * Displays the detail view for a specific supplier's debts.
+ * @param {object} supplierData - The aggregated data for the supplier (name, totalDue, procurements).
+ */
+function showSupplierDebtDetailsIonic(supplierData) {
+    currentSupplierDetails = supplierData; // Store for potential future use
+
+    // Switch views
+    document.getElementById("dettesFournisseursMainViewIonic").style.display = "none";
+    document.getElementById("supplierDettesDetailIonic").style.display = "block";
+
+    // Populate header and summary
+    document.getElementById("supplierDetailNameIonic").textContent = `Dettes de ${supplierData.name}`;
+    document.getElementById("supplierDetailTotalDue").textContent = supplierData.totalDue.toLocaleString('fr-FR') + ' FCFA';
+    document.getElementById("supplierDetailNameSummary").textContent = supplierData.name;
+
+
+    const detailListContainer = document.getElementById("supplierDebtDetailListIonic");
+    detailListContainer.innerHTML = ''; // Clear previous details
+
+    // Sort procurements from oldest to newest for chronological display
+    supplierData.procurements.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    supplierData.procurements.forEach(dette => {
+        const totalInitial = parseFloat(dette.totalCost || 0);
+        const remaining = parseFloat(dette.remainingAmount || 0);
+        const dateAppro = new Date(dette.timestamp).toLocaleDateString('fr-FR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+
+        // Generate a list of items within this procurement
+        let itemsListHtml = '';
+        if (dette.items && Array.isArray(dette.items)) {
+            itemsListHtml = dette.items.map(item => `
+                <span class="detail-item-line">• ${item.produit} (Qté: ${item.quantite}, Coût U.: ${parseFloat(item.prixAchat).toLocaleString()} FCFA)</span>
+            `).join('');
+        } else {
+            itemsListHtml = '<span>Aucun article détaillé</span>';
+        }
+
+        const detailCard = document.createElement("ion-card");
+        detailCard.classList.add('detail-item-card-ionic');
+        // Add a class for paid if remaining is 0, though current filter only shows outstanding
+        if (remaining === 0) {
+            detailCard.classList.add('paid');
+        }
+
+        detailCard.innerHTML = `
+            <ion-card-header>
+                <ion-card-title class="debt-item-title">Achat du ${dateAppro}</ion-card-title>
+                <ion-card-subtitle>Ref: #${dette.id.substring(0, 6).toUpperCase()}</ion-card-subtitle>
+            </ion-card-header>
+            <ion-card-content>
+                <p>Montant initial: <strong>${totalInitial.toLocaleString('fr-FR')} FCFA</strong></p>
+                <p style="color: #dc3545; font-weight:bold;">Montant restant: <strong>${remaining.toLocaleString('fr-FR')} FCFA</strong></p>
+                <div class="item-list" style="margin-top: 10px;">
+                    <strong>Articles:</strong>
+                    ${itemsListHtml}
+                </div>
+                <div class="payment-history-section" style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 10px;">
+                    <p style="font-size: 13px; color: #777;">Historique des paiements:</p>
+                    <ul id="payments-for-${dette.id}" style="list-style: none; padding: 0;">
+                        <li>Chargement des paiements...</li>
+                    </ul>
+                </div>
+                <div class="card-actions" style="margin-top: 15px; justify-content: flex-end;">
+                    <ion-button fill="solid" size="small" class="pay-button-ionic"
+                        onclick="event.stopPropagation(); ouvrirModalPaiementGlobal('${supplierData.name}', ${supplierData.totalDue})">
+                        Payer le solde du fournisseur <ion-icon slot="end" name="wallet-outline"></ion-icon>
+                    </ion-button>
+                </div>
+            </ion-card-content>
+        `;
+        detailListContainer.appendChild(detailCard);
+
+        // Load payments for this specific debt if needed (if you have sub-collection 'payments')
+        // This is an example, assuming 'payments' sub-collection under 'approvisionnement'
+        loadProcurementPayments(dette.id, `payments-for-${dette.id}`);
+    });
+
+    renderIoniconsInElement(detailListContainer); // Render Ionicons after dynamic content is added
+}
+
+/**
+ * Helper function to render Ionicons in a specific element.
+ * Call this after dynamically adding Ionic components.
+ */
+function renderIoniconsInElement(element) {
+    const ionicons = element.querySelectorAll('ion-icon');
+    ionicons.forEach(icon => {
+        if (icon.name && !icon.src) {
+            icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
+        }
+    });
+}
+
+
+/**
+ * Hides the detail view and returns to the main supplier list.
+ */
+function hideSupplierDebtDetailsIonic() {
+    document.getElementById("dettesFournisseursMainViewIonic").style.display = "block";
+    document.getElementById("supplierDettesDetailIonic").style.display = "none";
+    chargerDettesFournisseurs(); // Reload main list to reflect any changes
+}
+
+/**
+ * Opens the payment modal for a supplier's total outstanding debt.
+ * @param {string} fournisseurName - The name of the supplier.
+ * @param {number} totalDue - The total amount owed to the supplier.
+ */
+async function ouvrirModalPaiementGlobal(fournisseurName, totalDue) {
+    currentSupplierToPay = {
+        name: fournisseurName,
+        totalDue: totalDue
+    };
+
+    document.getElementById("modalDetteFournisseur").textContent = fournisseurName;
+    document.getElementById("modalDetteRestant").textContent = totalDue.toLocaleString('fr-FR');
+
+    const montantInput = document.getElementById("montantPaiementDette");
+    montantInput.value = '';
+    montantInput.placeholder = `Jusqu'à ${totalDue.toLocaleString('fr-FR')} FCFA`;
+    montantInput.max = totalDue;
+
+    // Populate the account selection dropdown
+    remplirTousSelectComptes(document.getElementById("comptePaiementDette"));
+
+    document.getElementById("modalPaiementDette").style.display = "flex";
+}
+
+/**
+ * Closes the payment modal and resets its state.
+ */
+function fermerModalPaiementDette() {
+    document.getElementById("modalPaiementDette").style.display = "none";
+    currentSupplierToPay = null;
+    document.getElementById("formEnregistrerPaiement").reset();
+}
+
+/**
+ * Handles the submission of the global payment form for a supplier's debt.
+ */
+document.getElementById("formEnregistrerPaiement").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    if (!currentSupplierToPay) {
+        alert("Aucun fournisseur sélectionné pour le paiement.");
+        return;
+    }
+
+    const paiementAmount = parseFloat(document.getElementById("montantPaiementDette").value);
+    const compteId = document.getElementById("comptePaiementDette").value;
+    const fournisseurName = currentSupplierToPay.name;
+
+    if (isNaN(paiementAmount) || paiementAmount <= 0) {
+        alert("Veuillez entrer un montant de paiement valide.");
+        return;
+    }
+    if (paiementAmount > currentSupplierToPay.totalDue) {
+        alert(`Le montant du paiement dépasse le solde dû (${currentSupplierToPay.totalDue.toLocaleString()} FCFA).`);
+        return;
+    }
+    if (!compteId) {
+        alert("Veuillez sélectionner un compte pour le paiement.");
+        return;
+    }
+
+    showSaleLoader(); // Show loading indicator
+
+    try {
+        await dbFirestore.runTransaction(async t => {
+            // 1. Get all outstanding debts for this supplier, oldest first (FIFO)
+            const dettesSnapshot = await t.get(
+                dbFirestore.collection("approvisionnement")
+                    .where("fournisseur", "==", fournisseurName)
+                    .where("paymentMethod", "==", "credit") // Ensure we only target credit debts
+                    .where("isPaid", "==", false)
+                    .orderBy("timestamp", "asc")
+            );
+
+            let paiementRestant = paiementAmount;
+
+            for (const doc of dettesSnapshot.docs) {
+                if (paiementRestant <= 0) break; // Stop if payment amount is exhausted
+
+                const detteData = doc.data();
+                const montantRestantSurDette = parseFloat(detteData.remainingAmount || 0);
+                const montantAPayerSurDette = Math.min(paiementRestant, montantRestantSurDette);
+
+                const nouveauMontantRestant = montantRestantSurDette - montantAPayerSurDette;
+                const newIsPaid = nouveauMontantRestant <= 0;
+
+                // Update the procurement document
+                t.update(doc.ref, {
+                    remainingAmount: nouveauMontantRestant,
+                    isPaid: newIsPaid
+                });
+
+                // Add a record of this payment to a sub-collection (optional, but good for history)
+                t.set(doc.ref.collection("payments").doc(), {
+                    amount: montantAPayerSurDette,
+                    date: firebase.firestore.FieldValue.serverTimestamp(),
+                    mode: 'manuel', // Or 'global-payment'
+                    compte: compteId
+                });
+
+                paiementRestant -= montantAPayerSurDette;
+            }
+        });
+
+        // 2. Record ONE treasury movement for the total payment amount
+        await enregistrerMouvementTresorerie({
+            compteId: compteId,
+            type: 'paiement_dette_fournisseur',
+            sens: 'out',
+            montant: paiementAmount,
+            description: `Paiement dette fournisseur: ${fournisseurName}`,
+            refId: fournisseurName // Use supplier name as refId or a generated payment ID
+        });
+
+        // 3. Also record this as a functional expense (as per your existing logic)
+        await logDepenseRemboursement({
+            collection: "depenses", // Assuming functional expenses go to 'depenses'
+            montant: paiementAmount,
+            description: `Paiement dette fournisseur: ${fournisseurName}`,
+            type: "depense fonctionnelle" // Categorize as functional expense
+        });
+
+
+        // 4. Update UI
+        alert("Paiement enregistré avec succès !");
+        fermerModalPaiementDette();
+        chargerDettesFournisseurs(); // Re-load the main list to reflect updated debts
+        updateBalanceDisplay(); // Update treasury display
+        // If the detail view was open, you might want to refresh it too or close it
+        if (document.getElementById("supplierDettesDetailIonic").style.display === "block") {
+            hideSupplierDebtDetailsIonic(); // Go back to main list
+        }
+
+    } catch (error) {
+        console.error("Erreur lors de l'enregistrement du paiement global:", error);
+        alert("Erreur lors de l'enregistrement du paiement : " + error.message);
+    } finally {
+        hideSaleLoader(); // Hide loading indicator
+    }
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        // si trouvé en cache, on renvoie ; sinon on va au réseau
-        return cachedResponse || fetch(event.request);
-      })
-  );
+// --- Function to load payments for a specific procurement (for detail view) ---
+async function loadProcurementPayments(procurementId, targetElementId) {
+    const paymentsListEl = document.getElementById(targetElementId);
+    if (!paymentsListEl) return; // Element might not exist if detail view isn't shown
+
+    paymentsListEl.innerHTML = '<li style="color: #bbb;">Chargement...</li>';
+
+    try {
+        const snapshot = await dbFirestore.collection("approvisionnement").doc(procurementId)
+            .collection("payments")
+            .orderBy("date", "asc")
+            .get();
+
+        if (snapshot.empty) {
+            paymentsListEl.innerHTML = '<li style="color: #bbb;">Aucun paiement enregistré pour cette dette.</li>';
+            return;
+        }
+
+        paymentsListEl.innerHTML = ''; // Clear loading message
+
+        snapshot.forEach(doc => {
+            const payment = doc.data();
+            const paymentDate = payment.date ? new Date(payment.date.toDate()).toLocaleDateString('fr-FR') : 'N/A';
+            const listItem = document.createElement('li');
+            listItem.style.marginBottom = '5px';
+            listItem.style.color = '#333';
+            listItem.style.fontSize = '14px';
+            listItem.innerHTML = `
+                ${paymentDate}: <strong>${parseFloat(payment.amount).toLocaleString('fr-FR')} FCFA</strong>
+                (via ${payment.compte || 'N/A'})
+            `;
+            paymentsListEl.appendChild(listItem);
+        });
+    } catch (error) {
+        console.error("Error loading procurement payments:", error);
+        paymentsListEl.innerHTML = '<li style="color: red;">Erreur de chargement des paiements.</li>';
+    }
+}
+
+
+// --- Function for the "Add Supplier" button (not fully implemented yet, just modal opening) ---
+function showAddSupplierModal() {
+    document.getElementById("addSupplierModal").style.display = "flex";
+    document.getElementById("newSupplierName").value = ''; // Clear previous input
+}
+
+function closeAddSupplierModal() {
+    document.getElementById("addSupplierModal").style.display = "none";
+}
+
+// Attach event listener for the "Add Supplier" button
+document.addEventListener('DOMContentLoaded', () => {
+    const addSupplierBtn = document.getElementById('addSupplierButton');
+    if (addSupplierBtn) {
+        addSupplierBtn.addEventListener('click', showAddSupplierModal);
+    }
+    // Handle the form submission for adding a new supplier (empty for now)
+    document.getElementById("formAddSupplier").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const newSupplierName = document.getElementById("newSupplierName").value.trim();
+        if (newSupplierName) {
+            alert(`Adding supplier: ${newSupplierName} (logic not implemented yet)`);
+            // Here you would add Firestore logic to add the supplier
+            // dbFirestore.collection("fournisseurs").add({ name: newSupplierName, ... })
+            closeAddSupplierModal();
+            chargerDettesFournisseurs(); // Refresh list after potential addition
+        } else {
+            alert("Veuillez entrer un nom de fournisseur.");
+        }
+    });
 });
+  </script>
+</section>
+
+    <!-- Screen 6: Menu Principal (Thème Clair) -->
+    <section id="screen-menu" class="screen">
+    <div class="menu">
+      
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Gestion Quotidienne</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='vendre'">
+                    <i data-lucide="shopping-cart"></i>
+                    <span>Nouvelle Vente</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='stock'">
+                    <i data-lucide="package"></i>
+                    <span>Stock</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='approvisionnement'">
+                    <i data-lucide="archive"></i>
+                    <span>Approvisionnement</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='livraisons'">
+                    <i data-lucide="truck"></i>
+                    <span>Livraisons</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Comptabilité & Rapports</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='tresorerie'">
+                    <i data-lucide="dollar-sign"></i>
+                    <span>Trésorerie</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='depenses'">
+                    <i data-lucide="file-minus"></i>
+                    <span>Dépenses</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='dettes-fournisseurs'">
+                    <i data-lucide="receipt-text"></i>
+                    <span>Dettes Fournisseurs</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='rapports'">
+                    <i data-lucide="file-text"></i>
+                    <span>Rapports & Statistiques</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='profit'">
+                    <i data-lucide="trending-up"></i>
+                    <span>Profit</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='advance'">
+                    <i data-lucide="dollar-sign"></i>
+                    <span>Avance de Paiement</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Base de Données</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='historique'">
+                    <i data-lucide="clock"></i>
+                    <span>Historique des Ventes</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='clients'">
+                    <i data-lucide="users"></i>
+                    <span>Clients</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='vendeurs'">
+                    <i data-lucide="users"></i>
+                    <span>Gestion des Vendeurs</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='repertoire-imei'">
+                    <i data-lucide="list"></i>
+                    <span>Répertoire d'IMEI</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Plus</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='notifications'">
+                    <i data-lucide="bell-ring"></i>
+                    <span>Notifications</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='faq'">
+                    <i data-lucide="help-circle"></i>
+                    <span>FAQ</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='parametres'">
+                    <i data-lucide="settings"></i>
+                    <span>Paramètres</span>
+                </li>
+                <li class="menu-list-item" onclick="deconnexion()">
+                    <i data-lucide="log-out"></i>
+                    <span>Déconnexion</span>
+                </li>
+            </ul>
+        </div>
+
+        </div>
+</section>
+    <!-- Nouvel écran dédié à la recherche d'article -->
+    <section id="screen-search-article" class="screen">
+      <header style="position: relative; display: flex; align-items: center; padding: 15px;">
+        <button class="back-btn" onclick="window.location.hash='vendre'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1 style="flex: 1; text-align: center; margin: 0;">Rechercher un Article</h1>
+        <div id="searchCartIcon" class="cart-icon" title="Voir le panier">
+          <i data-lucide="shopping-bag"></i>
+          <span id="searchCartCount" class="cart-badge">0</span>
+        </div>
+      </header>
+      <div style="padding:15px;">
+        <input type="text" id="searchProduitInput" placeholder="Rechercher un article..." />
+        <div id="searchResults" class="cards-container"></div>
+      </div>
+    </section>
+
+    <section id="screen-repertoire-imei" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='menu'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Répertoire d'IMEI</h1>
+      </header>
+      <div style="padding: 15px;">
+        <!-- Ajoutez ici le contenu du répertoire d'IMEI -->
+        <p>Liste des IMEI...</p>
+      </div>
+    </section>
+
+    <!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
+<!-- Screen: Trésorerie -->
+<!-- Nouvel écran : Trésorerie - Inspiré de Qonto -->
+<section id="screen-tresorerie" class="screen">
+  <style>
+    :root {
+      --primary-color: #6D5DFD;
+      --background-color: #F5F5FA;
+      --card-bg: #ffffff;
+      --text-color: #333;
+      --border-radius: 12px;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+    }
+    .container {
+      padding: 15px;
+    }
+    .balance-card {
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .balance-card h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 15px 0 10px;
+    }
+    .history-list {
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+    .history-item {
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #EEE;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .amount {
+      font-weight: bold;
+    }
+    .in { color: #28a745; }
+    .out { color: #dc3545; }
+    .btn {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 12px;
+      text-align: center;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      margin-top: 10px;
+    }
+  </style>
+
+  <div class="container">
+    <!-- Carte de solde -->
+    <div class="balance-card">
+      <h1 id="balance-sold">XOF 0</h1>
+      <p>Solde global</p>
+
+    </div>
+
+    <div id="accounts-balances"
+    class="accounts-container"
+    style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
+</div>
+
+
+
+    <!-- Total des entrées d'aujourd'hui -->
+    <div class="section-title">Entrées d'aujourd'hui</div>
+    <div class="history-list" id="entrees-list">
+      <div class="history-item">
+        <div class="info">Total Entrées</div>
+        <div class="amount in" id="entrees-today">+XOF 0</div>
+        <button class="btn" onclick="window.location.hash='historique'">Voir plus</button>
+      </div>
+    </div>
+
+    <!-- Total des dépenses d'aujourd'hui -->
+    <div class="section-title">Dépenses d'aujourd'hui</div>
+    <div class="history-list" id="depenses-list">
+      <div class="history-item">
+        <div class="info">Total Dépenses</div>
+        <div class="amount out" id="depenses-today">-XOF 0</div>
+        <button class="btn" onclick="window.location.hash='depenses'">Voir plus</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Appel initial pour mettre à jour l'affichage des totaux et du solde
+    updateBalanceDisplay();
+  </script>
+</section>
+
+    <!-- Screen: Dépenses -->
+<!-- Screen: Dépenses -->
+<section id="screen-depenses" class="screen">
+  <style>
+    .depenses-container {
+      padding: 15px;
+    }
+    .depenses-summary {
+      background: var(--white);
+      box-shadow: var(--shadow);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .summary-item h2 {
+      margin-bottom: 5px;
+      color: var(--primary-color);
+    }
+    .summary-item p {
+      color: #666;
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .btn-modern.secondary {
+      background-color: #E4E6EB;
+      color: black;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-modern.secondary i {
+      font-size: 20px;
+    }
+    .section-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: var(--text-color);
+    }
+    .history-list .history-item {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .history-icon {
+      margin-right: 8px;
+    }
+    /* Bouton Retour style Facebook */
+    .back-btn-fb {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 50%;
+      cursor: pointer;
+      overflow: hidden;
+      outline: none;
+    }
+    .back-btn-fb i {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .back-btn-fb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.3s ease-out;
+      pointer-events: none;
+    }
+    .back-btn-fb:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
+
+  <header>
+    <button class="back-btn-fb" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Dépenses</h1>
+  </header>
+
+  <div class="depenses-container">
+    <div class="actions">
+      <button class="btn-modern secondary" onclick="window.location.hash='depense-fonctionnelle'">
+        <i data-lucide="file-minus"></i> Dépense Fonctionnelle
+      </button>
+      <button id="btnDepensePapa" class="btn-modern secondary" onclick="window.location.hash='depense-papa'">
+        <i data-lucide="user-minus"></i> Dépense Papa
+      </button>          
+      <button class="btn-modern secondary" onclick="window.location.hash='remboursement-papa'">
+        <i data-lucide="user-check"></i> Remboursement
+      </button>
+    </div>
+
+    <div class="section-title">Historique récent</div>
+    <div id="recent-depenses" class="history-list">
+      <p style="text-align:center;">Chargement en cours...</p>
+    </div>
+
+    <button class="btn-modern secondary" onclick="exporterDepenses()">
+      <i data-lucide="download"></i> Exporter PDF
+    </button>
+  </div>
+
+  <script>
+
+    
+    /**
+     * Récupère et affiche la somme de toutes les dépenses (type "depense" ou "papa")
+     * pour la journée en cours, puis met à jour le champ #depenses-today.
+     */
+    function afficherDepensesAujourdhui() {
+      const today = new Date();
+      // On définit le début et la fin du jour en millisecondes
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      dbFirestore.collection("depenses")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalDepenses = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // On somme uniquement les dépenses de type "depense" ou "papa"
+            // (si vous n'avez pas de type, retirez simplement le if)
+            if (data.type === "depense" || data.type === "papa" || !data.type) {
+              totalDepenses += parseFloat(data.montant) || 0;
+            }
+          });
+          // Mise à jour de l'affichage
+          document.getElementById("depenses-today").textContent = `-XOF ${totalDepenses.toLocaleString()}`;
+
+        })
+        .catch(error => {
+          console.error("Erreur lors de la récupération des dépenses du jour : " + error.message);
+        });
+    }
+
+    /**
+     * Récupère l'ensemble des documents de "depenses" et "remboursements",
+     * les fusionne, puis affiche un historique récent.
+     */
+    // 1️⃣ Fonction d’affichage de chaque lot de documents
+function renderDepenses(docs) {
+  const container = document.getElementById("recent-depenses");
+  docs.forEach(doc => {
+    const item = doc.data();
+    // … recopiez ici votre code HTML pour each history-item …
+    let iconHtml = "";
+    let montantDisplay = "";
+    if (item.type === "depense" || item.type === "depense fonctionnelle" || item.type === "papa") {
+      iconHtml = (item.type === "papa") 
+        ? `<i data-lucide="user-minus"></i>` 
+        : `<i data-lucide="file-minus"></i>`;
+      montantDisplay = `<div class="amount out">-XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+    } else if (item.type === "remboursement") {
+      iconHtml = `<i data-lucide="user-check"></i>`;
+      montantDisplay = `<div class="amount in">+XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+    }
+    const div = document.createElement("div");
+    div.className = "history-item";
+    div.innerHTML = `
+      <div class="depense-icon">${iconHtml}</div>
+      <div class="depense-info" style="flex-grow:1;">
+        ${item.description || "Aucune description"}<br>
+        <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
+      </div>
+      ${montantDisplay}
+    `;
+    container.appendChild(div);
+  });
+  lucide.createIcons();
+}
+
+// 2️⃣ Charge les 10 premières
+function chargerHistoriqueDepensesInitial() {
+  loadingDepenses       = true;
+  lastVisibleDepenses   = null;
+
+  return dbFirestore.collection("depenses")
+    .orderBy("timestamp", "desc")
+    .limit(10)
+    .get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        loadingDepenses = false;
+        return;                           // rien à afficher
+      }
+
+      renderDepenses(snapshot.docs);      // affiche le 1ᵉ lot
+      lastVisibleDepenses = snapshot.docs[snapshot.docs.length - 1];
+      loadingDepenses = false;
+
+      /* Si la liste ne déborde pas encore, on charge automatiquement
+         le lot suivant pour remplir l’écran. */
+      const c = document.getElementById("recent-depenses");
+      if (c.scrollHeight <= c.clientHeight) {
+        chargerHistoriqueDepensesSuivant();
+      }
+    })
+    .catch(err => console.error(err));
+}
+
+function chargerHistoriqueDepensesSuivant() {
+  if (loadingDepenses || !lastVisibleDepenses) return;
+  loadingDepenses = true;
+
+  dbFirestore.collection("depenses")
+    .orderBy("timestamp", "desc")
+    .startAfter(lastVisibleDepenses)
+    .limit(10)
+    .get()
+    .then(snapshot => {
+      if (!snapshot.empty) {
+        renderDepenses(snapshot.docs);
+        lastVisibleDepenses = snapshot.docs[snapshot.docs.length - 1];
+      } else {
+        lastVisibleDepenses = null;       // plus d’autres pages
+      }
+      loadingDepenses = false;
+    })
+    .catch(err => console.error(err));
+}
+
+/* ➜ affiche UNIQUEMENT les docs pas encore rendus */
+function renderDepenses(docs) {
+  const container = document.getElementById("recent-depenses");
+
+  docs.forEach(doc => {
+    if (renderedDepenseIds.has(doc.id)) return;   // stop doublon
+    renderedDepenseIds.add(doc.id);
+
+    const item = doc.data();
+    let iconHtml = "", montantDisplay = "";
+
+    if (item.type === "depense" || item.type === "depense fonctionnelle" || item.type === "papa") {
+      iconHtml       = (item.type === "papa")
+                      ? `<i data-lucide="user-minus"></i>`
+                      : `<i data-lucide="file-minus"></i>`;
+      montantDisplay = `<div class="amount out">-XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+    } else if (item.type === "remboursement") {
+      iconHtml       = `<i data-lucide="user-check"></i>`;
+      montantDisplay = `<div class="amount in">+XOF ${parseFloat(item.montant).toLocaleString()}</div>`;
+    }
+
+    const div = document.createElement("div");
+    div.className = "history-item";
+    div.innerHTML = `
+      <div class="history-icon">${iconHtml}</div>
+      <div class="depense-info" style="flex-grow:1;">
+        ${item.description || "Aucune description"}<br>
+        <small style="color:#888;">${new Date(item.timestamp).toLocaleString()}</small>
+      </div>
+      ${montantDisplay}
+    `;
+    container.appendChild(div);
+  });
+
+  lucide.createIcons();     // une seule fois par lot
+}
+
+    /**
+     * On met à jour le total des dépenses du jour + l'historique
+     * dès que l'écran "#depenses" est affiché.
+     */
+    window.addEventListener('hashchange', function(){
+      if(window.location.hash === '#depenses') {
+  afficherDepensesAujourdhui();
+  chargerHistoriqueDepensesInitial();
+  // mettre en place l’infinite scroll
+  const container = document.getElementById("recent-depenses");
+  container.addEventListener("scroll", () => {
+    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+      chargerHistoriqueDepensesSuivant();
+    }
+  });
+} })
+
+  </script>
+</section>
+
+<!-- ===== Début de la section Rapports & Statistiques ===== -->
+<section id="screen-rapports" class="screen">
+  <header class="rapport-header">
+    <button class="btn-back" onclick="window.location.hash='menu'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Rapports & Statistiques</h1>
+    <button class="btn-refresh" onclick="updateRapports()">
+      <i data-lucide="rotate-ccw"></i> Actualiser
+    </button>
+  </header>
+
+  <!-- Filtres avancés : Sélection d'une journée ou d'une période -->
+  <div class="filter-container">
+    <label for="filterDate">Journée :</label>
+    <input type="date" id="filterDate" onchange="updateRapports()" />
+    <span style="margin: 0 10px;">ou</span>
+    <label for="startDate">Du :</label>
+    <input type="date" id="startDate" onchange="updateRapports()" />
+    <label for="endDate">Au :</label>
+    <input type="date" id="endDate" onchange="updateRapports()" />
+  </div>
+
+  <!-- ===== AJOUT BOUTON EXPORT PDF JOURNALIER ===== -->
+<button id="btnExportRapportPDF"
+class="btn-modern secondary"
+style="margin-top:12px;"
+onclick="exportDailyReportPDF()">
+<i data-lucide="download"></i> Exporter le rapport PDF du jour
+</button>
+<!-- ============================================== -->
+
+<!-- À coller dans votre section Rapports, juste sous l'autre bouton -->
+<button id="btnExportRapportMensuelPDF"
+        class="btn-modern secondary"
+        style="margin-top:8px;"
+        onclick="askMonthlyExport()">
+  <i data-lucide="download"></i> Exporter le rapport PDF du mois
+</button>
+
+
+  <div class="reports-container">
+    <!-- Carte Résumé des Ventes -->
+    <div class="report-card">
+      <h2>Résumé des Ventes</h2>
+      <ul>
+        <li><span>Nombre total de ventes :</span> <span id="total-ventes">0</span></li>
+        <li><span>Chiffre d'affaires :</span> <span id="chiffre-affaires">0 FCFA</span></li>
+        <li><span>Moyenne par vente :</span> <span id="moyenne-vente">0 FCFA</span></li>
+        <li><span>Répartition Ventes/Livraisons :</span> <span id="ventes-repartition">0 / 0</span></li>
+      </ul>
+    </div>
+
+    <!-- Carte Profit Global dans la section Rapports -->
+<div class="report-card" onclick="window.location.hash='profit'">
+  <h2>Profit Global</h2>
+  <ul>
+    <li><span>Profit Total :</span> <span id="profit-total">0 FCFA</span></li>
+    <li><span>Profit Moyen par Vente :</span> <span id="profit-moyen">0 FCFA</span></li>
+  </ul>
+</div>
+
+    <!-- Carte Analyse des Livraisons -->
+    <div class="report-card">
+      <h2>Analyse des Livraisons</h2>
+      <ul>
+        <li><span>Total livraisons :</span> <span id="total-livraisons">0</span></li>
+        <li><span>En cours :</span> <span id="livraisons-en-cours">0</span></li>
+        <li><span>Réussies :</span> <span id="livraisons-reussies">0</span></li>
+        <li><span>Échouées :</span> <span id="livraisons-echouees">0</span></li>
+      </ul>
+    </div>
+    <!-- Carte Synthèse du Stock -->
+    <div class="report-card">
+      <h2>Synthèse du Stock</h2>
+      <ul>
+        <li><span>Téléphones :</span> <span id="rapport-total-telephones">0</span></li>
+        <li><span>Accessoires :</span> <span id="rapport-total-accessoires">0</span></li>
+        <li><span>Valeur du stock :</span> <span id="valeur-stock">0 FCFA</span></li>
+      </ul>
+    </div>
+    <!-- Carte Détail Dépenses -->
+    <div class="report-card">
+      <h2>Détail Dépenses</h2>
+      <ul>
+        <li><span>Dépenses Fonctionnelles :</span> <span id="depenses-fonctionnelles">0 FCFA</span></li>
+        <li><span>Dépenses "Papa" :</span> <span id="depenses-papa">0 FCFA</span></li>
+        <li><span>Transactions :</span> <span id="nombre-transactions">0</span></li>
+        <li><span>Moyenne dépense :</span> <span id="moyenne-depense">0 FCFA</span></li>
+      </ul>
+    </div>
+    <!-- Carte Performance Vendeurs -->
+    <div class="report-card">
+      <h2>Performance Vendeurs</h2>
+      <ul>
+        <li><span>CA par vendeur :</span> <span id="ca-par-vendeur">-</span></li>
+        <li><span>Ventes par vendeur :</span> <span id="ventes-par-vendeur">-</span></li>
+      </ul>
+    </div>
+    <!-- Carte Indicateurs Clés -->
+    <div class="report-card">
+      <h2>Indicateurs Clés</h2>
+      <ul>
+        <li><span>Comparaison jour/semaine :</span> <span id="comparaison-temporelle">-</span></li>
+        <li><span>Évolution stocks :</span> <span id="evolution-stocks">-</span></li>
+        <li><span>KPIs globaux :</span> <span id="kpi-globaux">-</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Section Graphique : Graphique de tendance des ventes -->
+  <div class="chart-container">
+    <h2>Tendance des Ventes</h2>
+    <canvas id="salesChart"></canvas>
+  </div>
+</section>
+
+<!-- ===== Styles CSS pour la section Rapports & Statistiques ===== -->
+<style>
+  /* Fond et structure générale */
+  #screen-rapports {
+    background-color: #ffffff;
+    padding: 20px;
+    min-height: calc(100vh - 60px);
+    font-family: 'Roboto', sans-serif;
+  }
+  /* En-tête de la section */
+  .rapport-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .rapport-header h1 {
+    font-size: 24px;
+    color: #333;
+    margin: 0;
+  }
+  /* Boutons plats, arrondis, avec couleurs neutres et accents */
+  .btn-back,
+  .btn-refresh {
+    background-color: #f2f2f2;
+    border: none;
+    border-radius: 25px;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-back:hover,
+  .btn-refresh:hover {
+    background-color: #e0e0e0;
+  }
+  /* Filtres avancés */
+  .filter-container {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+  }
+  .filter-container label {
+    font-weight: 500;
+    color: #333;
+  }
+  .filter-container input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+  }
+  /* Grille de cartes pour les rapports */
+  .reports-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+  /* Style des cartes de rapport */
+  .report-card {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #f0f0f0;
+    transition: box-shadow 0.3s ease;
+  }
+  .report-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  /* Titres des cartes */
+  .report-card h2 {
+    font-size: 20px;
+    color: #006064;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #006064;
+    padding-bottom: 8px;
+  }
+  /* Listes des indicateurs */
+  .report-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .report-card ul li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 10px;
+  }
+  .report-card ul li span:first-child {
+    font-weight: 500;
+    color: #333;
+  }
+  .report-card ul li span:last-child {
+    font-weight: bold;
+    color: #000;
+  }
+  /* Section graphique */
+  .chart-container {
+    margin-top: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #f0f0f0;
+  }
+  .chart-container h2 {
+    font-size: 20px;
+    color: #006064;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  /* Responsive */
+  @media (max-width: 480px) {
+    #screen-rapports {
+      padding: 15px;
+    }
+    .report-card {
+      padding: 15px;
+    }
+    .report-card h2 {
+      font-size: 18px;
+    }
+    .report-card ul li {
+      font-size: 14px;
+    }
+  }
+</style>
+
+<!-- ===== Intégration de Chart.js pour les graphiques ===== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- ===== Script JavaScript pour mettre à jour les rapports et le graphique ===== -->
+<script>
+  function updateRapports() {
+    // Récupérer les valeurs des filtres
+    const filterDate = document.getElementById("filterDate").value;
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    // Fonction de filtrage : si une période est renseignée (startDate et endDate),
+    // on filtre par période. Sinon, on utilise filterDate (jour unique)
+    const filterByDate = (sale) => {
+      if (startDate && endDate) {
+        const saleDate = new Date(sale.timestamp);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        return saleDate >= start && saleDate <= end;
+      } else if (filterDate) {
+        return sale.dateVente === new Date(filterDate).toLocaleDateString("fr-FR");
+      }
+      return true;
+    };
+
+    // Mise à jour du résumé des ventes
+    getSalesForTodayFirestore().then(sales => {
+      sales = sales.filter(filterByDate);
+      const totalVentes = sales.length;
+      const chiffreAffaires = sales.reduce((sum, sale) => sum + (parseFloat(sale.overallTotal) || 0), 0);
+      const moyenneVente = totalVentes > 0 ? chiffreAffaires / totalVentes : 0;
+      const ventesClassiques = sales.filter(sale => !sale.isDelivery || (sale.isDelivery && sale.convertedToSale)).length;
+      const livraisons = sales.filter(sale => sale.isDelivery && !sale.convertedToSale).length;
+      document.getElementById("total-ventes").textContent = totalVentes;
+      document.getElementById("chiffre-affaires").textContent = chiffreAffaires.toLocaleString() + " FCFA";
+      document.getElementById("moyenne-vente").textContent = moyenneVente.toLocaleString() + " FCFA";
+      document.getElementById("ventes-repartition").textContent = ventesClassiques + " / " + livraisons;
+      
+      // Mise à jour du graphique des ventes
+      updateSalesChart(sales);
+        // Calcul du profit global à l'intérieur du même bloc
+      let totalProfit = 0;
+      sales.forEach(sale => {
+        totalProfit += parseFloat(sale.totalProfit) || 0;
+      });
+      const profitMoyen = totalVentes > 0 ? totalProfit / totalVentes : 0;
+      document.getElementById("profit-total").textContent = totalProfit.toLocaleString() + " FCFA";
+      document.getElementById("profit-moyen").textContent = profitMoyen.toLocaleString() + " FCFA";
+      
+    });
+
+    // Mise à jour de l'analyse des livraisons
+    getSalesForTodayFirestore().then(sales => {
+      sales = sales.filter(filterByDate);
+      const livraisonsSales = sales.filter(sale => sale.isDelivery);
+      const totalLivraisons = livraisonsSales.length;
+      const enCours = livraisonsSales.filter(sale => sale.deliveryStatus === "en cours").length;
+      const reussies = livraisonsSales.filter(sale => sale.deliveryStatus === "réussie").length;
+      const echouees = livraisonsSales.filter(sale => sale.deliveryStatus === "échouée").length;
+      document.getElementById("total-livraisons").textContent = totalLivraisons;
+      document.getElementById("livraisons-en-cours").textContent = enCours;
+      document.getElementById("livraisons-reussies").textContent = reussies;
+      document.getElementById("livraisons-echouees").textContent = echouees;
+    });
+
+    // Mise à jour de la synthèse du stock (indépendante du filtre de date)
+    getAllStockFirestore().then(stocks => {
+      const totalTelephones = stocks.filter(s => s.category === "telephones").reduce((sum, s) => sum + s.stock, 0);
+      const totalAccessoires = stocks.filter(s => s.category === "accessoires").reduce((sum, s) => sum + s.stock, 0);
+      const valeurStock = stocks.reduce((sum, s) => sum + (s.stock * s.price), 0);
+      document.getElementById("rapport-total-telephones").textContent = totalTelephones;
+      document.getElementById("rapport-total-accessoires").textContent = totalAccessoires;
+      document.getElementById("valeur-stock").textContent = valeurStock.toLocaleString() + " FCFA";
+    });
+
+    // Mise à jour du détail des dépenses
+    dbFirestore.collection("depenses").get().then(snapshot => {
+      let depenseFonctionnelle = 0, depensePapa = 0, transactions = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const montant = parseFloat(data.montant) || 0;
+        transactions++;
+        if (data.type === "papa") {
+          depensePapa += montant;
+        } else {
+          depenseFonctionnelle += montant;
+        }
+      });
+      document.getElementById("depenses-fonctionnelles").textContent = depenseFonctionnelle.toLocaleString() + " FCFA";
+      document.getElementById("depenses-papa").textContent = depensePapa.toLocaleString() + " FCFA";
+      document.getElementById("nombre-transactions").textContent = transactions;
+      const moyenneDepense = transactions > 0 ? (depenseFonctionnelle + depensePapa) / transactions : 0;
+      document.getElementById("moyenne-depense").textContent = moyenneDepense.toLocaleString() + " FCFA";
+    });
+
+    // Mise à jour de la performance des vendeurs
+    getSalesForTodayFirestore().then(sales => {
+      sales = sales.filter(filterByDate);
+      const caParVendeur = {};
+      const ventesParVendeur = {};
+      sales.forEach(sale => {
+        const vendeur = sale.vendeur || "Inconnu";
+        caParVendeur[vendeur] = (caParVendeur[vendeur] || 0) + (parseFloat(sale.overallTotal) || 0);
+        ventesParVendeur[vendeur] = (ventesParVendeur[vendeur] || 0) + 1;
+      });
+      document.getElementById("ca-par-vendeur").textContent = JSON.stringify(caParVendeur);
+      document.getElementById("ventes-par-vendeur").textContent = JSON.stringify(ventesParVendeur);
+    });
+
+    // Mise à jour des indicateurs clés
+    document.getElementById("comparaison-temporelle").textContent = "À implémenter";
+    document.getElementById("evolution-stocks").textContent = "À implémenter";
+    document.getElementById("kpi-globaux").textContent = "À implémenter";
+  }
+
+  // Fonction pour créer ou mettre à jour le graphique des ventes
+  let salesChart;
+  function updateSalesChart(salesData) {
+    const ventesParHeure = new Array(24).fill(0);
+    salesData.forEach(sale => {
+      const heure = new Date(sale.timestamp).getHours();
+      ventesParHeure[heure]++;
+    });
+    const labels = ventesParHeure.map((_, index) => index + "h");
+
+    if(salesChart) {
+      salesChart.data.labels = labels;
+      salesChart.data.datasets[0].data = ventesParHeure;
+      salesChart.update();
+    } else {
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Ventes par heure',
+            data: ventesParHeure,
+            backgroundColor: 'rgba(0, 96, 100, 0.2)',
+            borderColor: 'rgba(0, 96, 100, 1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { display: true },
+            y: { display: true, beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+  }
+</script>
+<!-- ===== Fin de la section Rapports & Statistiques ===== -->
+
+<!-- Screen: Profit -->
+<section id="screen-profit" class="screen">
+  <header class="rapport-header">
+    <button class="btn-back" onclick="window.location.hash='rapports'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Détails du Profit</h1>
+  </header>
+  <div class="container">
+    <!-- Profit Moyen par Vente -->
+    <div class="report-card">
+      <h2>Profit Moyen par Vente</h2>
+      <p id="detail-profit-moyen">0 FCFA</p>
+    </div>
+    <!-- Profit par Catégorie -->
+    <div class="report-card">
+      <h2>Profit par Catégorie</h2>
+      <ul id="profit-par-categorie">
+        <!-- Exemples : Téléphones : 0 FCFA, Accessoires : 0 FCFA -->
+      </ul>
+    </div>
+    <!-- Top 5 des Produits les Plus Profitables -->
+    <div class="report-card">
+      <h2>Top 5 Produits les Plus Profitables</h2>
+      <ol id="top-produits-profit">
+        <!-- Liste des produits -->
+      </ol>
+    </div>
+    <!-- Profit par Vendeur -->
+    <div class="report-card">
+      <h2>Profit par Vendeur</h2>
+      <ul id="profit-par-vendeur">
+        <!-- Exemple : Vendeur A : 0 FCFA, Vendeur B : 0 FCFA -->
+      </ul>
+    </div>
+    <!-- Évolution du Profit -->
+    <div class="chart-container">
+      <h2>Évolution du Profit</h2>
+      <canvas id="profitChart"></canvas>
+    </div>
+    <!-- Marge Bénéficiaire Moyenne -->
+    <div class="report-card">
+      <h2>Marge Bénéficiaire Moyenne</h2>
+      <p id="marge-beneficiaire">0%</p>
+    </div>
+  </div>
+</section>
+
+<!-- CSS pour l'écran Profit -->
+<style>
+  #screen-profit {
+    background-color: #ffffff;
+    padding: 20px;
+    min-height: calc(100vh - 60px);
+    font-family: 'Roboto', sans-serif;
+  }
+  #screen-profit .rapport-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  #screen-profit .rapport-header h1 {
+    font-size: 24px;
+    color: #333;
+    margin: 0;
+  }
+  #screen-profit .container {
+    padding: 15px;
+  }
+  #screen-profit .report-card {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #f0f0f0;
+    transition: box-shadow 0.3s ease;
+  }
+  #screen-profit .report-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  #screen-profit .report-card h2 {
+    font-size: 20px;
+    color: #006064;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #006064;
+    padding-bottom: 8px;
+  }
+  #screen-profit .report-card ul,
+  #screen-profit .report-card ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  #screen-profit .report-card ul li,
+  #screen-profit .report-card ol li {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 10px;
+  }
+  #screen-profit .chart-container {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #f0f0f0;
+  }
+  #screen-profit .chart-container h2 {
+    font-size: 20px;
+    color: #006064;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+</style>
+
+<!-- JavaScript pour l'écran Profit -->
+<script>
+  // Fonction pour mettre à jour les détails du profit
+  function updateProfitDetails() {
+    // Récupère toutes les ventes d'aujourd'hui (vous pouvez adapter ce filtre selon vos besoins)
+    getSalesForTodayFirestore().then(sales => {
+      // Profit Total et Profit Moyen par Vente
+      let totalProfit = 0;
+      sales.forEach(sale => {
+        totalProfit += parseFloat(sale.totalProfit) || 0;
+      });
+      const profitMoyen = sales.length > 0 ? totalProfit / sales.length : 0;
+      document.getElementById("detail-profit-moyen").textContent = profitMoyen.toLocaleString() + " FCFA";
+
+      // === AJOUT DES LIGNES MANQUANTES POUR LA CARTE "PROFIT GLOBAL" ===
+    
+      // Profit par Catégorie
+      const profitCategorie = {};
+      sales.forEach(sale => {
+        if (sale.items && Array.isArray(sale.items)) {
+          sale.items.forEach(item => {
+            // Supposons que chaque item possède un champ "categorie" (ou utilisez une valeur par défaut "Divers")
+            const cat = item.categorie || "Divers";
+            profitCategorie[cat] = (profitCategorie[cat] || 0) + (item.profitTotal || 0);
+          });
+        }
+      });
+      const ulCat = document.getElementById("profit-par-categorie");
+      ulCat.innerHTML = "";
+      for (const [cat, profit] of Object.entries(profitCategorie)) {
+        const li = document.createElement("li");
+        li.textContent = `${cat} : ${parseFloat(profit).toLocaleString()} FCFA`;
+        ulCat.appendChild(li);
+      }
+
+      // Top 5 des Produits les Plus Profitables
+      const profitParProduit = {};
+      sales.forEach(sale => {
+        if (sale.items && Array.isArray(sale.items)) {
+          sale.items.forEach(item => {
+            const prod = item.produit;
+            profitParProduit[prod] = (profitParProduit[prod] || 0) + (item.profitTotal || 0);
+          });
+        }
+      });
+      const topProduits = Object.entries(profitParProduit)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      const olTop = document.getElementById("top-produits-profit");
+      olTop.innerHTML = "";
+      topProduits.forEach(([prod, profit]) => {
+        const li = document.createElement("li");
+        li.textContent = `${prod} : ${parseFloat(profit).toLocaleString()} FCFA`;
+        olTop.appendChild(li);
+      });
+
+      // Profit par Vendeur
+      const profitParVendeur = {};
+      sales.forEach(sale => {
+        const vendeur = sale.vendeur || "Inconnu";
+        profitParVendeur[vendeur] = (profitParVendeur[vendeur] || 0) + (parseFloat(sale.totalProfit) || 0);
+      });
+      const ulVendeur = document.getElementById("profit-par-vendeur");
+      ulVendeur.innerHTML = "";
+      for (const [vendeur, profit] of Object.entries(profitParVendeur)) {
+        const li = document.createElement("li");
+        li.textContent = `${vendeur} : ${parseFloat(profit).toLocaleString()} FCFA`;
+        ulVendeur.appendChild(li);
+      }
+
+      // Calcul de la marge bénéficiaire moyenne
+      let totalPrixVente = 0;
+      let totalProfitUnitaire = 0;
+      let totalQuantite = 0;
+      sales.forEach(sale => {
+        if (sale.items && Array.isArray(sale.items)) {
+          sale.items.forEach(item => {
+            totalPrixVente += parseFloat(item.prix) * item.quantite;
+            totalProfitUnitaire += (parseFloat(item.profitUnitaire) || 0) * item.quantite;
+            totalQuantite += item.quantite;
+          });
+        }
+      });
+      const marge = totalPrixVente > 0 ? (totalProfitUnitaire / totalPrixVente) * 100 : 0;
+      document.getElementById("marge-beneficiaire").textContent = marge.toFixed(2) + "%";
+
+      // Évolution du profit par heure (ou une autre période)
+      const profitParHeure = new Array(24).fill(0);
+      sales.forEach(sale => {
+        const heure = new Date(sale.timestamp).getHours();
+        profitParHeure[heure] += parseFloat(sale.totalProfit) || 0;
+      });
+      updateProfitChart(profitParHeure);
+    }).catch(error => console.error("Erreur dans updateProfitDetails :", error));
+  }
+
+  // Fonction pour mettre à jour le graphique d'évolution du profit
+  let profitChart;
+  function updateProfitChart(profitParHeure) {
+    const labels = profitParHeure.map((_, index) => index + "h");
+    const ctx = document.getElementById("profitChart").getContext("2d");
+    if (profitChart) {
+      profitChart.data.labels = labels;
+      profitChart.data.datasets[0].data = profitParHeure;
+      profitChart.update();
+    } else {
+      profitChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Profit par heure",
+            data: profitParHeure,
+            backgroundColor: "rgba(109, 93, 253, 0.2)",
+            borderColor: "rgba(109, 93, 253, 1)",
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { display: true },
+            y: { display: true, beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+  }
+
+  // Ajoutez ici la fonction updateProfitScreen()
+function updateProfitScreen() {
+  updateProfitDetails();
+}
+
+/**  Enregistre un document dans la bonne collection  */
+function logDepenseRemboursement({ collection, montant, description, type = "", timestamp = Date.now() }) {
+  const d   = new Date(timestamp);
+  const ref = dbFirestore.collection(collection);
+  return ref.add({
+    montant,
+    description,
+    type,                     // “depense fonctionnelle”, “papa”, …
+    timestamp,
+    date        : d.toISOString(),
+    dateString  : d.toLocaleDateString("fr-FR")
+  });
+}
+
+</script>
+
+<!-- Section Approvisionnement -->
+<section id="screen-approvisionnement" class="screen">
+    <header>
+        <button class="back-btn" onclick="window.location.hash='menu'">
+            <i data-lucide="arrow-left"></i> Retour
+        </button>
+        <h1>Nouvel Achat</h1>
+    </header>
+
+    <div class="form-section">
+        <h2>Détails de l'article</h2>
+        <form class="vente-form" onsubmit="event.preventDefault(); ajouterApprovisionnementItem();">
+
+            <label for="fournisseurAppro">Fournisseur <span style="color: #d9534f;">*</span></label>
+            <div> <input type="text" id="fournisseurAppro" placeholder="Rechercher ou saisir un fournisseur" autocomplete="off" required />
+                <div id="suggestionListFournisseur" class="suggestion-list"></div>
+            </div>
+
+
+            <label for="categorieAppro">Catégorie <span style="color: #d9534f;">*</span></label>
+            <select id="categorieAppro" required>
+                <option value="telephones">Téléphones</option>
+                <option value="accessoires">Accessoires</option>
+            </select>
+
+            <label for="modeleAppro">Désignation article <span style="color: #d9534f;">*</span></label>
+            <div class="input-container">
+                <input type="text" id="modeleAppro" placeholder="Rechercher ou créer un article" autocomplete="off" required />
+                <div id="suggestionListAppro" class="suggestion-list"></div>
+            </div>
+
+            <label for="quantiteAppro">Quantité <span style="color: #d9534f;">*</span></label>
+            <div class="quantity-container">
+                <button type="button" onclick="decrementQuantityAppro()">–</button>
+                <input type="number" id="quantiteAppro" min="1" value="1" required oninput="calculerCoutTotalAppro()" />
+                <button type="button" onclick="incrementQuantityAppro()">+</button>
+            </div>
+
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label for="prixAchatAppro">Prix d'achat unitaire <span style="color: #d9534f;">*</span></label>
+                    <input type="number" id="prixAchatAppro" placeholder="0" required oninput="calculerCoutTotalAppro()" />
+                </div>
+                <div style="flex: 1;">
+                    <label for="coutTotalAppro">Coût total</label>
+                    <input type="number" id="coutTotalAppro" readonly placeholder="Calcul automatique" />
+                </div>
+            </div>
+
+            <button type="button" class="btn-modern add-item-style" onclick="ajouterApprovisionnementItem()">Ajouter l'article</button>
+        </form>
+    </div>
+<div class="panier-approvisionnement vente-form"> <h2>Panier d'Achat</h2>
+    <div id="panierApproContent" class="list-container" style="margin-bottom: 15px;">
+        <p>Le panier est vide.</p>
+    </div>
+
+    <div class="input-group" style="margin-bottom: 15px;">
+        <label for="fraisTransportAppro">Frais de transport (FCFA)</label>
+        <input type="number"
+               id="fraisTransportAppro"
+               placeholder="Saisir les frais de transport"
+               min="0"
+               oninput="updatePanierApprovisionnement()">
+               </div>
+    
+    <label for="paymentMethodApproBasket">Mode de Paiement <span style="color: #d9534f;">*</span></label>
+    <select id="paymentMethodApproBasket" required onchange="togglePaymentAccount()">
+        <option value="" disabled selected>-- Choisir le mode --</option>
+        <option value="cash">Cash</option>
+        <option value="credit">Crédit</option>
+    </select>
+
+    <div id="accountSelectionContainer">
+        <label for="compteSelectAppro">Payer depuis le compte <span style="color: #d9534f;">*</span></label>
+        <select id="compteSelectAppro" required></select>
+    </div>
+
+    <button class="btn-modern" onclick="finaliserApprovisionnement()" style="margin-top: 20px;">Enregistrer l'Achat</button>
+</div>
+    <div class="approvisionnement-history">
+        <h2>Historique des Achats</h2>
+        <div id="approvisionnementList" class="list-container">
+        </div>
+    </div>
+</section>
+
+<!-- Styles et JS spécifiques à la section Approvisionnement -->
+<style>
+  /* =========================================================
+   MISE À JOUR DES STYLES POUR L'ÉCRAN D'APPROVISIONNEMENT
+   ========================================================= */
+
+/* On donne un fond gris clair à l'écran */
+#screen-approvisionnement {
+    background-color: #f5f7fa;
+    padding: 10px;
+}
+
+#screen-approvisionnement header h1 {
+    font-size: 20px;
+}
+
+/* On transforme .form-section en la nouvelle carte blanche */
+#screen-approvisionnement .form-section {
+    background: var(--white);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* Ombre plus subtile */
+    border-radius: var(--border-radius);
+    padding: 20px;
+}
+
+/* On ajuste les titres des cartes */
+#screen-approvisionnement .form-section h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: left; /* On aligne à gauche */
+}
+
+/* Style pour les labels au-dessus des champs */
+#screen-approvisionnement .vente-form label {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+/* Style pour les champs de saisie (input, select) */
+#screen-approvisionnement .vente-form input,
+#screen-approvisionnement .vente-form select {
+    width: 100%;
+    padding: 10px 4px; /* Plus d'espace vertical */
+    font-size: 16px;
+    border: none; /* On enlève toutes les bordures */
+    border-bottom: 1px solid #ccc; /* On ajoute la ligne en bas */
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none; /* On enlève l'ombre */
+}
+
+/* Effet au focus */
+#screen-approvisionnement .vente-form input:focus,
+#screen-approvisionnement .vente-form select:focus {
+    outline: none;
+    box-shadow: none; /* Pas d'ombre au focus */
+    border-bottom: 2px solid var(--primary-color); /* Ligne plus épaisse et colorée */
+}
+
+/* Cas particulier du sélecteur de quantité */
+#screen-approvisionnement .quantity-container {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ccc; /* On met la bordure sur le conteneur */
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+}
+#screen-approvisionnement .quantity-container input {
+    border: none !important; /* On s'assure qu'il n'a pas de bordure */
+    text-align: center;
+}
+#screen-approvisionnement .quantity-container button {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+}
+
+/* Style pour le bouton "Ajouter l'article" */
+#screen-approvisionnement .btn-modern.add-item-style {
+    color: var(--primary-color);
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    font-weight: bold;
+    box-shadow: none;
+}
+#screen-approvisionnement .btn-modern.add-item-style:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Unifier le style des autres cartes (Panier et Historique) */
+.panier-approvisionnement, .approvisionnement-history {
+    background: var(--white);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-top: 15px;
+}
+.panier-approvisionnement h2, .approvisionnement-history h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: left;
+}
+/* Improved select styling */
+#screen-approvisionnement select {
+  padding: 10px;
+  border: 1px solid var(--border-color, #ccc); /* Use a CSS variable if you have one */
+  border-radius: var(--border-radius, 4px);
+  appearance: none; /* Remove default styling */
+  background-image: url("data:image/svg+xml,..."); /* Add a custom dropdown arrow */
+  background-repeat: no-repeat;
+  background-position: right 8px top 50%;
+  background-size: 16px;
+}
+
+#screen-approvisionnement select:focus {
+  outline: none;
+  border-color: var(--primary-color, blue); /* Use a CSS variable */
+  box-shadow: 0 0 4px rgba(0, 0, 255, 0.2); /* Example focus effect */
+}
+
+/* Distinct cart items */
+#panierApproContent .panier-item {
+  background-color: #f9f9f9;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+#panierApproContent .panier-item strong {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+#panierApproContent .panier-item span {
+  color: #777;
+}
+#accountSelectionContainer {
+  margin-top: 15px; /* Ajoutez cette ligne pour créer de l'espace au-dessus */
+}
+
+/* Vous pouvez aussi ajuster le margin-bottom du sélecteur principal si vous voulez plus d'espace */
+#screen-approvisionnement .vente-form select {
+  margin-bottom: 16px; /* Ajustez cette valeur si nécessaire */
+}
+</style>
+
+<script>
+  // Variable globale pour stocker les articles ajoutés au panier d'approvisionnement
+  let currentApproItems = [];
+  // Global variables for supplier search
+
+
+  // Calcul du coût total d'approvisionnement
+  function calculerCoutTotalAppro() {
+    const quantite = parseFloat(document.getElementById("quantiteAppro").value) || 0;
+    const prix = parseFloat(document.getElementById("prixAchatAppro").value) || 0;
+    const total = quantite * prix;
+    document.getElementById("coutTotalAppro").value = total.toFixed(2);
+  }
+
+  // Incrémenter/Décrémenter la quantité
+  function decrementQuantityAppro() {
+    const input = document.getElementById("quantiteAppro");
+    let value = parseInt(input.value) || 1;
+    if (value > 1) {
+      input.value = --value;
+      calculerCoutTotalAppro();
+    }
+  }
+  function incrementQuantityAppro() {
+    const input = document.getElementById("quantiteAppro");
+    let value = parseInt(input.value) || 1;
+    input.value = ++value;
+    calculerCoutTotalAppro();
+  }
+
+  // Recherche en temps réel pour les modèles
+  const modeleInput = document.getElementById("modeleAppro");
+  const suggestionListAppro = document.getElementById("suggestionListAppro");
+  /* Quand on change de catégorie : on nettoie l’input, on vide la liste */
+document.getElementById("categorieAppro").addEventListener("change", () => {
+  modeleInput.value = "";
+  suggestionListAppro.innerHTML = "";
+  suggestionListAppro.style.display = "none";
+
+  // (facultatif) adapter le placeholder de l’input
+  modeleInput.placeholder =
+    document.getElementById("categorieAppro").value === "telephones"
+      ? "Rechercher un modèle de téléphone…"
+      : "Rechercher un accessoire…";
+});
+
+  modeleInput.addEventListener("input", function () {
+    const query = this.value.trim().toLowerCase();
+    suggestionListAppro.innerHTML = "";
+    if (query === "") {
+      suggestionListAppro.style.display = "none";
+      return;
+    }
+    // Récupération des modèles de téléphones dans la collection "stock" avec catégorie "telephones"
+// Récupération dynamique des modèles selon la catégorie choisie
+const selectedCat = document.getElementById("categorieAppro").value;
+
+dbFirestore.collection("stock")
+  .where("category", "==", selectedCat)
+  .get()
+
+      .then(snapshot => {
+        const models = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.name) {
+            models.push(data.name);
+          }
+        });
+        const filtered = models.filter(name => name.toLowerCase().includes(query));
+        if (filtered.length === 0) {
+          const noResult = document.createElement("div");
+          noResult.className = "suggestion-item";
+          noResult.textContent = "Aucun modèle trouvé";
+          suggestionListAppro.appendChild(noResult);
+        } else {
+          filtered.forEach(model => {
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.textContent = model;
+            div.addEventListener("click", function () {
+              modeleInput.value = model;
+              suggestionListAppro.innerHTML = "";
+              suggestionListAppro.style.display = "none";
+            });
+            suggestionListAppro.appendChild(div);
+          });
+        }
+        suggestionListAppro.style.display = "block";
+      })
+      .catch(err => {
+        console.error("Erreur lors de la récupération des modèles : " + err.message);
+        suggestionListAppro.innerHTML = "<div class='suggestion-item'>Erreur de récupération</div>";
+        suggestionListAppro.style.display = "block";
+      });
+  });
+  document.addEventListener("click", function (e) {
+    if (e.target !== modeleInput) {
+      suggestionListAppro.style.display = "none";
+    }
+  });
+
+  async function ajouterApprovisionnementItem() {
+  const fournisseur = document.getElementById("fournisseurAppro").value.trim();
+  const categorie = document.getElementById("categorieAppro").value;
+  const modele = document.getElementById("modeleAppro").value.trim();
+  const quantite = parseInt(document.getElementById("quantiteAppro").value);
+  const prixAchat = parseFloat(document.getElementById("prixAchatAppro").value);
+  const coutTotal = parseFloat(document.getElementById("coutTotalAppro").value);
+
+  // Validation
+  if (!fournisseur || !categorie || !modele || isNaN(quantite) || quantite <= 0 || isNaN(prixAchat) || prixAchat <= 0) {
+    alert("Veuillez remplir tous les champs d'article correctement.");
+    return;
+  }
+
+  showSaleLoader(); // Show loading indicator
+
+  try {
+    // 1. Check if supplier exists. If not, add it to the 'fournisseurs' collection.
+    const supplierQuery = dbFirestore.collection("fournisseurs").where("name", "==", fournisseur);
+    const supplierSnapshot = await supplierQuery.get();
+
+    if (supplierSnapshot.empty) {
+      // Supplier does not exist, add it
+      await dbFirestore.collection("fournisseurs").add({
+        name: fournisseur,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`Nouveau fournisseur '${fournisseur}' ajouté à la base de données.`);
+    }
+
+    // Now, continue with the existing logic for adding the item to the currentApproItems
+    const item = {
+      fournisseur,
+      category: categorie,
+      produit: modele,
+      quantite,
+      prixAchat,
+      coutTotal: coutTotal.toFixed(2),
+      imeis: []
+    };
+
+    if (item.category !== 'telephones') {
+      currentApproItems.push(item);
+      updatePanierApprovisionnement();
+      showToast(`${item.produit} ajouté au panier.`);
+    } else {
+      lancerScanDynamsoft(item);
+    }
+
+    // Clear form fields
+    document.getElementById("modeleAppro").value = "";
+    document.getElementById("quantiteAppro").value = "1";
+    document.getElementById("prixAchatAppro").value = "";
+    document.getElementById("coutTotalAppro").value = "";
+    document.getElementById("modeleAppro").focus();
+
+  } catch (error) {
+    console.error("Erreur lors de l'ajout de l'approvisionnement ou du fournisseur : ", error);
+    alert("Une erreur est survenue : " + error.message);
+  } finally {
+    hideSaleLoader(); // Hide loading indicator
+  }
+}
+
+// New function to handle the visibility of the account selection
+// New function to handle the visibility of the account selection
+function togglePaymentAccount() {
+    const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
+    const accountSelectionContainer = document.getElementById("accountSelectionContainer");
+    const compteSelectAppro = document.getElementById("compteSelectAppro");
+
+    if (paymentMethod === 'cash') {
+        accountSelectionContainer.style.display = 'block';
+        compteSelectAppro.setAttribute('required', 'required'); // Make it required for cash
+    } else { // credit
+        accountSelectionContainer.style.display = 'none';
+        compteSelectAppro.removeAttribute('required'); // No longer required for credit
+        compteSelectAppro.value = ''; // Clear selection if previously made
+    }
+    // Update the dropdown options to reflect selected state if needed (optional, but good for clarity)
+    remplirTousSelectComptes(); // Re-fill to update required status visually for the default selection
+}
+
+  function updatePanierApprovisionnement() {
+  const container = document.getElementById("panierApproContent");
+  container.innerHTML = "";
+
+  // 1. Récupérer les frais de transport
+  const fraisTransport = parseFloat(document.getElementById("fraisTransportAppro").value) || 0;
+  
+  // 2. Calculer le coût total des articles du panier SANS les frais de transport (coût fournisseur)
+  let totalCostExcludingTransport = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
+  
+  // Affiche un message si le panier est vide
+  if (currentApproItems.length === 0) {
+    container.innerHTML = "<p>Le panier est vide.</p>";
+    return;
+  }
+  
+  // Parcourir chaque article pour l'afficher et calculer son coût ajusté
+  currentApproItems.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.className = "panier-item"; 
+    
+    // Informations sur les IMEI pour les téléphones
+    let imeiInfo = '';
+    if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
+      imeiInfo = `<br><small style="color: green;">✔ ${item.imeis.length} IMEI scannés</small>`;
+    } else if (item.category === 'telephones') {
+      imeiInfo = `<br><small style="color: orange;">⚠ Pas d'IMEI scanné</small>`;
+    }
+    
+    // Calcul du coût unitaire ajusté (prix d'achat fournisseur + part des frais de transport)
+    let itemAdjustedCostDisplay = '';
+    let itemAdjustedUnitCost = parseFloat(item.prixAchat); // Par défaut, c'est le prix d'achat fournisseur
+    
+    if (totalCostExcludingTransport > 0 && fraisTransport > 0) {
+        // Calcul de la part proportionnelle des frais de transport pour cet article
+        const itemShareOfTransport = (parseFloat(item.coutTotal) / totalCostExcludingTransport) * fraisTransport;
+        itemAdjustedUnitCost = parseFloat(item.prixAchat) + (itemShareOfTransport / item.quantite);
+        itemAdjustedCostDisplay = `<br><small>Coût unitaire ajusté: <strong>${itemAdjustedUnitCost.toLocaleString('fr-FR')} FCFA</strong></small>`;
+    }
+
+    // Mise à jour de l'HTML de l'article dans le panier
+    div.innerHTML = `
+        <strong>${item.produit}</strong> - Qté: ${item.quantite} - Coût Fournisseur: ${parseFloat(item.coutTotal).toLocaleString('fr-FR')} FCFA
+        <span class="remove-item" onclick="retirerApproItem(${index})" style="cursor: pointer; color: red; float: right;">&times;</span>
+        ${imeiInfo}
+        ${itemAdjustedCostDisplay}
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Permet de retirer un article du panier
+function retirerApproItem(index) {
+  currentApproItems.splice(index, 1);
+  updatePanierApprovisionnement(); // Rafraîchit l'affichage après suppression
+}
+
+  // Fonction de finalisation de l’approvisionnement, qui propage la catégorie au stock
+// Modified finaliserApprovisionnement function
+async function finaliserApprovisionnement() {
+  if (currentApproItems.length === 0) {
+    alert("Le panier d'approvisionnement est vide.");
+    return;
+  }
+
+  const fournisseur = currentApproItems[0].fournisseur; // Suppose tous les articles proviennent du même fournisseur
+  
+  // totalCostFromSupplier: C'est le montant total *dû au fournisseur*, SANS les frais de transport.
+  const totalCostFromSupplier = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
+  
+  const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
+  const compteId = document.getElementById("compteSelectAppro").value; // Compte pour le paiement au fournisseur
+  
+  // Frais de transport saisis par l'utilisateur
+  const fraisTransport = parseFloat(document.getElementById("fraisTransportAppro").value) || 0; 
+
+  // Vérification de la sélection du mode de paiement au fournisseur
+  if (!paymentMethod) {
+    alert("Veuillez sélectionner un mode de paiement au fournisseur.");
+    return;
+  }
+
+  // Vérification du compte si paiement en cash au fournisseur
+  if (paymentMethod === 'cash' && !compteId) {
+    alert("Veuillez sélectionner un compte de trésorerie pour le paiement au fournisseur.");
+    return;
+  }
+
+  // Afficher le loader pour indiquer que des opérations sont en cours
+  showSaleLoader();
+
+  try {
+    const batch = dbFirestore.batch(); // Utilisation d'un batch pour les opérations atomiques
+    const now = new Date();
+
+    // Calcul du coût total des articles du panier AVANT frais de transport.
+    // Utilisé pour la répartition proportionnelle des frais de transport.
+    let totalCostOfAllItemsBeforeTransport = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
+    
+    // --- Phase 1: Mise à jour du stock pour chaque article ---
+    const stockUpdatePromises = currentApproItems.map(item => {
+        // Calcul du coût unitaire ajusté (prix d'achat fournisseur + part des frais de transport)
+        let adjustedPrixAchat = parseFloat(item.prixAchat);
+        if (totalCostOfAllItemsBeforeTransport > 0 && fraisTransport > 0) {
+            // Calcul de la part proportionnelle des frais de transport pour cet article
+            const itemShareOfTransport = (parseFloat(item.coutTotal) / totalCostOfAllItemsBeforeTransport) * fraisTransport;
+            adjustedPrixAchat = parseFloat(item.prixAchat) + (itemShareOfTransport / item.quantite);
+        }
+
+        return dbFirestore.collection("stock").where("name", "==", item.produit).get().then(snapshot => ({
+            item,
+            snapshot,
+            adjustedPrixAchat // Passage du prix ajusté pour la suite du processus
+        }));
+    });
+
+    const stockDocs = await Promise.all(stockUpdatePromises);
+
+    for (const { item, snapshot, adjustedPrixAchat } of stockDocs) {
+      let stockDocRef;
+      let newStock;
+
+      if (snapshot.empty) {
+        // L'article n'existe pas encore dans le stock, on le crée
+        stockDocRef = dbFirestore.collection("stock").doc();
+        newStock = item.quantite;
+        const icon = item.category === "accessoires" ? "🎧" : "📱"; // Déterminer l'icône
+        batch.set(stockDocRef, {
+          name: item.produit,
+          category: item.category,
+          stock: newStock,
+          price: adjustedPrixAachat, // Stocke le prix AJUSTÉ comme coût moyen initial
+          icon: icon,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        // L'article existe déjà, on met à jour le stock et le prix moyen pondéré
+        stockDocRef = snapshot.docs[0].ref;
+        const stockData = snapshot.docs[0].data();
+        const oldStock = stockData.stock || 0;
+        const oldPrice = stockData.price || 0; // Ancien prix d'achat moyen (dans le stock)
+
+        newStock = oldStock + item.quantite;
+        // Recalcul du prix moyen pondéré : (ancien stock * ancien prix) + (nouvelle qté * nouveau prix ajusté) / nouveau stock total
+        const newAveragePrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * adjustedPrixAchat)) / newStock : 0;
+
+        batch.update(stockDocRef, {
+          stock: newStock,
+          price: newAveragePrice // Stocke le nouveau prix moyen pondéré
+        });
+      }
+
+      // Enregistrement de l'historique de mouvement de stock (pour le suivi)
+      const historyRef = stockDocRef.collection("history").doc();
+      batch.set(historyRef, {
+        timestamp: now.getTime(),
+        change: +item.quantite,
+        newStock: newStock,
+        type: 'approvisionnement'
+      });
+
+      // Gestion des IMEI pour les téléphones (si applicable)
+      if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
+        item.imeis.forEach(imei => {
+          const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
+          batch.set(imeiDocRef, {
+            status: "disponible",
+            dateEntree: now
+          });
+        });
+      }
+    }
+
+    // --- Phase 2: Enregistrement de la transaction d'approvisionnement (côté fournisseur) ---
+    const approRef = dbFirestore.collection("approvisionnement").doc();
+    batch.set(approRef, {
+      fournisseur,
+      items: currentApproItems, // Les articles ici conservent leur prix d'achat initial du fournisseur
+      timestamp: now.getTime(),
+      paymentMethod: paymentMethod,
+      isPaid: paymentMethod === 'cash', // Marqué payé si paiement immédiat
+      remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0, // Montant restant à payer au fournisseur
+      totalCost: totalCostFromSupplier // Coût total DÛ AU FOURNISSEUR
+    });
+
+    // --- Phase 3: Enregistrement du paiement au fournisseur (si "cash") ---
+    if (paymentMethod === 'cash') {
+      const depenseSupplierRef = dbFirestore.collection("depenses").doc();
+      batch.set(depenseSupplierRef, {
+        montant: totalCostFromSupplier,
+        description: `Approvisionnement ${fournisseur} (Cash)`,
+        type: "depense_appro_fournisseur", // Type spécifique pour le paiement fournisseur
+        timestamp: now.getTime(),
+        date: now.toISOString(),
+        dateString: now.toLocaleDateString("fr-FR")
+      });
+
+      // Mouvement de trésorerie pour le paiement au fournisseur
+      await enregistrerMouvementTresorerie({
+        compteId: compteId, // Utilise le compte sélectionné par l'utilisateur
+        type: 'paiement_fournisseur', // Type spécifique pour le mouvement de trésorerie
+        sens: 'out',
+        montant: totalCostFromSupplier,
+        description: `Paiement approvisionnement ${fournisseur}`
+      });
+    }
+
+    // --- Phase 4: Enregistrement des frais de transport (toujours depuis la caisse) ---
+    if (fraisTransport > 0) {
+        const depenseTransportRef = dbFirestore.collection("depenses").doc();
+        batch.set(depenseTransportRef, {
+            montant: fraisTransport,
+            description: `Frais de transport pour approvisionnement ${fournisseur}`,
+            type: "depense fonctionnelle", 
+            timestamp: now.getTime(),
+            date: now.toISOString(),
+            dateString: now.toLocaleDateString("fr-FR")
+        });
+
+        // Mouvement de trésorerie pour les frais de transport (toujours de la caisse)
+        await enregistrerMouvementTresorerie({
+            compteId: 'caisse', // Toujours payé de la 'caisse' comme spécifié
+            type: 'frais_transport', // Type spécifique pour le mouvement de trésorerie
+            sens: 'out',
+            montant: fraisTransport,
+            description: `Frais de transport approvisionnement ${fournisseur}`
+        });
+    }
+
+    // Exécuter toutes les opérations du batch de manière atomique
+    await batch.commit();
+
+    // Message de succès final
+    alert(`Approvisionnement enregistré avec succès !
+           Montant fournisseur: ${totalCostFromSupplier.toLocaleString('fr-FR')} FCFA.
+           Frais de transport: ${fraisTransport.toLocaleString('fr-FR')} FCFA.`);
+
+  } catch (error) {
+    console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
+    alert("Une erreur est survenue lors de l'enregistrement de l'achat : " + error.message);
+  } finally {
+    // Réinitialisation de l'interface et du panier, quel que soit le résultat
+    currentApproItems = [];
+    updatePanierApprovisionnement(); // Cela videra le panier affiché
+    document.getElementById("fournisseurAppro").value = "";
+    document.getElementById("paymentMethodApproBasket").value = "";
+    document.getElementById("fraisTransportAppro").value = "0"; // Réinitialise les frais de transport
+    togglePaymentAccount(); // Réapplique la visibilité par défaut des comptes
+    chargerApprovisionnements(); // Recharge l'historique des approvisionnements
+    updateStockSummary(); // Met à jour le résumé du stock
+    updateBalanceDisplay(); // Met à jour l'affichage de la trésorerie
+    hideSaleLoader(); // Cache le loader
+  }
+}
+
+  // Charger l'historique dès l'accès à la page Approvisionnement
+  window.addEventListener('load', function() {
+    if(window.location.hash === '#approvisionnement'){
+      chargerApprovisionnements();
+    }
+  });
+
+  // Fonction pour charger l'historique des approvisionnements
+  function chargerApprovisionnements() {
+  dbFirestore.collection("approvisionnement")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(snapshot => {
+      const approList = document.getElementById("approvisionnementList");
+      approList.innerHTML = "";
+      if (snapshot.empty) {
+        approList.innerHTML = "<p>Aucun achat enregistré.</p>";
+        return;
+      }
+      snapshot.forEach(doc => {
+        const appro = doc.data();
+        const div = document.createElement("div");
+        div.className = "history-item";
+        let itemsText = "";
+        if (appro.items && Array.isArray(appro.items)) {
+          appro.items.forEach(item => {
+            itemsText += `${item.produit} (Qté: ${item.quantite}, Prix: ${item.prixAchat} FCFA, Total: ${item.coutTotal} FCFA)<br>`;
+          });
+        }
+        let paymentStatus = `Mode: ${appro.paymentMethod === 'cash' ? 'Cash' : 'Crédit'}`;
+        // Display remaining amount for credit purchases
+        if (appro.paymentMethod === 'credit' && appro.remainingAmount > 0) {
+            paymentStatus += ` (Dû: ${parseFloat(appro.remainingAmount).toLocaleString()} FCFA)`;
+        } else if (appro.paymentMethod === 'credit' && appro.remainingAmount === 0 && appro.isPaid) {
+            paymentStatus += ` (Payé)`; // Explicitly show 'Payé' for credit purchases that are fully paid
+        }
+
+        // Add a "Payer" button if it's a credit purchase and not fully paid
+        let payButton = '';
+        if (appro.paymentMethod === 'credit' && appro.remainingAmount > 0) {
+            payButton = `<button class="btn-modern secondary" onclick="recordCreditPayment('${doc.id}', ${appro.remainingAmount})">Payer</button>`;
+        }
+
+
+        div.innerHTML = `
+          <div>
+            <strong>Fournisseur: ${appro.fournisseur}</strong><br>
+            ${itemsText}
+            <small>${paymentStatus} - ${new Date(appro.timestamp).toLocaleString()}</small>
+          </div>
+          ${payButton}
+        `;
+        approList.appendChild(div);
+      });
+    })
+    .catch(error => {
+      console.error("Erreur lors du chargement des approvisionnements : " + error.message);
+    });
+}
+
+
+// Initial call to set up the correct visibility when the page loads or hash changes to 'approvisionnement'
+window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#approvisionnement') {
+        togglePaymentAccount(); // Set initial state
+        chargerApprovisionnements(); // Load history
+    }
+});
+window.addEventListener('load', togglePaymentAccount); // Also on initial page load
+
+
+// Function to record a payment for a credit purchase (Placeholder)
+async function recordCreditPayment(approId, outstandingAmount) {
+    const paymentAmount = parseFloat(prompt(`Montant à payer pour l'achat à crédit (Dû: ${outstandingAmount.toLocaleString()} FCFA):`));
+
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        alert("Montant de paiement invalide.");
+        return;
+    }
+
+    if (paymentAmount > outstandingAmount) {
+        alert("Le montant de paiement ne peut pas dépasser le montant dû.");
+        return;
+    }
+
+    const compteId = prompt("Payer depuis quel compte (caisse, momo, banque)?:");
+    if (!compteId || !['caisse', 'momo', 'banque'].includes(compteId.toLowerCase())) {
+        alert("Compte invalide. Veuillez entrer 'caisse', 'momo' ou 'banque'.");
+        return;
+    }
+
+    try {
+        const approRef = dbFirestore.collection("approvisionnement").doc(approId);
+        const approDoc = await approRef.get();
+
+        if (!approDoc.exists) {
+            alert("Achat à crédit non trouvé.");
+            return;
+        }
+
+        const approData = approDoc.data();
+        const newRemainingAmount = approData.remainingAmount - paymentAmount;
+        const newIsPaid = newRemainingAmount <= 0;
+
+        await dbFirestore.runTransaction(async t => {
+            t.update(approRef, {
+                remainingAmount: newRemainingAmount,
+                isPaid: newIsPaid
+            });
+
+            // Record this as a cash outflow from the selected account
+            await enregistrerMouvementTresorerie({
+                compteId: compteId.toLowerCase(),
+                type: 'paiement_credit_appro',
+                sens: 'out',
+                montant: paymentAmount,
+                description: `Paiement crédit achat fournisseur ${approData.fournisseur}`,
+                refId: approId
+            });
+
+             // Also record as a functional expense
+             const depenseRef = dbFirestore.collection("depenses").doc();
+             t.set(depenseRef, {
+                 montant: paymentAmount,
+                 description: `Paiement crédit achat fournisseur ${approData.fournisseur}`,
+                 type: "depense fonctionnelle",
+                 timestamp: Date.now(),
+                 date: new Date().toISOString(),
+                 dateString: new Date().toLocaleDateString("fr-FR")
+             });
+        });
+
+
+        alert("Paiement enregistré avec succès!");
+        chargerApprovisionnements(); // Refresh the list
+        updateBalanceDisplay(); // Update treasury display
+    } catch (error) {
+        console.error("Error recording credit payment:", error);
+        alert("Erreur lors de l'enregistrement du paiement à crédit: " + error.message);
+    }
+}
+
+  
+</script>
+<section id="screen-scan-dynamsoft" class="screen">
+  <header>
+    <button class="back-btn" onclick="annulerScan()">← Annuler</button>
+    <h1>Scanner les IMEI</h1>
+  </header>
+
+  <div style="padding: 15px;">
+    <div class="form-section" style="padding: 15px; margin-bottom: 10px;">
+      <h2 id="scanProductNameDynamsoft" style="font-size: 18px; color: var(--primary-color);"></h2>
+      <p style="text-align: center; margin-top: 5px;">
+        Quantité requise : <strong id="scanTargetCountDynamsoft">0</strong> / Scannés : <strong id="scanCurrentCountDynamsoft">0</strong>
+      </p>
+    </div>
+
+    <div id="scan-container" style="min-height: 100px; border-radius: 8px; display: flex; justify-content: center; align-items: center; padding: 10px;">
+      </div>
+    
+    <p id="scanFeedbackDynamsoft" style="text-align: center; color: var(--accent-color); height: 20px; margin-top: 10px;"></p>
+
+    <div style="display: flex; gap: 8px; margin: 15px 0;">
+      <input type="number" id="manualImeiInputDynamsoft" placeholder="Ou saisir l'IMEI manuellement" style="flex-grow: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+      <button onclick="ajouterImeiManuellementDynamsoft()" style="padding: 10px; border: none; background: var(--primary-color); color: white; border-radius: 5px; cursor: pointer;">
+        <i data-lucide="plus"></i>
+      </button>
+    </div>
+
+    <hr style="margin: 15px 0;">
+
+    <h4>IMEI à Ajouter :</h4>
+    <ul id="scannedImeiListDynamsoft" style="list-style-type: none; padding: 10px; max-height: 120px; overflow-y: auto; background: #f9f9f9; border-radius: 5px;">
+    </ul>
+
+    <button id="btnConfirmerScanDynamsoft" class="btn-modern" onclick="confirmerScanApprovisionnementDynamsoft()" style="margin-top: 15px;">
+      <i data-lucide="check-circle"></i> Confirmer et Ajouter au Panier
+    </button>
+  </div>
+</section>
+
+
+<script>
+/* ====================================================================
+   LOGIQUE DE SCAN - VERSION FINALE, FIDÈLE AU HELLO WORLD
+   ==================================================================== */
+
+// --- Variables globales pour le scan ---
+let currentApproItemForScan = null;
+let tempScannedImeis = [];
+
+// --- 1. Fonction principale pour démarrer le processus ---
+function lancerScanDynamsoft(item) {
+  currentApproItemForScan = item;
+  tempScannedImeis = [];
+
+  // Mettre à jour l'interface
+  document.getElementById('scanProductNameDynamsoft').textContent = item.produit;
+  document.getElementById('scanTargetCountDynamsoft').textContent = item.quantite;
+  document.getElementById('scanCurrentCountDynamsoft').textContent = '0';
+  document.getElementById('scannedImeiListDynamsoft').innerHTML = '';
+  document.getElementById('manualImeiInputDynamsoft').value = '';
+  document.getElementById('btnConfirmerScanDynamsoft').disabled = true;
+
+  // Naviguer vers le nouvel écran de scan
+  window.location.hash = 'scan-dynamsoft';
+
+  // Afficher le bouton pour lancer le premier scan
+  afficherBoutonDeScan();
+  lucide.createIcons(); // Pour l'icône dans le bouton de saisie manuelle
+}
+
+// --- 2. Affiche le bouton "Scanner le prochain IMEI" ---
+function afficherBoutonDeScan() {
+    const container = document.getElementById('scan-container');
+    const numRestants = currentApproItemForScan.quantite - tempScannedImeis.length;
+    container.innerHTML = `<button class="btn-modern" onclick="demarrerUnScan()">Scanner IMEI (${numRestants} restant(s))</button>`;
+    document.getElementById('scanFeedbackDynamsoft').textContent = 'Prêt pour le prochain scan.';
+}
+
+// --- 3. Démarre UN SEUL scan (LOGIQUE HELLO WORLD EXACTE) ---
+function demarrerUnScan() {
+    // On vide le conteneur pour que le scanner puisse s'y attacher
+    document.getElementById('scan-container').innerHTML = '';
+    document.getElementById('scanFeedbackDynamsoft').textContent = 'Lancement de la caméra...';
+    
+    // Configuration de l'instance du scanner
+    let config = {
+        license: "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTA0MTIyNDk4LVRYbFhaV0pRY205cSIsIm1haW5TZXJ2ZXJVUkwiOiJodHRwczovL21kbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsIm9yZ2FuaXphdGlvbklEIjoiMTA0MTIyNDk4Iiwic3RhbmRieVNlcnZlclVSTCI6Imh0dHBzOi8vc2Rscy5keW5hbXNvZnRvbmxpbmUuY29tIiwiY2hlY2tDb2RlIjotMTYyMTI2MTU4OH0=",
+        container: "#scan-container", // On dit au scanner de s'afficher dans notre div
+    };
+
+    // Création d'une nouvelle instance, comme dans l'exemple
+    const barcodeScanner = new Dynamsoft.BarcodeScanner(config);
+
+    // Lancement du scanner, comme dans l'exemple
+    barcodeScanner.launch().then((result) => {
+        // Le scanner a terminé, on traite le résultat
+        if (result.barcodeResults.length > 0) {
+            console.log(result.barcodeResults[0]);
+            processImei(result.barcodeResults[0].text);
+        } else {
+            showToast("Scan annulé ou aucun code-barres trouvé.");
+            // Si on n'a rien trouvé, on affiche de nouveau le bouton pour réessayer
+            afficherBoutonDeScan();
+        }
+    }).catch((error) => {
+        console.error(error);
+        alert("Erreur: " + error.message);
+        // En cas d'erreur, on affiche de nouveau le bouton
+        afficherBoutonDeScan();
+    });
+}
+
+
+// --- 4. Fonction qui traite chaque IMEI (logique métier) ---
+function processImei(rawInput) {
+  const cleaned = rawInput.replace(/\D/g, '').slice(0, 15);
+
+  if (cleaned.length !== 15 || tempScannedImeis.includes(cleaned)) {
+    showToast(cleaned.length !== 15 ? "IMEI invalide." : "IMEI déjà scanné.", "error");
+    afficherBoutonDeScan(); // Affiche le bouton pour le prochain essai
+    return;
+  }
+
+  if (tempScannedImeis.length >= currentApproItemForScan.quantite) {
+    showToast("Quantité requise déjà atteinte.");
+    return;
+  }
+
+  tempScannedImeis.push(cleaned);
+
+  // Mise à jour de l'interface
+  const list = document.getElementById('scannedImeiListDynamsoft');
+  const listItem = document.createElement('li');
+  listItem.textContent = cleaned;
+  list.appendChild(listItem);
+  document.getElementById('scanCurrentCountDynamsoft').textContent = tempScannedImeis.length;
+  showToast(`IMEI ${cleaned} ajouté !`);
+  if (navigator.vibrate) navigator.vibrate(100);
+
+  // Décider de la suite : soit on a fini, soit on affiche le bouton pour le prochain
+  if (tempScannedImeis.length === currentApproItemForScan.quantite) {
+    document.getElementById('btnConfirmerScanDynamsoft').disabled = false;
+    document.getElementById('scanFeedbackDynamsoft').textContent = "Tous les IMEI ont été ajoutés !";
+    document.getElementById('scan-container').innerHTML = '<p style="color: green; font-weight: bold;">Terminé ! Vous pouvez confirmer.</p>';
+    showToast("Prêt à confirmer.");
+  } else {
+    afficherBoutonDeScan(); // Affiche le bouton pour le suivant
+  }
+}
+
+// --- 5. Fonctions des boutons de l'interface (confirm, manual, cancel) ---
+function ajouterImeiManuellementDynamsoft() {
+  const input = document.getElementById('manualImeiInputDynamsoft');
+  const imei = input.value.trim();
+  if (imei) {
+    // On ne traite que s'il reste de la place
+    if (tempScannedImeis.length < currentApproItemForScan.quantite) {
+        processImei(imei);
+        input.value = '';
+    } else {
+        showToast("Quantité requise déjà atteinte.");
+    }
+  }
+}
+
+function confirmerScanApprovisionnementDynamsoft() {
+  if (tempScannedImeis.length !== currentApproItemForScan.quantite) {
+    alert("Le nombre d'IMEI ne correspond pas à la quantité !");
+    return;
+  }
+  currentApproItemForScan.imeis = tempScannedImeis;
+  currentApproItems.push(currentApproItemForScan);
+  updatePanierApprovisionnement();
+  annulerScan(); // Quitte l'écran de scan
+}
+
+function annulerScan() {
+    window.location.hash = 'approvisionnement';
+}
+</script>
+
+
+    <!--Dépense Fonctionnelle -->
+    <section id="screen-depense-fonctionnelle" class="screen">
+      <style>
+        .form-container {
+          padding: 15px;
+        }
+        .form-section {
+          background: var(--white);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: var(--shadow);
+        }
+        .form-section h2 {
+          text-align: center;
+          color: var(--primary-color);
+        }
+        #formDepenseFonctionnelle input,
+        #formDepenseFonctionnelle textarea {
+          width: 100%;
+          padding: 12px;
+          font-size: 16px;
+          border: none;
+          border-radius: 50px;
+          background: #E4E6EB;
+          color: #333;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          outline: none;
+        }
+        .btn-modern.primary {
+          background: var(--primary-color);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-modern.primary i {
+          font-size: 20px;
+        }
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
+
+      <header>
+        <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Nouvelle Dépense Fonctionnelle</h1>
+      </header>
+
+      <div class="form-container">
+        <div class="form-section">
+          <h2>Ajouter une Dépense</h2>
+          <form id="formDepenseFonctionnelle">
+            <label for="montantDepense">Montant (FCFA)</label>
+            <input type="number" id="montantDepense" placeholder="Montant" required>
+
+            <label for="descriptionDepense">Description</label>
+            <textarea id="descriptionDepense" placeholder="Ex: Achat matériel de bureau" required></textarea>
+
+            <label for="compteSelectDepenseFonctionnelle">Compte de trésorerie</label>
+            <select id="compteSelectDepenseFonctionnelle"></select>
+            <button type="submit" class="btn-modern primary">
+              <i data-lucide="plus"></i> Enregistrer Dépense
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById("formDepenseFonctionnelle")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
+        
+            const montant     = parseFloat(document.getElementById("montantDepense").value.trim());
+            const description = document.getElementById("descriptionDepense").value.trim();
+            const compteId    = document.getElementById("compteSelectDepenseFonctionnelle").value;
+        
+            if (!montant || montant <= 0 || !description) {
+              alert("Montant ou description invalide.");
+              return;
+            }
+        
+            enregistrerMouvementTresorerie({
+              compteId,
+              type   : "depense",
+              sens   : "out",
+              montant,
+              description
+            })
+            /* ➜ on consigne la dépense pour l’historique */
+            .then(() => logDepenseRemboursement({
+              collection  : "depenses",
+              montant,
+              description,
+              type        : "depense fonctionnelle"
+            }))
+            .then(() => {
+              alert("Dépense Fonctionnelle enregistrée !");
+              document.getElementById("montantDepense").value     = "";
+              document.getElementById("descriptionDepense").value = "";
+              updateBalanceDisplay();
+            })
+            .catch(err => alert("Erreur : " + err.message));
+        });
+        </script>
+        
+    </section>
+    <!-- Screen: Dépense Papa -->
+    <section id="screen-depense-papa" class="screen">
+      <style>
+        .form-container {
+          padding: 15px;
+        }
+        .form-section {
+          background: var(--white);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: var(--shadow);
+        }
+        .form-section h2 {
+          text-align: center;
+          color: var(--primary-color);
+        }
+        /* Même style pour les inputs que pour l'écran Dépense Fonctionnelle */
+        #formDepensePapa input,
+        #formDepensePapa textarea {
+          width: 100%;
+          padding: 12px;
+          font-size: 16px;
+          border: none;
+          border-radius: 50px;
+          background: #E4E6EB;
+          color: #333;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          outline: none;
+        }
+        .btn-modern.primary {
+          background: var(--primary-color);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-modern.primary i {
+          font-size: 20px;
+        }
+        .back-btn-fb {
+          width: 40px;
+          height: 40px;
+          border: none;
+          background: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          border-radius: 50%;
+          cursor: pointer;
+          overflow: hidden;
+          outline: none;
+        }
+        .back-btn-fb i {
+          font-size: 24px;
+          color: var(--primary-color);
+        }
+        .back-btn-fb::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.3s ease-out;
+          pointer-events: none;
+        }
+        .back-btn-fb:active::after {
+          transform: translate(-50%, -50%) scale(1);
+        }
+      </style>
+
+      <header>
+        <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Nouvelle Dépense Papa</h1>
+      </header>
+
+      <div class="form-container">
+        <div class="form-section">
+          <h2>Ajouter une Dépense Papa</h2>
+          <form id="formDepensePapa">
+            <label for="montantDepensePapa">Montant (FCFA)</label>
+            <input type="number" id="montantDepensePapa" placeholder="Montant" required>
+            <label for="descriptionDepensePapa">Description</label>
+            <textarea id="descriptionDepensePapa" placeholder="Ex: Description de la dépense" required></textarea>
+
+            <label for="compteSelectDepensePapa">Compte de trésorerie</label>
+            <select id="compteSelectDepensePapa"></select>
+
+            <button type="submit" class="btn-modern primary">
+              <i data-lucide="plus"></i> Enregistrer Dépense Papa
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <script>
+        document.getElementById("formDepensePapa")
+          .addEventListener("submit", function (e) {
+            e.preventDefault();
+        
+            const montant     = parseFloat(document.getElementById("montantDepensePapa").value.trim());
+            const description = document.getElementById("descriptionDepensePapa").value.trim();
+            const compteId    = document.getElementById("compteSelectDepensePapa").value;
+        
+            if (!montant || montant <= 0 || !description) {
+              alert("Montant ou description invalide.");
+              return;
+            }
+        
+            enregistrerMouvementTresorerie({
+              compteId,
+              type   : "papa",
+              sens   : "out",
+              montant,
+              description
+            })
+            /* ➜ on consigne la dépense pour l’historique */
+            .then(() => logDepenseRemboursement({
+              collection  : "depenses",
+              montant,
+              description,
+              type        : "papa"
+            }))
+            .then(() => {
+              alert("Dépense Papa enregistrée !");
+              document.getElementById("montantDepensePapa").value     = "";
+              document.getElementById("descriptionDepensePapa").value = "";
+              updateDepensePapaBalance();
+              updateBalanceDisplay();
+            })
+            .catch(err => alert("Erreur : " + err.message));
+        });
+        </script>
+        
+          </section>
+
+
+<!-- Screen X : Panier -->
+<section id="screen-panier" class="screen">
+  <header>
+    <div class="header-icons">
+      <i data-lucide="list"></i>
+      <button class="btn-search">
+        <i data-lucide="search"></i>
+      </button>
+    </div>
+  </header>
+
+  <div style="padding: 15px;">
+    <!-- articles injectés par JS -->
+    <div id="panierContainer" class="list-container"></div>
+
+
+
+  </div>
+
+    <!-- Fixed Cart Footer -->
+    <div id="cartFooter" class="cart-footer">
+      <div class="footer-info">
+        <span class="footer-label">Articles</span>
+        <span id="footerQuantity">0</span>
+      </div>
+      <div class="footer-total">
+        <span class="footer-label">Total :</span>
+        <span id="footerTotal">0 FCFA</span>
+      </div>
+      <button id="footerCheckout" class="btn-modern">
+        Suivant <i data-lucide="arrow-right"></i>
+      </button>
+    </div>
+
+    <script>
+      document.querySelectorAll('.btn-search').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    const circle = document.createElement('span');
+    circle.classList.add('ripple');
+    const d = Math.max(this.clientWidth, this.clientHeight);
+    circle.style.width  = circle.style.height = d + 'px';
+    const rect = this.getBoundingClientRect();
+    circle.style.left = `${e.clientX - rect.left - d/2}px`;
+    circle.style.top  = `${e.clientY - rect.top  - d/2}px`;
+    this.appendChild(circle);
+
+    // Au lieu de tout casser de suite, on attend la fin de l’anim :
+    circle.addEventListener('animationend', () => {
+      circle.remove();
+      window.location.hash = 'search-article';
+      updateSearchCartBadge();
+    });
+  });
+});
+
+      </script>
+      
+</section>
+
+
+<!-- Screen: Remboursement Papa -->
+<section id="screen-remboursement-papa" class="screen">
+  <style>
+    .form-container {
+      padding: 15px;
+    }
+    .form-section {
+      background: var(--white);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: var(--shadow);
+    }
+    .form-section h2 {
+      text-align: center;
+      color: var(--primary-color);
+    }
+    /* Styles pour les inputs */
+    #formRemboursementPapa input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 50px;
+      background: #E4E6EB;
+      color: #333;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .btn-modern.primary {
+      background: var(--primary-color);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-modern.primary i {
+      font-size: 20px;
+    }
+    .back-btn-fb {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      border-radius: 50%;
+      cursor: pointer;
+      overflow: hidden;
+      outline: none;
+    }
+    .back-btn-fb i {
+      font-size: 24px;
+      color: var(--primary-color);
+    }
+    .back-btn-fb::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.3s ease-out;
+      pointer-events: none;
+    }
+    .back-btn-fb:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
+
+  <header>
+    <button class="back-btn-fb" onclick="window.location.hash='depenses'">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <h1>Nouveau Remboursement Papa</h1>
+  </header>
+
+  <div class="form-container">
+    <div class="form-section">
+      <h2>Ajouter un Remboursement Papa</h2>
+      <form id="formRemboursementPapa">
+         <label for="montantRemboursementPapa">Montant (FCFA)</label>
+         <input type="number" id="montantRemboursementPapa" placeholder="Montant" required>
+
+         <label for="compteSelectRemboursementPapa">Compte de trésorerie</label>
+        <select id="compteSelectRemboursementPapa"></select>
+
+         <button type="submit" class="btn-modern primary">
+           <i data-lucide="plus"></i> Enregistrer Remboursement Papa
+         </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("formRemboursementPapa")
+      .addEventListener("submit", function (e) {
+        e.preventDefault();
+    
+        const montant  = parseFloat(document.getElementById("montantRemboursementPapa").value.trim());
+        const compteId = document.getElementById("compteSelectRemboursementPapa").value;
+    
+        if (!montant || montant <= 0) {
+          alert("Montant invalide.");
+          return;
+        }
+    
+        enregistrerMouvementTresorerie({
+          compteId,
+          type   : "remboursement",
+          sens   : "in",
+          montant,
+          description : "Remboursement Papa"
+        })
+        /* ➜ on consigne le remboursement pour l’historique */
+        .then(() => logDepenseRemboursement({
+          collection  : "remboursements",
+          montant,
+          description : "Remboursement Papa"
+        }))
+        .then(() => {
+          alert("Remboursement enregistré !");
+          document.getElementById("montantRemboursementPapa").value = "";
+          updateDepensePapaBalance();
+          updateBalanceDisplay();
+        })
+        .catch(err => alert("Erreur : " + err.message));
+    });
+    </script>
+    
+</section>
+
+    <!-- Bottom Navigation Modernisée (Navigation par hash) -->
+    <nav class="bottom-nav-pro">
+      <div class="nav-item" id="nav-vendre" onclick="window.location.hash='vendre'">
+        <i data-lucide="shopping-cart"></i>
+        <span>Vente</span>
+      </div>
+      <div class="nav-item" id="nav-panier" onclick="window.location.hash='panier'" style="position: relative;">
+  <i data-lucide="shopping-bag"></i>
+  <span>Panier</span>
+</div>
+
+      
+      <div class="nav-item" id="nav-stock" onclick="window.location.hash='stock'">
+        <i data-lucide="package"></i>
+        <span>Stock</span>
+      </div>
+      <div class="nav-item" id="nav-livraisons" onclick="window.location.hash='livraisons'">
+        <i data-lucide="truck"></i>
+        <span>Livraisons</span>
+      </div>
+      <div class="nav-item" id="nav-historique" onclick="window.location.hash='historique'">
+        <i data-lucide="clock"></i>
+        <span>Historique</span>
+      </div>
+      <div class="nav-item" id="nav-menu" onclick="window.location.hash='menu'">
+        <i data-lucide="menu"></i>
+        <span>Menu</span>
+      </div>
+    </nav>
+  </div>
+  
+  <!-- Modal: Détails d'une vente -->
+  <div id="modalDetail" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerModal()">&times;</span>
+      <h2>Détails de la Vente</h2>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+  
+
+  
+  <!-- Modal pour ajouter une opération -->
+  <div id="modalAjoutOperation" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fermerModalTresorerie()">&times;</span>
+      <h2>Ajouter une Opération</h2>
+      <form class="vente-form">
+        <label for="typeOperation">Type d'opération</label>
+        <select id="typeOperation">
+          <option value="entree">Entrée (Vente)</option>
+          <option value="sortie">Dépense</option>
+        </select>
+
+        <label for="montantOperation">Montant</label>
+        <input type="number" id="montantOperation" placeholder="Montant en FCFA" required>
+
+        <label for="descriptionOperation">Observations</label>
+        <textarea id="descriptionOperation" placeholder="Observations (facultatif)"></textarea>
+
+        <button type="button" class="btn-modern" onclick="ajouterOperationTresorerie()">Ajouter</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Overlay affiché lorsqu'on est hors ligne -->
+  <div id="offlineOverlay" style="
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+">
+  Pas de connexion. Veuillez vous reconnecter.
+</div>
+
+
+  
+  <script>
+    // Préloader
+    window.addEventListener('load', function() {
+      const preloader = document.getElementById('preloader');
+      preloader.style.opacity = '0';
+      setTimeout(() => { preloader.style.display = 'none'; }, 500);
+    });
+
+    // Toast Notification
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.style.display = "block";
+      setTimeout(() => { toast.style.display = "none"; }, 3000);
+    }
+
+    // Sale Loader Functions
+    function showSaleLoader() {
+      document.getElementById("saleLoader").style.display = "flex";
+    }
+    function hideSaleLoader() {
+      document.getElementById("saleLoader").style.display = "none";
+    }
+
+    // Gestion des étapes de vente (Stepper)
+    let currentStep = 0;
+    const steps = document.querySelectorAll(".sale-step");
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.remove("active");
+        if(i === index) {
+          step.classList.add("active");
+        }
+      });
+      const progress = ((index + 1) / steps.length) * 100;
+      document.getElementById("progressBar").style.width = progress + "%";
+      document.getElementById("progressText").innerText = `Étape ${index + 1} / ${steps.length}`;
+      if(index === steps.length - 1) {
+        generateRecap();
+      }
+    }
+    function nextStep() {
+  // Si on est à l’étape 3 (index = 2) : on exige un compte
+  if (currentStep === 2) {
+    const compte = document.getElementById("compteSelectVente").value;
+    if (!compte) {
+      alert("Veuillez sélectionner un compte de trésorerie avant de continuer.");
+      return; // on reste sur l’étape
+    }
+  }
+
+  // votre code existant
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    showStep(currentStep);
+  }
+}
+    function prevStep() {
+      if(currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    }
+    function generateRecap() {
+      const recap = document.getElementById("saleRecap");
+      let html = "<h3>Récapitulatif de la Vente</h3><strong>Articles :</strong><br>";
+      currentItems.forEach(item => {
+        html += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
+      });
+      html += "<br><strong>Client :</strong> " + document.getElementById("clientNom").value + " (" + document.getElementById("clientNumero").value + ")<br>";
+      html += "<strong>Vendeur :</strong> " + document.getElementById("vendeurSelect").value + "<br>";
+      html += "<strong>Total :</strong> " + currentItems.reduce((acc, item) => acc + parseFloat(item.total), 0).toFixed(2);
+      recap.innerHTML = html;
+    }
+
+    // Compression d'image
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Initialisation Firebase et Firestore
+    const firebaseConfig = {
+      apiKey: "AIzaSyB44wUN_WitWSIjoUKtWXI6z6SuQx41_fg",
+      authDomain: "africaphone1-accfb.firebaseapp.com",
+      projectId: "africaphone1-accfb",
+      storageBucket: "africaphone1-accfb.firebasestorage.app",
+      messagingSenderId: "747416222232",
+      appId: "1:747416222232:web:36cb8a93f3c8342ad3e16d",
+      measurementId: "G-LFT6C3Q9D9"
+    };
+    firebase.initializeApp(firebaseConfig);
+    firebase.firestore().enablePersistence()
+  .catch(err => {
+    console.error("Erreur d'activation de la persistance Firestore:", err);
+  });
+    const dbFirestore = firebase.firestore();
+
+    
+
+    // Déclaration globale
+// stockId sélectionné pour l’historique
+let currentHistoryStockId = null;
+
+// Pagination dépenses  (⚙️ correctif anti-doublon)
+let lastVisibleDepenses = null;
+let loadingDepenses     = false;
+let renderedDepenseIds  = new Set();   // ← mémorise les ID déjà rendus
+
+// Fonction pour charger le stock depuis Firestore et le mettre en cache
+function fetchAndCacheStock() {
+  dbFirestore.collection("stock").get()
+    .then(querySnapshot => {
+      cachedStock = [];
+      querySnapshot.forEach(doc => {
+        cachedStock.push({ id: doc.id, ...doc.data() });
+      });
+      console.log("Stock chargé en cache :", cachedStock);
+    })
+    .catch(error => console.error("Erreur lors du chargement du stock :", error));
+}
+
+// Appeler la fonction dès le chargement de l'app
+fetchAndCacheStock();
+
+// Fonction debounce : exécute la fonction passée après un délai d'attente
+function debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
+
+
+    // --- Début de la gestion du solde "dépense papa" ---
+
+  // Fonction pour récupérer le solde actuel de dépense papa
+  function getDepensePapaBalance() {
+    return dbFirestore.collection("depensePapa").doc("balance")
+      .get()
+      .then(doc => {
+        if (doc.exists) {
+          return doc.data().montant || 0;
+        } else {
+          // Si le document n'existe pas, retourner 0
+          return 0;
+        }
+      })
+      .catch(error => {
+        console.error("Erreur lors de la récupération du solde de dépense papa :", error);
+        return 0;
+      });
+  }
+
+  // Fonction pour mettre à jour le solde de dépense papa
+  function setDepensePapaBalance(newBalance) {
+    return dbFirestore.collection("depensePapa").doc("balance").set({ montant: newBalance })
+      .catch(error => {
+        console.error("Erreur lors de la mise à jour du solde de dépense papa :", error);
+      });
+  }
+
+  // Fonction pour mettre à jour le texte du bouton "Dépense Papa" avec le solde actuel
+  function updateDepensePapaButton() {
+    getDepensePapaBalance().then(balance => {
+      const btn = document.getElementById("btnDepensePapa");
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="user-minus"></i> Dépense Papa : ${balance.toLocaleString()} FCFA`;
+        // Recharge les icônes Lucide
+        lucide.createIcons();
+      }
+    }).catch(error => {
+      console.error("Erreur lors de la mise à jour du bouton Dépense Papa :", error);
+    });
+  }
+
+  // Fonction qui interroge la base pour récupérer la somme de toutes les dépenses de papa,
+// met à jour le document "depensePapa/balance" et rafraîchit l'affichage sur le bouton.
+function updateDepensePapaBalance() {
+  console.log("Mise à jour du solde des dépenses Papa...");
+  // Récupérer la somme des dépenses papa
+  const depensesPromise = dbFirestore.collection("depenses")
+    .where("type", "==", "papa")
+    .get()
+    .then(snapshot => {
+      let totalDepenses = 0;
+      snapshot.forEach(doc => {
+        totalDepenses += parseFloat(doc.data().montant) || 0;
+      });
+      return totalDepenses;
+    });
+  
+  // Récupérer la somme des remboursements (pour papa)
+  const remboursementsPromise = dbFirestore.collection("remboursements")
+    // Si nécessaire, vous pouvez filtrer ici uniquement pour les remboursements destinés aux "dépenses papa"
+    .get()
+    .then(snapshot => {
+      let totalRemboursements = 0;
+      snapshot.forEach(doc => {
+        totalRemboursements += parseFloat(doc.data().montant) || 0;
+      });
+      return totalRemboursements;
+    });
+  
+  return Promise.all([depensesPromise, remboursementsPromise])
+    .then(([totalDepenses, totalRemboursements]) => {
+      // Calculer le solde en soustrayant les remboursements des dépenses
+      const newBalance = totalDepenses - totalRemboursements;
+      return dbFirestore.collection("depensePapa").doc("balance").set({ montant: newBalance })
+        .then(() => newBalance);
+    })
+    .then(newBalance => {
+      console.log("Solde des dépenses Papa mis à jour :", newBalance);
+      updateDepensePapaButton(); // Rafraîchit l'affichage du bouton
+      return newBalance;
+    })
+    .catch(error => {
+      console.error("Erreur dans updateDepensePapaBalance() :", error);
+    });
+}
+
+
+
+  // --- Fin de la gestion du solde "dépense papa"
+
+    /* === Fonctions centralisées pour le calcul des entrées, dépenses et solde === */
+    function calculateEntreesToday() {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+      // Total des ventes de la journée
+      const ventesPromise = dbFirestore.collection("ventes")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalVentes = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            totalVentes += parseFloat(data.overallTotal) || 0;
+          });
+          return totalVentes;
+        });
+
+      // Total des remboursements de la journée
+      const remboursementsPromise = dbFirestore.collection("remboursements")
+        .where("timestamp", ">=", startOfToday)
+        .where("timestamp", "<=", endOfToday)
+        .get()
+        .then(snapshot => {
+          let totalRemboursements = 0;
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            totalRemboursements += parseFloat(data.montant) || 0;
+          });
+          return totalRemboursements;
+        });
+
+      return Promise.all([ventesPromise, remboursementsPromise])
+        .then(([totalVentes, totalRemboursements]) => {
+          return totalVentes + totalRemboursements;
+        })
+        .catch(error => {
+          console.error("Erreur dans calculateEntreesToday : " + error.message);
+          return 0;
+        });
+    }
+
+    function calculateDepensesToday() {
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - 1;
+
+  return dbFirestore.collection("depenses")
+    .where("timestamp", ">=", startOfToday)
+    .where("timestamp", "<=", endOfToday)
+    .get()
+    .then(snapshot => {
+      let totalDepenses = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        // On inclut "depense fonctionnelle" dans le calcul
+        if (data.type === "depense" ||
+            data.type === "depense fonctionnelle" ||
+            data.type === "papa" ||
+            !data.type) {
+          totalDepenses += parseFloat(data.montant) || 0;
+        }
+      });
+      return totalDepenses;
+    })
+    .catch(error => {
+      console.error("Erreur dans calculateDepensesToday : " + error.message);
+      return 0;
+    });
+}
+
+function updateBalanceDisplay() {
+  Promise.all([
+    calculateEntreesToday(),
+    calculateDepensesToday()
+    // on retire getRunningBalance()
+  ])
+  .then(([totalEntreesToday, totalDepensesToday]) => {
+    // 1) Affiche entrées et dépenses du jour
+    document.getElementById("entrees-today").textContent  = "+XOF " + totalEntreesToday.toLocaleString();
+    document.getElementById("depenses-today").textContent = "-XOF " + totalDepensesToday.toLocaleString();
+
+    // 2) Calcule le solde global = somme des solde de chaque compte (caisse, momo, banque)
+    const soldeGlobal = comptesCache
+      .reduce((sum, compte) => sum + (compte.solde || 0), 0);
+
+    // 3) Affiche le solde global
+    document.getElementById("balance-sold").textContent   = "XOF " + soldeGlobal.toLocaleString();
+  })
+  .catch(error => console.error("Erreur updateBalanceDisplay:", error));
+}
+
+        /**
+     * Récupère le solde cumulatif depuis le document "tresorerie/balance".
+     * Retourne 0 si le doc n'existe pas ou en cas d'erreur.
+     */
+    function getRunningBalance() {
+      return dbFirestore.collection("tresorerie").doc("balance")
+        .get()
+        .then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            return data.montant || 0;
+          } else {
+            // Si jamais le doc n'existe pas encore
+            return 0;
+          }
+        })
+        .catch(error => {
+          console.error("Erreur getRunningBalance:", error.message);
+          return 0;
+        });
+    }
+
+  
+    
+
+    // Fonctions Firestore pour les ventes
+    function addSaleFirestore(vente) {
+      return dbFirestore.collection("ventes").add(vente)
+        .then(docRef => docRef.id)
+        .catch(error => { throw new Error("Erreur lors de l'ajout de la vente : " + error.message); });
+    }
+    function updateSaleFirestore(venteId, vente) {
+      return dbFirestore.collection("ventes").doc(venteId).set(vente, { merge: true })
+        .then(() => venteId)
+        .catch(error => { throw new Error("Erreur lors de la mise à jour de la vente : " + error.message); });
+    }
+    function getSalesForTodayFirestore() {
+      const today = new Date().toLocaleDateString("fr-FR");
+      return dbFirestore.collection("ventes")
+        .where("dateVente", "==", today)
+        .get()
+        .then(querySnapshot => {
+          const ventes = [];
+          querySnapshot.forEach(doc => {
+            ventes.push({ id: doc.id, ...doc.data() });
+          });
+          return ventes;
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération des ventes : " + error.message); });
+    }
+    function getSaleByIdFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).get()
+        .then(doc => {
+          if (doc.exists) {
+            return { id: doc.id, ...doc.data() };
+          } else {
+            throw new Error("Vente non trouvée.");
+          }
+        })
+        .catch(error => { throw new Error("Erreur lors de la récupération de la vente : " + error.message); });
+    }
+    function deleteSaleFirestore(id) {
+      return dbFirestore.collection("ventes").doc(id).delete()
+        .then(() => true)
+        .catch(error => { throw new Error("Erreur lors de la suppression de la vente : " + error.message); });
+    }
+
+    function getAllSalesFirestore() {
+  return dbFirestore.collection("ventes")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(querySnapshot => {
+      const ventes = [];
+      querySnapshot.forEach(doc => {
+        ventes.push({ id: doc.id, ...doc.data() });
+      });
+      return ventes;
+    })
+    .catch(error => { 
+      throw new Error("Erreur lors de la récupération des ventes : " + error.message); 
+    });
+}
+
+
+    // Fonctions Firestore pour le stock
+    function getAllStockFirestore() {
+  return new Promise((resolve, reject) => {
+    dbFirestore.collection("stock").onSnapshot(snapshot => {
+      const stocks = [];
+      snapshot.forEach(doc => {
+        stocks.push({ id: doc.id, ...doc.data() });
+      });
+      // Mettre à jour le cache global
+      cachedStock = stocks;
+      resolve(stocks);
+    }, error => {
+      reject(new Error("Erreur lors de la récupération du stock : " + error.message));
+    });
+  });
+}
+
+    function importStockToFirestore(stocks) {
+      const batch = dbFirestore.batch();
+      return dbFirestore.collection("stock").get()
+        .then(querySnapshot => {
+          querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          stocks.forEach(stockItem => {
+            const docRef = dbFirestore.collection("stock").doc();
+            batch.set(docRef, stockItem);
+          });
+          return batch.commit();
+        })
+        .catch(error => { throw new Error("Erreur lors de l'importation du stock : " + error.message); });
+    }
+    /**
+ * Pour chaque article vendu, décrémente le stock
+ * et logue la variation (sortie).
+ *
+ * @param {Array<{ produit: string, quantite: number }>} items
+ * @returns {Promise}
+ */
+function updateStockAfterSaleFirestore(items) {
+  const promises = items.map(item => {
+    return dbFirestore
+      .collection("stock")
+      .where("name", "==", item.produit)
+      .get()
+      .then(querySnapshot => {
+        if (!querySnapshot.empty) {
+          const docRef   = querySnapshot.docs[0].ref;
+          const data     = querySnapshot.docs[0].data();
+          const oldStock = parseFloat(data.stock) || 0;
+          // on retire la quantité vendue
+          const newStock = Math.max(0, oldStock - item.quantite);
+
+          return docRef.update({ stock: newStock })
+            .then(() => {
+              // Log de la variation ↓
+              return docRef
+                .collection("history")
+                .add({
+                  timestamp: Date.now(),
+                  change: -item.quantite,
+                  newStock: newStock
+                });
+            });
+        }
+      });
+  });
+
+  // Après toutes les mises à jour, on peut rafraîchir l'UI
+  return Promise.all(promises).then(() => updateStockSummary());
+}
+
+    function restockAfterCancellationFirestore(sale) {
+      const promises = sale.items.map(item => {
+        return dbFirestore.collection("stock")
+          .where("name", "==", item.produit)
+          .get()
+          .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+              const doc = querySnapshot.docs[0];
+              const stockData = doc.data();
+              const newStock = stockData.stock + item.quantite;
+              return dbFirestore.collection("stock").doc(doc.id).update({ stock: newStock });
+            }
+          });
+      });
+      return Promise.all(promises).then(() => updateStockSummary());
+    }
+
+    // Mise à jour de l'affichage du stock
+    function updateStockSummary() {
+      getAllStockFirestore().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
+    }
+
+    // Annulation de vente avec restockage
+    function demanderAnnulation(id) {
+      const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
+      if (motDePasse !== "zizou") {
+        alert("Mot de passe incorrect !");
+        return;
+      }
+      if (confirm("Voulez-vous vraiment annuler cette vente ? Cela réintégrera les articles dans le stock.")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            return restockAfterCancellationFirestore(sale).then(() => sale);
+          })
+          .then(sale => {
+            return deleteSaleFirestore(sale.id);
+          })
+          .then(() => {
+            alert("Vente annulée et stock mis à jour !");
+            afficherVentes();
+          })
+          .catch(err => alert("Erreur lors de l'annulation : " + err.message));
+      }
+    }
+
+    // Hash Router pour la navigation
+    function handleHashChange() {
+    const hash = window.location.hash.substring(1);
+    showScreenByHash(hash);
+    }
+// Votre fonction enregistrerSnapshotDaily ici
+function enregistrerSnapshotDaily() {
+  const today = new Date();
+  const todayString = today.toISOString().split("T")[0];
+  
+  const historiqueRef = dbFirestore
+    .collection("tresorerie")
+    .doc("balance")
+    .collection("historique");
+  
+  historiqueRef.where("dateString", "==", todayString).get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        getRunningBalance().then(balance => {
+          historiqueRef.add({
+            date: firebase.firestore.Timestamp.fromDate(today),
+            dateString: todayString,
+            balance: balance
+          })
+          .then(() => {
+            console.log("Snapshot enregistré pour " + todayString);
+          })
+          .catch(err => {
+            console.error("Erreur lors de l'enregistrement du snapshot :", err.message);
+          });
+        });
+      } else {
+        console.log("Snapshot déjà existant pour " + todayString);
+      }
+    })
+    .catch(err => {
+      console.error("Erreur lors de la vérification du snapshot quotidien :", err.message);
+    });
+}
+
+  
+function voirHistoriqueStock(stockId, e) {
+  e.stopPropagation();                       // éviter le “bubbling”
+  currentHistoryStockId = stockId;          // mémoriser l’ID du produit
+  window.location.hash = 'stock-history';   // basculer vers l’écran historique
+}
+
+
+  function showScreenByHash(hash) {
+  // Masquer tous les écrans
+  const allScreens = document.querySelectorAll('.screen');
+  allScreens.forEach(screen => screen.classList.remove('active'));
+
+  // Afficher l'écran correspondant au hash, sinon afficher "vendre" par défaut
+  const targetScreen = document.getElementById(`screen-${hash}`);
+  if (targetScreen) {
+    targetScreen.classList.add('active');
+  } else {
+    document.getElementById('screen-vendre').classList.add('active');
+    window.location.hash = 'vendre';
+  }
+
+  // Mettre à jour l'état actif de la navigation
+  document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+  const activeNav = document.getElementById(`nav-${hash}`);
+  if (activeNav) {
+    activeNav.classList.add('active');
+  }
+
+  window.scrollTo(0, 0);
+
+  // Gérer les cas spécifiques selon le hash
+  switch (hash) {
+    case 'vendre':
+      break;
+    case 'stock':
+      updateStockSummary();
+      break;
+    case 'livraisons':
+      afficherLivraisons();
+      break;
+     case 'scan-dynamsoft':
+      // Rien de spécial à faire ici, l'écran sera déjà affiché.
+      // On s'assure que les icônes sont bien rendues.
+      lucide.createIcons(); 
+      break;
+    case 'historique':
+         filterHistory();
+      break;
+      case 'depenses':
+  initEcranDepenses();        // ← nouvelle fonction
+  break;
+case 'article-detail':
+  loadArticleDetail(); 
+  break;
+
+    case 'tresorerie':
+      updateBalanceDisplay();
+      break;
+    case 'rapports':
+      // Appeler la fonction qui met à jour la section "Rapports & Statistiques"
+      updateRapports();
+      break;
+
+    case 'approvisionnement':
+        chargerApprovisionnements();
+        togglePaymentAccount(); // Ensure payment method UI is correct on entry
+        break;
+    case 'profit':
+      updateProfitScreen(); // Appellez ici la fonction qui met à jour et affiche les détails du profit
+        break;
+    case 'repertoire-imei':
+      // Code spécifique pour le répertoire d'IMEI, si nécessaire
+      break;
+    // Ajoutez d'autres cas si nécessaire
+
+    case 'advance':  // Ajout du cas pour la section avance
+      // Vous pouvez ajouter des actions spécifiques si besoin
+      break;
+
+      case 'panier':
+  updatePanierPage();
+  break;
+       
+  case 'stock-history':
+  if (currentHistoryStockId) {
+    chargerHistoriqueStock(currentHistoryStockId);
+  }
+  break;
+
+  case 'start-day':
+      // rien de spécial à faire
+      break;
+
+  case 'dettes-fournisseurs':
+            chargerDettesFournisseurs();
+            break;
+
+  }
+}
+
+
+    window.addEventListener('load', () => {
+      if (!window.location.hash) {
+        window.location.hash = 'vendre';
+      }
+      handleHashChange();
+      window.addEventListener('hashchange', handleHashChange);
+      lucide.createIcons();
+
+      updateDepensePapaBalance();
+    });
+
+    // Récupération de l’overlay
+const offlineOverlay = document.getElementById('offlineOverlay');
+
+// Quand on passe hors‑ligne…
+window.addEventListener('offline', () => {
+  offlineOverlay.style.display = 'flex';
+});
+
+// …et quand on revient en ligne
+window.addEventListener('online', () => {
+  offlineOverlay.style.display = 'none';
+});
+
+// Au chargement de la page, si on est déjà hors‑ligne
+if (!navigator.onLine) {
+  offlineOverlay.style.display = 'flex';
+}
+
+
+ /* ==========================================================
+   PANIER – gestion centrale
+   ========================================================== */
+let currentArticleId = null; // Variable pour garder l'ID de l'article sélectionné
+let currentItems = [];              // contenu du panier
+let cachedStock  = [];              // stock en mémoire (déjà chargé)
+
+/* --- MÀJ DU FOOTER PANIER ---------------------------------- */
+function updateCartFooter () {
+  const qtyEl   = document.getElementById('footerQuantity');
+  const totalEl = document.getElementById('footerTotal');
+  const btn     = document.getElementById('footerCheckout');
+  if (!qtyEl || !totalEl || !btn) return;          // footer pas (encore) présent
+
+  const q  = currentItems.reduce((s, it) => s + it.quantite, 0);
+  const tt = currentItems.reduce((s, it) => s + it.total   , 0);
+
+  qtyEl.textContent   = q;
+  totalEl.textContent = tt.toLocaleString() + ' FCFA';
+  btn.disabled        = (q === 0);
+}
+
+
+
+function updateSearchCartBadge() {
+  const count = currentItems.length;
+  const badge = document.getElementById('searchCartCount');
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'flex' : 'none';
+}
+
+
+// Au clic sur l’icône, on va directement au panier
+document.getElementById('searchCartIcon').addEventListener('click', () => {
+  window.location.hash = 'panier';
+  updatePanierPage();
+});
+
+/* Ajoute un produit ou incrémente sa quantité ------------------ */
+function addOrIncrementItem(prod) {
+  const idx = currentItems.findIndex(it => it.produit === prod.name);
+
+  if (idx > -1) {                               // déjà présent → on incrémente
+    if (currentItems[idx].quantite >= prod.stock) {
+      showToast("Stock épuisé !");
+      return;
+    }
+    currentItems[idx].quantite += 1;
+    currentItems[idx].total     = currentItems[idx].quantite * currentItems[idx].prix;
+    currentItems[idx].category  = prod.category;
+  } else {                                      // premier ajout
+    if (prod.stock < 1) {
+      showToast("Stock épuisé !");
+      return;
+    }
+    currentItems.push({
+      produit  : prod.name,
+      prix     : prod.price,
+      quantite : 1,
+      total    : prod.price,
+      category : prod.category
+    });
+  }
+
+  renderMiniPanier();
+  updatePanierPage();
+  updateSearchCartBadge();
+  updateCartFooter();            // ← NOUVEL appel
+}
+
+/* ========== Aperçu rapide dans l’étape 1 ========= */
+function renderMiniPanier(){
+  const zone = document.getElementById("miniPanier");
+  if (!zone) return;
+  if (currentItems.length === 0){
+    zone.textContent = "— panier vide —";
+    return;
+  }
+  zone.innerHTML = currentItems
+      .map(it => `${it.quantite}× ${it.produit}`)
+      .join("<br>");
+}
+
+/* ========== Écran #panier complet ========= */
+function updatePanierPage() {
+  const container = document.getElementById("panierContainer");
+
+  container.innerHTML = currentItems.length
+    ? ""
+    : "<p>Votre panier est vide.</p>";
+
+  currentItems.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "panier-item";
+    row.innerHTML = `
+      <strong>${item.produit}</strong><br>
+      Qté :
+        <input type="number" min="1" value="${item.quantite}"
+               data-idx="${index}" class="inpQt">
+      Prix :
+        <input type="number" min="0" step="100" value="${item.prix}"
+               data-idx="${index}" class="inpPx">
+      Total :
+        <span class="ligneTotal">${item.total.toLocaleString()} FCFA</span>
+      <span class="remove-item" onclick="retirerArticle(${index})">×</span>
+    `;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll('.inpQt').forEach(el => el.oninput = onChangeQtOrPx);
+  container.querySelectorAll('.inpPx').forEach(el => el.oninput = onChangeQtOrPx);
+
+  updateCartFooter();   // ← un seul point de vérité pour le footer
+}
+
+// Le bouton du footer doit appeler la même fonction que l’ancien « Suivant »
+document.getElementById('footerCheckout').onclick = continuerDepuisPanier;
+
+
+// Enfin, au chargement de la page de recherche, initialiser le badge
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === '#search-article') {
+    updateSearchCartBadge();
+  }
+});
+/* Recalcul lors d’une saisie Qté ou Prix ---------------------- */
+function onChangeQtOrPx(e) {
+  const idx  = +e.target.dataset.idx;
+  const wrap = e.target.closest('.panier-item');
+  const q    = +wrap.querySelector('.inpQt').value || 0;
+  const p    = +wrap.querySelector('.inpPx').value || 0;
+
+  const stockItem = cachedStock.find(s => s.name === currentItems[idx].produit);
+  if (stockItem && q > stockItem.stock) {
+    showToast("Max " + stockItem.stock);
+    wrap.querySelector('.inpQt').value = stockItem.stock;
+    currentItems[idx].quantite = stockItem.stock;
+  } else {
+    currentItems[idx].quantite = q;
+  }
+
+  currentItems[idx].prix  = p;
+  currentItems[idx].total = currentItems[idx].quantite * currentItems[idx].prix;
+  wrap.querySelector('.ligneTotal').textContent =
+        currentItems[idx].total.toLocaleString() + " FCFA";
+
+  updateCartFooter();            // ← NOUVEL appel
+}
+
+/* Retirer un article ----------------------------------------- */
+function retirerArticle(i) {
+  currentItems.splice(i, 1);
+
+  if (window.location.hash === '#panier') {
+    updatePanierPage();
+  } else {
+    renderMiniPanier();
+  }
+
+  updateSearchCartBadge();
+  updateCartFooter();            // ← NOUVEL appel
+}
+
+/* Passer à l’écran Panier ------------------------------------ */
+function ouvrirPanier(){
+  window.location.hash = 'panier';
+  updatePanierPage();
+  updateSearchCartBadge();
+
+}
+
+/* Bouton “Suivant” depuis l’écran Panier --------------------- */
+function continuerDepuisPanier() {
+  if (currentItems.length === 0) return;
+  window.location.hash = 'vendre';   // retour au wizard
+  currentStep = 1;                   // Étape 2 : infos client
+  showStep(currentStep);
+  updateCartFooter();                // ← garde le footer frais
+}
+    // Gestion de la livraison dans la vente
+    function toggleDeliveryFields() {
+      const isDelivery = document.getElementById("isDelivery").checked;
+      const deliveryFields = document.getElementById("deliveryFields");
+      const btnValider = document.getElementById("btnValider");
+      if(isDelivery) {
+        deliveryFields.style.display = "block";
+        btnValider.textContent = "Valider Livraison";
+      } else {
+        deliveryFields.style.display = "none";
+        btnValider.textContent = "Valider Vente";
+      }
+    }
+    function getValidationMessage() {
+      return document.getElementById("isDelivery").checked ? "Valider la livraison ?" : "Valider la vente ?";
+    }
+
+    // Validation et finalisation de la vente
+    function validerVente() {
+      if(currentItems.length === 0) {
+        alert("Veuillez ajouter au moins un article.");
+        return;
+      }
+      const clientNom = document.getElementById("clientNom").value.trim();
+      const clientNumero = document.getElementById("clientNumero").value.trim();
+      if(!clientNom) {
+        alert("Veuillez entrer le nom du client.");
+        return;
+      }
+      if(!clientNumero) {
+        alert("Veuillez entrer le numéro WhatsApp du client.");
+        return;
+      }
+      const vendeur = document.getElementById("vendeurSelect").value;
+      const photoFile = document.getElementById("photoFacture").files[0];
+      const observationsVendeur = document.getElementById("observationsVendeur").value.trim();
+      let isDelivery = document.getElementById("isDelivery").checked;
+      let livreurNom = "";
+      let livreurNumero = "";
+      let lieuLivraison = "";
+      if(isDelivery) {
+        livreurNom = document.getElementById("livreurNom").value.trim();
+        livreurNumero = document.getElementById("livreurNumero").value.trim();
+        lieuLivraison = document.getElementById("lieuLivraison").value.trim();
+        if(!livreurNom || !livreurNumero || !lieuLivraison) {
+          alert("Veuillez remplir toutes les informations de livraison.");
+          return;
+        }
+      }
+      if(photoFile) {
+        compressImage(photoFile, 800, 800, 0.7, function(compressedData) {
+          finaliserVente(clientNom, clientNumero, vendeur, compressedData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+        });
+      } else {
+        finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
+      }
+    }
+ function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+  showSaleLoader();
+  const now = new Date();
+  const dateVente = now.toLocaleDateString("fr-FR");
+  const heureVente = now.toLocaleTimeString("fr-FR");
+  
+  // Calcul de l'overallTotal et calcul du profit par article
+  let overallTotal = 0;
+  let totalProfit = 0;
+  
+  // Pour chaque article vendu, on calcule le profit en récupérant le coût d'achat moyen
+  const profitCalculations = currentItems.map(item => {
+    overallTotal += parseFloat(item.total);
+    return dbFirestore.collection("stock")
+      .where("name", "==", item.produit)
+      .get()
+      .then(querySnapshot => {
+        if (!querySnapshot.empty) {
+          const stockData = querySnapshot.docs[0].data();
+          // Profit unitaire = Prix de vente saisi - coût moyen (stock.price)
+          const profitUnitaire = item.prix - (stockData.price || 0);
+          const profitTotal = profitUnitaire * item.quantite;
+          totalProfit += profitTotal;
+          // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
+          item.profitUnitaire = profitUnitaire;
+          item.profitTotal = profitTotal;
+          item.coutAchat     = stockData.price || 0;
+        }
+      });
+  });
+  
+  // Attendre que tous les calculs de profit soient faits
+  Promise.all(profitCalculations).then(() => {
+    const vente = { 
+      dateVente, 
+      heureVente, 
+      clientNom, 
+      clientNumero, 
+      vendeur,
+      items: currentItems, 
+      overallTotal: overallTotal.toFixed(2),
+      totalProfit: totalProfit.toFixed(2), // Stocker le profit total de la vente
+      photoFacture: photoData, 
+      observationsVendeur,
+      isDelivery,
+      deliveryStatus: isDelivery ? "en cours" : null,
+      timestamp: Date.now()
+    };
+    
+    const compteId = document.getElementById("compteSelectVente").value;
+
+    addSaleFirestore({ ...vente, compteId })
+  .then((newSaleId) => {
+    // 1️⃣ on met d’abord à jour le stock
+    return updateStockAfterSaleFirestore(currentItems)
+      // 2️⃣ puis on crée le mouvement en passant bien l’ID de la vente (newSaleId)
+      .then(() => enregistrerMouvementTresorerie({
+        compteId,
+        type: 'vente',
+        sens: 'in',
+        montant: +overallTotal,
+        description: `Vente ${clientNom}`,
+        refId: newSaleId
+      }));
+  })
+  .then(() => updateBalanceDisplay())
+  .then(() => {
+    hideSaleLoader();
+    alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+    
+    // START: Code to add for reset and redirection
+    // Reset the form fields
+    document.getElementById("produit").value = "";
+    document.getElementById("prix").value = "";
+    document.getElementById("quantite").value = "1";
+    document.getElementById("totalArticle").value = "";
+    document.getElementById("clientNom").value = "";
+    document.getElementById("clientNumero").value = "";
+    document.getElementById("photoFacture").value = "";
+    document.getElementById("observationsVendeur").value = "";
+    document.getElementById("isDelivery").checked = false;
+    document.getElementById("livreurNom").value = "";
+    document.getElementById("livreurNumero").value = "";
+    document.getElementById("lieuLivraison").value = "";
+    document.getElementById("saleRecap").innerHTML = "";
+    
+    // Reset the cart
+    currentItems = [];
+    
+    // Redirect to the sales history page
+    window.location.hash = 'historique';
+    // END: Code to add for reset and redirection
+
+  })
+  .catch(error => {
+    hideSaleLoader();
+    alert("Erreur lors de l'ajout de la vente : " + error.message);
+    });
+  });
+}
+
+
+    // Compression de l'image via canvas
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Affichage et détails des ventes
+    function afficherVentes() {
+  getAllSalesFirestore()
+    .then(ventes => {
+      const container = document.getElementById("ventesContainer");
+      container.innerHTML = "";
+      if (ventes.length === 0) {
+        container.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
+            <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
+            <p style="font-size: 18px; color: #888; margin-top: 20px;">
+              Aucune vente enregistrée…
+            </p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+      ventes.forEach(sale => {
+        const card = document.createElement("div");
+        card.className = "vente-card";
+        card.innerHTML = `
+          <p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+          <p>Vendeur : ${sale.vendeur}</p>
+          <p>Articles : ${sale.items ? sale.items.length : 0}</p>
+          <p>Total : ${sale.overallTotal}</p>
+          <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+          <button class="delete-btn" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">×</button>
+        `;
+        container.appendChild(card);
+      });
+    })
+    .catch(error => console.error("Erreur lors de la récupération des ventes : " + error.message));
+}
+
+    
+    // Affichage des livraisons
+    function afficherLivraisons() {
+      getSalesForTodayFirestore()
+        .then(sales => {
+          const livraisons = sales.filter(sale => sale.isDelivery);
+          livraisons.sort((a, b) => b.id.localeCompare(a.id));
+          const container = document.getElementById("livraisonsContainer");
+          container.innerHTML = "";
+          if(livraisons.length === 0) {
+            container.innerHTML = "<p>Aucune livraison enregistrée aujourd'hui.</p>";
+            return;
+          }
+          livraisons.forEach(sale => {
+            let statusEmoji = "🟠 En cours";
+            if(sale.deliveryStatus === "réussie") {
+              statusEmoji = "🟢 Réussie";
+            } else if(sale.deliveryStatus === "échouée") {
+              statusEmoji = "🔴 Échouée";
+            }
+            const card = document.createElement("div");
+            card.className = "vente-card";
+            if(sale.deliveryStatus === "échouée") {
+              card.classList.add("echouee");
+            }
+            let actionButtons = "";
+            if(sale.deliveryStatus === "en cours") {
+              actionButtons = 
+                `<button onclick="marquerCommeReussie('${sale.id}')">Marquer comme Réussie</button>
+                <button onclick="marquerCommeEchouee('${sale.id}')">Marquer comme Échouée</button>`;
+            }
+            card.innerHTML = 
+              `<p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
+              <p>Vendeur : ${sale.vendeur}</p>
+              <p>Livraison par : ${sale.livreurNom || ""} (${sale.livreurNumero || ""})</p>
+              <p>Lieu : ${sale.lieuLivraison || ""}</p>
+              <p>Statut : ${statusEmoji}</p>
+              <p>Total : ${sale.overallTotal}</p>
+              <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
+              ${actionButtons}`;
+            container.appendChild(card);
+          });
+        })
+        .catch(error => console.error("Erreur lors de la récupération des livraisons : " + error.message));
+    }
+    
+    // Fonctions de marquage des livraisons
+    function marquerCommeReussie(id) {
+      if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            sale.deliveryStatus = "réussie";
+            sale.convertedToSale = true;
+            updateSaleFirestore(sale.id, sale)
+              .then(() => {
+                alert("Livraison marquée comme réussie et convertie en vente !");
+                afficherLivraisons();
+                afficherVentes();
+              })
+              .catch(error => alert("Erreur lors de la mise à jour de la vente : " + error.message));
+          })
+          .catch(error => alert("Erreur dans marquerCommeReussie : " + error.message));
+      }
+    }
+    function marquerCommeEchouee(id) {
+      if(confirm("Voulez-vous marquer cette livraison comme échouée ?")) {
+        getSaleByIdFirestore(id)
+          .then(sale => {
+            sale.deliveryStatus = "échouée";
+            updateSaleFirestore(sale.id, sale)
+              .then(() => {
+                alert("Livraison marquée comme échouée !");
+                afficherLivraisons();
+              })
+              .catch(error => alert("Erreur lors de la mise à jour de la livraison : " + error.message));
+          })
+          .catch(error => alert("Erreur dans marquerCommeEchouee : " + error.message));
+      }
+    }
+    
+    // Détails d'une vente
+    function ouvrirDetails(id) {
+      getSaleByIdFirestore(id)
+        .then(sale => {
+          let articlesText = "";
+          if (Array.isArray(sale.items)) {
+            sale.items.forEach(item => {
+              articlesText += "• " + item.produit + " (Prix : " + item.prix + ", Qté : " + item.quantite + ", Total : " + item.total + ")<br>";
+            });
+          } else {
+            articlesText = "Aucun article.";
+          }
+          let detailHTML = 
+            `<p><strong>Date :</strong> ${sale.dateVente}</p>
+            <p><strong>Heure :</strong> ${sale.heureVente}</p>
+            <p><strong>Client :</strong> ${sale.clientNom} (${sale.clientNumero})</p>
+            <p><strong>Vendeur :</strong> ${sale.vendeur}</p>
+            <p><strong>Articles :</strong><br>${articlesText}</p>
+            <p><strong>Total Général :</strong> ${sale.overallTotal}</p>
+            <p><strong>Observations :</strong> ${sale.observationsVendeur || "Aucune"}</p>`;
+          if(sale.isDelivery) {
+            let statusEmoji = "🟠 En cours";
+            if(sale.deliveryStatus === "réussie") {
+              statusEmoji = "🟢 Réussie";
+            } else if(sale.deliveryStatus === "échouée") {
+              statusEmoji = "🔴 Échouée";
+            }
+            detailHTML += 
+              `<p><strong>Livraison par :</strong> ${sale.livreurNom} (${sale.livreurNumero})</p>
+              <p><strong>Lieu de Livraison :</strong> ${sale.lieuLivraison}</p>
+              <p><strong>Statut de Livraison :</strong> ${statusEmoji}</p>`;
+          }
+          if(sale.photoFacture) {
+            detailHTML += `<p><strong>Photo :</strong><br>
+                        <img src="${sale.photoFacture}" alt="Photo" style="max-width:100%; border-radius:5px;"></p>`;
+          }
+          document.getElementById("detailContent").innerHTML = detailHTML;
+          document.getElementById("modalDetail").style.display = "flex";
+        })
+        .catch(error => console.error("Erreur lors de la récupération de la vente : " + error.message));
+    }
+    function fermerModal() {
+      document.getElementById("modalDetail").style.display = "none";
+    }
+    window.onclick = function(event) {
+      if (event.target === document.getElementById("modalDetail")) {
+        fermerModal();
+      }
+      if (event.target === document.getElementById("modalPanier")) {
+        fermerPanier();
+      }
+      if (event.target === document.getElementById("modalAjoutOperation")) {
+        fermerModalTresorerie();
+      }
+    };
+
+    // Export PDF (Format JSON)
+    function exporterPDF() {
+      const progressElem = document.getElementById("downloadProgress");
+      progressElem.style.display = "block";
+      progressElem.textContent = "Téléchargement en cours...";
+      getSalesForTodayFirestore()
+        .then(sales => {
+          try {
+            if (!sales || sales.length === 0) {
+              throw new Error("Aucune vente récupérée.");
+            }
+            const jsonOutput = JSON.stringify(sales, (key, value) => {
+              if(key === "photoRecu" || key === "photoFacture") return undefined;
+              return value;
+            }, 2);
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(10);
+            const lines = doc.splitTextToSize(jsonOutput, 180);
+            doc.text(lines, 10, 10);
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.save("ventes_json.pdf");
+            setTimeout(() => {
+              progressElem.textContent = "Téléchargement terminé";
+              setTimeout(() => { progressElem.style.display = "none"; }, 2000);
+            }, 1000);
+          } catch (e) {
+            console.error("Erreur lors de l'exportation du PDF JSON : " + e.message);
+            progressElem.textContent = "Erreur lors du téléchargement: " + e.message;
+            setTimeout(() => { progressElem.style.display = "none"; }, 4000);
+            alert("Erreur : " + e.message);
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors de l'exportation du PDF JSON : " + error.message);
+          progressElem.textContent = "Erreur lors du téléchargement: " + error.message;
+          setTimeout(() => { progressElem.style.display = "none"; }, 4000);
+          alert("Erreur : " + error.message);
+        });
+    }
+
+    // Export Factures PDF
+    function exporterFacturesPDF() {
+      getSalesForTodayFirestore()
+        .then(sales => {
+          try {
+            const salesWithFacture = sales.filter(sale => sale.photoFacture);
+            if (!salesWithFacture.length) {
+              alert("Aucune vente avec facture disponible pour l'exportation.");
+              return;
+            }
+            salesWithFacture.sort((a, b) => b.id.localeCompare(a.id));
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text("Factures des Ventes", 14, 15);
+            doc.setFontSize(10);
+            let currentY = 25;
+            salesWithFacture.forEach((sale, index) => {
+              if(index > 0) {
+                doc.addPage();
+                currentY = 20;
+              }
+              doc.text("Date : " + sale.dateVente, 14, currentY);
+              currentY += 7;
+              doc.text("Heure : " + sale.heureVente, 14, currentY);
+              currentY += 7;
+              doc.text("Client : " + sale.clientNom + " (" + sale.clientNumero + ")", 14, currentY);
+              currentY += 7;
+              doc.text("Observations : " + (sale.observationsVendeur || "Aucune"), 14, currentY);
+              currentY += 7;
+              try {
+                doc.addImage(sale.photoFacture, "JPEG", 14, currentY, 60, 40);
+                currentY += 50;
+              } catch (err) {
+                console.error("Erreur lors de l'ajout de l'image : " + err.message);
+                alert("Erreur lors de l'ajout de l'image pour une vente: " + err.message);
+              }
+            });
+            doc.addJS("var p = app.response('Entrez le mot de passe pour ouvrir ce document :'); if(p !== 'Karim123456789,x1'){ app.alert('Mot de passe incorrect. Le document va être fermé.'); this.closeDoc(); }");
+            doc.save("factures.pdf");
+          } catch (e) {
+            console.error("Erreur lors de l'exportation des factures en PDF : " + e.message);
+            alert("Erreur : " + e.message);
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors de l'exportation des factures en PDF : " + error.message);
+          alert("Erreur : " + error.message);
+        });
+    }
+
+    // Auto-suggestion pour la Vente
+    const produitInput = document.getElementById("produit");
+    const suggestionList = document.getElementById("suggestionList");
+    produitInput.addEventListener("input", debounce(function () {
+      const query = this.value.trim().toLowerCase();
+      suggestionList.innerHTML = "";
+      if (query === "") {
+        suggestionList.style.display = "none";
+        return;
+      }
+      // Utiliser le cache au lieu d'interroger Firestore à chaque saisie
+      if (cachedStock.length === 0) {
+        suggestionList.innerHTML = "<div class='suggestion-item no-result'>Données non chargées</div>";
+        suggestionList.style.display = "block";
+        return;
+      }
+      const produits = cachedStock.map(s => s.name);
+      const filtered = produits.filter(name => name.toLowerCase().includes(query));
+      if (filtered.length === 0) {
+        const noResult = document.createElement("div");
+        noResult.className = "suggestion-item no-result";
+        noResult.textContent = "Aucun produit trouvé";
+        suggestionList.appendChild(noResult);
+      } else {
+        filtered.forEach(prod => {
+          const div = document.createElement("div");
+          div.className = "suggestion-item";
+          div.textContent = prod;
+          div.addEventListener("click", function () {
+            produitInput.value = prod;
+            suggestionList.innerHTML = "";
+            suggestionList.style.display = "none";
+          });
+          suggestionList.appendChild(div);
+        });
+      }
+      suggestionList.style.display = "block";
+    }, 300));
+
+
+    // Auto-suggestion pour l'Entrée de Stock
+    const produitEntreeInput = document.getElementById("produitEntree");
+    const suggestionListEntree = document.getElementById("suggestionListEntree");
+    produitEntreeInput.addEventListener("input", debounce(function () {
+      const query = this.value.trim().toLowerCase();
+      suggestionListEntree.innerHTML = "";
+      if (query === "") {
+        suggestionListEntree.style.display = "none";
+        return;
+      }
+      // Utiliser le cache pour filtrer les produits
+      if (cachedStock.length === 0) {
+        suggestionListEntree.innerHTML = "<div class='suggestion-item no-result'>Données non chargées</div>";
+        suggestionListEntree.style.display = "block";
+        return;
+      }
+      const produits = cachedStock.map(s => s.name);
+      const filtered = produits.filter(name => name.toLowerCase().includes(query));
+      if (filtered.length === 0) {
+        const noResult = document.createElement("div");
+        noResult.className = "suggestion-item no-result";
+        noResult.textContent = "Aucun produit trouvé";
+        suggestionListEntree.appendChild(noResult);
+      } else {
+        filtered.forEach(prod => {
+          const div = document.createElement("div");
+          div.className = "suggestion-item";
+          div.textContent = prod;
+          div.addEventListener("click", function () {
+            produitEntreeInput.value = prod;
+            suggestionListEntree.innerHTML = "";
+            suggestionListEntree.style.display = "none";
+          });
+          suggestionListEntree.appendChild(div);
+        });
+      }
+      suggestionListEntree.style.display = "block";
+    }, 300));
+
+   // Auto-suggestion for Fournisseur (Supplier)
+const fournisseurInput = document.getElementById("fournisseurAppro");
+const suggestionListFournisseur = document.getElementById("suggestionListFournisseur");
+
+fournisseurInput.addEventListener("input", debounce(async function () { // Added 'async' keyword here
+  const query = this.value.trim(); // Keep original casing for 'add new' suggestion
+  const lowerCaseQuery = query.toLowerCase();
+  suggestionListFournisseur.innerHTML = ""; // Clear previous suggestions
+  suggestionListFournisseur.style.display = "none"; // Hide by default
+
+  if (lowerCaseQuery === "") {
+    return; // No query, no suggestions
+  }
+
+  try {
+    const querySnapshot = await dbFirestore.collection("fournisseurs").get();
+    const suppliers = [];
+    querySnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.name) {
+        suppliers.push(data.name);
+      }
+    });
+
+    let filtered = [];
+
+    // Prioritize exact start, then includes, then fuzzy match
+    // Exact match (case-insensitive)
+    filtered = suppliers.filter(name => name.toLowerCase() === lowerCaseQuery);
+    if (filtered.length === 0) { // If no exact match, try broader filtering
+        // Contains query (case-insensitive)
+        filtered = suppliers.filter(name => name.toLowerCase().includes(lowerCaseQuery));
+
+        // Basic "fuzzy" matching for suggestions:
+        // You can implement more sophisticated fuzzy matching (e.g., Levenshtein distance)
+        // For simplicity, this example uses a basic "starts with any word in query" or common partials
+        if (filtered.length === 0 && lowerCaseQuery.length > 2) { // Only try fuzzy if query is long enough
+            const queryWords = lowerCaseQuery.split(' ').filter(word => word.length > 0);
+            filtered = suppliers.filter(name => {
+                const lowerName = name.toLowerCase();
+                // Check if any word in the supplier name starts with the query, or query starts with supplier name's word
+                return queryWords.some(qWord => lowerName.includes(qWord) || lowerName.startsWith(qWord)) ||
+                       lowerName.startsWith(lowerCaseQuery); // Also include if name starts with query
+            });
+        }
+    }
+
+
+    const alreadySuggestedNames = new Set(); // To avoid duplicate suggestions (e.g. from fuzzy)
+
+    // Add actual supplier suggestions
+    filtered.forEach(supplierName => {
+        if (!alreadySuggestedNames.has(supplierName)) {
+            const div = document.createElement("div");
+            div.className = "suggestion-item";
+            div.textContent = supplierName;
+            div.addEventListener("click", function () {
+                fournisseurInput.value = supplierName; // Select the suggested name
+                suggestionListFournisseur.innerHTML = ""; // Clear suggestions
+                suggestionListFournisseur.style.display = "none"; // Hide suggestion list
+            });
+            suggestionListFournisseur.appendChild(div);
+            alreadySuggestedNames.add(supplierName);
+        }
+    });
+
+    // Option to add as new supplier
+    // Only show if the typed query is not already a perfect match
+    const isPerfectMatch = suppliers.some(name => name.toLowerCase() === lowerCaseQuery);
+   if (!isPerfectMatch && query.length > 0) { // Ensure query is not empty
+        const addNewDiv = document.createElement("div");
+        addNewDiv.className = "suggestion-item add-new-supplier";
+        addNewDiv.innerHTML = `<i data-lucide="plus"></i> Ajouter "<strong>${query}</strong>"`; // Texte plus court
+        // Au lieu de mettre à jour directement le champ, on appelle la fonction de confirmation
+        addNewDiv.addEventListener("click", function () {
+            confirmerAjoutFournisseur(query); // Appelle la nouvelle fonction de confirmation
+        });
+        suggestionListFournisseur.appendChild(addNewDiv);
+    }
+
+    
+
+
+    if (suggestionListFournisseur.children.length > 0) {
+      suggestionListFournisseur.style.display = "block"; // Show if there are any suggestions (including 'add new')
+    } else {
+        // If no suggestions at all (even fuzzy matches) and no 'add new' option
+        const noResult = document.createElement("div");
+        noResult.className = "suggestion-item no-result";
+        noResult.textContent = "Aucun fournisseur trouvé";
+        suggestionListFournisseur.appendChild(noResult);
+        suggestionListFournisseur.style.display = "block";
+    }
+
+    // Refresh Lucide icons for the new 'plus' icon if added
+    lucide.createIcons();
+
+  } catch (err) {
+    console.error("Erreur lors de la récupération des fournisseurs : " + err.message);
+    const errorDiv = document.createElement("div");
+    errorDiv.className = "suggestion-item no-result";
+    errorDiv.textContent = "Erreur de chargement des fournisseurs.";
+    suggestionListFournisseur.appendChild(errorDiv);
+    suggestionListFournisseur.style.display = "block";
+  }
+}, 300)); // Debounce to prevent too many Firestore calls
+
+// Hide supplier suggestions when clicking outside the input
+document.addEventListener("click", function (e) {
+  // Ensure we don't hide the list if the click is on the input itself
+  if (e.target !== fournisseurInput && !suggestionListFournisseur.contains(e.target)) {
+    suggestionListFournisseur.style.display = "none";
+  }
+});
+
+function confirmerAjoutFournisseur(fournisseurName) {
+    // Cacher la liste de suggestions immédiatement
+    document.getElementById("suggestionListFournisseur").style.display = "none";
+
+    // Afficher une boîte de dialogue de confirmation native
+    const isConfirmed = confirm(
+        `Êtes-vous sûr de vouloir ajouter "${fournisseurName}" comme nouveau fournisseur ?\n\n` +
+        `Ce nom sera enregistré lorsque vous validerez l'achat.`
+    );
+
+    if (isConfirmed) {
+        document.getElementById("fournisseurAppro").value = fournisseurName;
+        showToast(`"${fournisseurName}" sera ajouté comme nouveau fournisseur.`);
+    } else {
+        // Si l'utilisateur annule, on peut vider le champ ou laisser l'utilisateur re-saisir
+        // Pour l'instant, on ne fait rien, l'utilisateur peut continuer à modifier
+        console.log("Ajout du fournisseur annulé par l'utilisateur.");
+    }
+    // Assurez-vous de vider la liste de suggestions après l'interaction
+    document.getElementById("suggestionListFournisseur").innerHTML = "";
+}
+    // Gestion des onglets dans la section Stock
+    function filterStockItems(category){
+  const inputId     = category === 'telephones'
+                        ? "search-telephones"
+                        : category === 'accessoires'
+                          ? "search-accessoires"
+                          : "search-prix";
+  const containerId = category === 'telephones'
+                        ? "telephones-container"
+                        : category === 'accessoires'
+                          ? "accessoires-container"
+                          : "liste-prix-container";
+
+  const searchTerm  = document.getElementById(inputId)
+                              .value.toLowerCase();
+  const cont        = document.getElementById(containerId);
+  cont.innerHTML = "";
+
+  getAllStockFirestore().then(stocks=>{
+    const filtered = stocks.filter(p =>
+      p.category === category &&
+      p.name.toLowerCase().includes(searchTerm));
+
+    if(filtered.length === 0){
+      cont.innerHTML = "<p>Aucun produit trouvé.</p>";
+      return;
+    }
+
+    filtered.forEach(prod=>{
+      const card = document.createElement("div");
+      card.className = "product-card";
+      card.innerHTML = `
+        <button class="history-btn"
+                onclick="voirHistoriqueStock('${prod.id}', event)"
+                title="Historique">
+          <i data-lucide="history"></i>
+        </button>
+
+        <div class="product-icon">${prod.icon}</div>
+        <div class="product-details">
+          <h3>${prod.name}</h3>
+          <p>🔹 Stock : ${prod.stock} unités</p>
+          <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+        </div>
+      `;
+      cont.appendChild(card);
+    });
+
+    lucide.createIcons();
+  })
+  .catch(err=>console.error("filterStockItems :",err.message));
+}
+    let currentStockCategory = "";
+    function updateStockSummary() {
+      getAllStockFirestore().then(stocks => {
+        const totalTelephones = stocks.filter(s => s.category === 'telephones').reduce((sum, s) => sum + s.stock, 0);
+        const totalAccessoires = stocks.filter(s => s.category === 'accessoires').reduce((sum, s) => sum + s.stock, 0);
+        document.getElementById("total-telephones").innerText = totalTelephones;
+        document.getElementById("total-accessoires").innerText = totalAccessoires;
+      }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
+    }
+    function showStockCategory(category) {
+      currentStockCategory = category;
+      document.getElementById("stock-home").style.display = "none";
+      document.getElementById("stock-category").style.display = "block";
+      const searchInput = document.getElementById("search-category");
+      if (!searchInput) {
+        console.error('L\'élément avec l\'id "search-category" n\'a pas été trouvé.');
+        return;
+      }
+      searchInput.placeholder = category === "telephones" ? "Rechercher un téléphone..." : "Rechercher un accessoire...";
+      searchInput.value = "";
+      filterStockCategory();
+    }
+    function backToStockHome() {
+      document.getElementById("stock-category").style.display = "none";
+      document.getElementById("stock-home").style.display = "block";
+    }
+    function filterStockCategory() {
+    const searchTerm = document
+        .getElementById("search-category")
+        .value.toLowerCase();
+
+    getAllStockFirestore().then(stocks => {
+        /* -- filtrage + tri perso -- */
+        const filtered = stocks
+            .filter(p =>
+                p.category === currentStockCategory &&
+                p.name.toLowerCase().includes(searchTerm))
+            .sort((a, b) => {
+                const ordre = { tecno: 1, infinix: 2, itel: 3, redmi: 4 };
+                const rA = ordre[a.name.split(" ")[0].toLowerCase()] || 5;
+                const rB = ordre[b.name.split(" ")[0].toLowerCase()] || 5;
+                return rA !== rB ? rA - rB : a.name.localeCompare(b.name);
+            });
+
+        /* -- construction DOM -- */
+        const cont = document.getElementById("category-container");
+        cont.innerHTML = "";
+        if (filtered.length === 0) {
+            cont.innerHTML = "<p>Aucun produit trouvé.</p>";
+            return;
+        }
+
+        filtered.forEach(prod => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = `
+                <button class="history-btn"
+                        onclick="voirHistoriqueStock('${prod.id}', event)"
+                        title="Historique">
+                  <i data-lucide="history"></i>
+                </button>
+                <div class="product-icon">${prod.icon}</div>
+                <div class="product-details">
+                  <h3>${prod.name}</h3>
+                  <p>🔹 Stock : ${prod.stock} unités</p>
+                  <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+                </div>
+              `;
+
+            // =========================================================
+            // === LA LIGNE MAGIQUE À AJOUTER EST ICI ===
+            // =========================================================
+            card.onclick = function() {
+                showArticleDetail(prod.id);
+            };
+            // =========================================================
+
+            cont.appendChild(card);
+        });
+
+        lucide.createIcons();
+    })
+    .catch(err => console.error("filterStockCategory :", err.message));
+}
+
+    // Importation du stock depuis un fichier TXT
+    function importStockFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      readAndImport(file);
+    }
+    function readAndImport(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        parseStockText(text);
+      };
+      reader.readAsText(file);
+    }
+    function parseStockText(text) {
+      const lines = text.split("\n");
+      let importedStocks = [];
+      const selectedCategory = document.getElementById("importCategorie").value;
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+        if (line.toLowerCase().includes("articles")) continue;
+        const parts = line.split("\t").filter(Boolean);
+        if (parts.length < 3) continue;
+        const name = parts[0].trim();
+        const stock = parseInt(parts[1].trim());
+        let priceText = parts[2].trim();
+        let price = parseInt(priceText.replace(/[^\d]/g, ""));
+        const category = selectedCategory;
+        const icon = category === "accessoires" ? "🎧" : "📱";
+        importedStocks.push({ name, category, stock, price, icon, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      importStockToFirestore(importedStocks)
+        .then(() => {
+          alert("Stock importé avec succès !");
+          updateStockSummary();
+        })
+        .catch(err => {
+          alert("Erreur lors de l'importation du stock : " + err.message);
+        });
+    }
+
+    // Gestion de l'Entrée de Stock
+    function calculerTotalEntree() {
+      const prix = parseFloat(document.getElementById("prixEntree").value) || 0;
+      const quantite = parseInt(document.getElementById("quantiteEntree").value) || 0;
+      document.getElementById("totalEntree").value = (prix * quantite).toFixed(2);
+    }
+    function decrementQuantityEntree() {
+      const input = document.getElementById("quantiteEntree");
+      let value = parseInt(input.value) || 1;
+      if(value > 1) {
+        input.value = --value;
+        calculerTotalEntree();
+      }
+    }
+    function incrementQuantityEntree() {
+      const input = document.getElementById("quantiteEntree");
+      let value = parseInt(input.value) || 1;
+      input.value = ++value;
+      calculerTotalEntree();
+    }
+    function ajouterEntreeStock() {
+      const produit = document.getElementById("produitEntree").value.trim();
+      const prix = parseFloat(document.getElementById("prixEntree").value);
+      const quantite = parseInt(document.getElementById("quantiteEntree").value);
+      const categorie = document.getElementById("categorieEntree").value;
+      const total = document.getElementById("totalEntree").value;
+      if(!produit) {
+        alert("Veuillez saisir le nom de l'article.");
+        return;
+      }
+      if(!prix || prix <= 0) {
+        alert("Veuillez entrer un prix d'achat valide.");
+        return;
+      }
+      if(!quantite || quantite <= 0) {
+        alert("Veuillez entrer une quantité valide.");
+        return;
+      }
+      ajouterOuMettreAJourStock(produit, quantite, prix, categorie)
+        .then(() => {
+          alert("Entrée de stock ajoutée !");
+          document.getElementById("produitEntree").value = "";
+          document.getElementById("prixEntree").value = "";
+          document.getElementById("quantiteEntree").value = 1;
+          document.getElementById("totalEntree").value = "";
+          updateStockSummary();
+        })
+        .catch(err => {
+          alert("Erreur lors de l'ajout de l'entrée de stock : " + err.message);
+        });
+    }
+    function ajouterOuMettreAJourStock(produit, quantite, prix, category) {
+  // Cherche si le produit existe déjà
+  return dbFirestore
+    .collection("stock")
+    .where("name", "==", produit)
+    .get()
+    .then(querySnapshot => {
+      if (!querySnapshot.empty) {
+        // —— CAS EXISTANT : on met à jour le stock + prix moyen
+        const docRef   = querySnapshot.docs[0].ref;
+        const data     = querySnapshot.docs[0].data();
+        const oldStock = parseFloat(data.stock) || 0;
+        const oldPrice = parseFloat(data.price) || 0;
+
+        const newStock = oldStock + quantite;
+        // Prix moyen pondéré
+        const newPrice = ((oldStock * oldPrice) + (quantite * prix)) / newStock;
+
+        return docRef.update({
+          stock: newStock,
+          price: newPrice
+        })
+        .then(() => {
+          // Log de la variation ↑
+          return docRef
+            .collection("history")
+            .add({
+              timestamp: Date.now(),
+              change: +quantite,
+              newStock: newStock
+            });
+        });
+      } else {
+        // —— CAS NOUVEAU : on crée un nouveau document
+        const icon = category === "accessoires" ? "🎧" : "📱";
+        const newRecord = {
+          name: produit,
+          category: category,
+          stock: quantite,
+          price: prix,
+          icon: icon,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        return dbFirestore
+          .collection("stock")
+          .add(newRecord)
+          .then(docRef => {
+            // Log de la variation ↑ (équivalent à "stock = quantite")
+            return docRef
+              .collection("history")
+              .add({
+                timestamp: Date.now(),
+                change: +quantite,
+                newStock: quantite
+              });
+          });
+      }
+    });
+}
+
+    // Gestion des Vendeurs via Firestore
+    function chargerVendeurs() {
+      dbFirestore.collection("vendeurs").get()
+        .then(querySnapshot => {
+          const vendeurs = [];
+          querySnapshot.forEach(doc => {
+            vendeurs.push({ id: doc.id, ...doc.data() });
+          });
+          const select = document.getElementById("vendeurSelect");
+          select.innerHTML = "";
+          vendeurs.forEach(v => {
+            const option = document.createElement("option");
+            option.value = v.name;
+            option.textContent = v.name;
+            select.appendChild(option);
+          });
+          const liste = document.getElementById("listeVendeurs");
+          liste.innerHTML = "";
+          vendeurs.forEach(v => {
+            const div = document.createElement("div");
+            div.style.display = "flex";
+            div.style.justifyContent = "space-between";
+            div.style.alignItems = "center";
+            div.style.marginBottom = "5px";
+            div.textContent = v.name;
+            const btn = document.createElement("button");
+            btn.textContent = "Supprimer";
+            btn.style.backgroundColor = "#ff6f00";
+            btn.style.color = "#fff";
+            btn.style.border = "none";
+            btn.style.borderRadius = "4px";
+            btn.style.cursor = "pointer";
+            btn.onclick = function () { supprimerVendeur(v.id); };
+            div.appendChild(btn);
+            liste.appendChild(div);
+          });
+        })
+        .catch(err => console.error("Erreur lors du chargement des vendeurs : " + err.message));
+    }
+    function ajouterVendeur() {
+      const input = document.getElementById("nomVendeur");
+      const nom = input.value.trim();
+      if(nom === "") {
+        alert("Veuillez saisir le nom du vendeur.");
+        return;
+      }
+      dbFirestore.collection("vendeurs").add({
+        name: nom,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      })
+      .then(() => {
+        input.value = "";
+        chargerVendeurs();
+      })
+      .catch(err => alert("Erreur lors de l'ajout du vendeur : " + err.message));
+    }
+    function supprimerVendeur(id) {
+      dbFirestore.collection("vendeurs").doc(id).delete()
+        .then(() => {
+          chargerVendeurs();
+        })
+        .catch(err => alert("Erreur lors de la suppression du vendeur : " + err.message));
+    }
+    window.addEventListener("load", function() {
+      chargerVendeurs();
+    });
+
+    // Vibration sur clic
+    document.querySelectorAll('.btn-modern').forEach(button => {
+      button.addEventListener('click', () => {
+        if(navigator.vibrate) {
+          navigator.vibrate(30);
+        }
+      });
+    });
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+    });
+    let comptesCache = [];   // [{id:'caisse', nom:'Caisse', solde:…}, …]
+
+function loadComptes() {
+  return dbFirestore
+    .collection("tresorerie")
+    .doc("balance")
+    .collection("comptesTresorerie")
+    .onSnapshot(snap => {
+      comptesCache = [];
+      snap.forEach(doc => comptesCache.push({ id: doc.id, ...doc.data() }));
+      remplirTousSelectComptes();   // met à jour le <select> de la vente
+      majCartesTresorerie();   // (facultatif) met à jour l’écran Trésorerie
+    });
+}
+
+// ── Commence ici ──
+// Function to fill all account select elements with cached accounts
+function remplirTousSelectComptes(specificSelectElement = null) {
+    const selectsToFill = specificSelectElement
+        ? [specificSelectElement] // Fill only the provided element
+        : document.querySelectorAll('[id^="compteSelect"]'); // Fill all elements matching the selector
+
+    selectsToFill.forEach(sel => {
+        sel.innerHTML = '';
+
+        /* ➜ option “vide” d’abord */
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '— Choisir un compte —';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        sel.appendChild(placeholder);
+
+        /* ➜ puis les comptes réels */
+        comptesCache.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`;
+            sel.appendChild(opt);
+        });
+    });
+}
+// ── Termine ici ──
+/** Met à jour l'affichage des soldes de chaque compte dans #accounts-balances */
+function majCartesTresorerie() {
+  const container = document.getElementById('accounts-balances');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Trie les comptes dans l'ordre : caisse → momo → banque
+  comptesCache.sort((a, b) => {
+    const ordre = ['caisse', 'momo', 'banque'];
+    return ordre.indexOf(a.nom.toLowerCase())
+         - ordre.indexOf(b.nom.toLowerCase());
+  });
+
+  comptesCache.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'account-card';
+    card.innerHTML = `
+      <h3>${c.nom}</h3>
+      <p>${c.solde.toLocaleString()} XOF</p>
+    `;
+    container.appendChild(card);
+  });
+}
+
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        loadComptes();
+        user.getIdTokenResult().then(idTokenResult => {
+          // Récupère le rôle depuis les Custom Claims (par défaut "employe")
+          window.userRole = idTokenResult.claims.role || "employe";
+          console.log("Rôle de l'utilisateur :", window.userRole);
+          ajusterInterfaceSelonRole(window.userRole);
+          // Affiche l'application une fois que le rôle est connu
+          document.getElementById("app").style.display = "block";
+          
+          // Pour le rôle "patron", rediriger immédiatement si la page actuelle n'est pas autorisée.
+          if (window.userRole === "patron") {
+            // Liste des écrans autorisés pour le patron
+            const allowedHashes = ['#stock', '#historique', '#menu'];
+            // Si le hash actuel n'est pas dans la liste, rediriger vers "#stock"
+            if (!allowedHashes.includes(window.location.hash)) {
+              window.location.hash = 'stock';
+            }
+          }
+        }).catch(error => {
+          console.error("Erreur lors de la récupération des Custom Claims :", error);
+          window.location.href = 'login.html';
+        });
+      } else {
+        window.location.href = 'login.html';
+      }
+    });
+
+
+
+    function ajusterInterfaceSelonRole(role) {
+
+      // applique une classe sur <body> selon le rôle
+      document.body.classList.toggle('role-employe', role === 'employe');
+
+
+
+      // Pour le menu de navigation
+      if (role === "employe") {
+        // Les employés ne voient pas le bouton Menu
+        const navMenu = document.getElementById("nav-menu");
+        if (navMenu) {
+          navMenu.style.display = "none";
+        }
+        // Vous pouvez ajouter ici d'autres masquages spécifiques aux employés.
+      } else if (role === "patron") {
+        // Le patron ne doit voir que Stock, Historique et Menu.
+        // Masquer Vente et Livraisons
+        const navVendre = document.getElementById("nav-vendre");
+        const navLivraisons = document.getElementById("nav-livraisons");
+        if (navVendre) { navVendre.style.display = "none"; }
+        if (navLivraisons) { navLivraisons.style.display = "none"; }
+        // Dans l'écran Menu, n'afficher que Rapport & Statistiques, Trésorerie, Dépenses et Déconnexion.
+        const sections = document.querySelectorAll("#screen-menu .section");
+        sections.forEach(section => {
+          const txt = section.textContent.toLowerCase();
+          if (!(txt.includes("rapport") || txt.includes("trésorerie") || txt.includes("dépense") || txt.includes("déconnexion"))) {
+            section.style.display = "none";
+          }
+        });
+      } else if (role === "admin") {
+        // Pour l'admin, tout doit être visible.
+        const navMenu = document.getElementById("nav-menu");
+        if (navMenu) { navMenu.style.display = "flex"; }
+        const sections = document.querySelectorAll("#screen-menu .section");
+        sections.forEach(section => {
+          section.style.display = "flex";
+        });
+
+  
+
+      }
+    }
+
+
+    function deconnexion() {
+      firebase.auth().signOut().then(() => {
+        window.location.href = 'login.html';
+      }).catch(error => {
+        alert("Erreur lors de la déconnexion: " + error.message);
+      });
+    }
+
+    // Fonctions du Menu Principal
+    function ouvrirGestionVendeurs() {
+      alert('Ouvrir la page de gestion des vendeurs.');
+    }
+
+    // Actualisation de l'heure dans le menu
+    function updateTimeMenu() {
+      const menuTime = document.getElementById("current-time-menu");
+      if(menuTime) {
+        const now = new Date();
+        menuTime.textContent = now.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+    setInterval(updateTimeMenu, 1000);
+
+    // *************** MODIFICATIONS POUR L'ÉCRAN DE RECHERCHE D'ARTICLE ***************
+    produitInput.addEventListener('focus', function() {
+      window.location.hash = 'search-article';
+    });
+    window.addEventListener('hashchange', function() {
+      if(window.location.hash === '#search-article') {
+        document.getElementById("searchProduitInput").value = "";
+        document.getElementById("searchProduitInput").focus();
+        loadProductsList();
+      }
+    });
+    function loadProducts(query = "") {
+    const searchQuery = query.toLowerCase();
+    getAllStockFirestore().then(stocks => {
+        let filtered = stocks.filter(p => p.name.toLowerCase().includes(document.getElementById("searchProduitInput").value.toLowerCase()));
+        const container = document.getElementById("searchResults");
+        container.innerHTML = "";
+        if (filtered.length === 0) {
+            container.innerHTML = "<p>Aucun produit trouvé.</p>";
+            return;
+        }
+        filtered.forEach(prod => {
+            const card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = `
+              <div class="product-icon">${prod.icon}</div>
+              <div class="product-details">
+                <h3>${prod.name}</h3>
+                <p>🔹 Stock : ${prod.stock} unités</p>
+                <p class="price-label">💰 Prix : ${prod.price.toLocaleString()} FCFA</p>
+              </div>`;
+
+            // === LA CORRECTION EST ICI ===
+            card.onclick = function() {
+                // Au lieu d'afficher les détails, on ajoute le produit au panier
+                selectProduct(prod);
+            };
+            // ===========================
+
+            container.appendChild(card);
+        });
+    });
+}
+    function showArticleDetail(articleId) {
+  currentArticleId = articleId;
+  window.location.hash = 'article-detail';
+}
+/**
+ * Récupère les données de l'article depuis Firestore et met à jour l'interface.
+ */
+function loadArticleDetail() {
+  if (!currentArticleId) {
+    console.error("Aucun ID d'article sélectionné.");
+    window.location.hash = 'stock'; // Retourne au stock si pas d'ID
+    return;
+  }
+
+  dbFirestore.collection("stock").doc(currentArticleId).get()
+    .then(doc => {
+      if (doc.exists) {
+        const data = doc.data();
+
+        // Remplissage des champs de la page de détail
+        document.getElementById('detail-product-title').textContent = data.name || 'Nom indisponible';
+
+        const sellingPrice = (data.price * 1.25) || 0; // Exemple: Marge de 25%
+        document.getElementById('detail-selling-price').textContent = `XOF ${sellingPrice.toLocaleString()}`;
+
+        const purchaseCost = data.price || 0;
+        document.getElementById('detail-purchase-cost').textContent = `XOF ${purchaseCost.toLocaleString()}`;
+
+        const stockOnHand = data.stock || 0;
+        document.getElementById('detail-stock-on-hand').textContent = stockOnHand;
+        document.getElementById('detail-available-for-sale').textContent = stockOnHand;
+
+      } else {
+        console.error("Document non trouvé !");
+        showToast("Erreur: Article non trouvé.", "error");
+        window.location.hash = 'stock';
+      }
+    })
+    .catch(error => {
+      console.error("Erreur lors de la récupération de l'article: ", error);
+      showToast("Erreur de chargement.", "error");
+    });
+}
+    function loadProductsList() {
+      loadProducts();
+    }
+    /* -------- selectProduct : ajoute direct & ouvre panier -------- */
+    function selectProduct(prod){
+  addOrIncrementItem(prod);     // ajoute ou incrémente
+  updatePanierPage();
+  showToast(`+1 ${prod.name} ajouté au panier`);           // met à jour badge & totaux
+  // → on reste sur l’écran de recherche pour pouvoir enchaîner plusieurs sélections
+  // window.location.hash = 'panier';
+}
+
+    document.addEventListener("input", function(e) {
+      if(e.target.id === "searchProduitInput") {
+        loadProducts();
+      }
+    });
+    // **********************************************************************************
+
+    /* Fonctions pour la Trésorerie */
+    function ouvrirFormOperationTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "flex";
+    }
+    function fermerModalTresorerie() {
+      document.getElementById("modalAjoutOperation").style.display = "none";
+    }
+    function ajouterOperationTresorerie() {
+      const type = document.getElementById("typeOperation").value;
+      const montant = document.getElementById("montantOperation").value;
+      const description = document.getElementById("descriptionOperation").value;
+      alert("Opération ajoutée : " + type + " de " + montant + " FCFA");
+      fermerModalTresorerie();
+    }
+  </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('[App] SW enregistré, scope :', reg.scope);
+
+          // Dès qu’on déploie une nouvelle version (CACHE_NAME incrémenté)…
+          reg.addEventListener('updatefound', () => {
+            const newSW = reg.installing;
+            newSW.addEventListener('statechange', () => {
+              // Quand le nouvel SW est prêt et qu’il y avait déjà un SW actif
+              if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[App] Nouvelle version dispo → reload');
+                window.location.reload();
+              }
+            });
+          });
+        })
+        .catch(err => console.error('[App] Échec enregistrement SW :', err));
+    });
+  }
+</script>
+
+  <script>
+  let deferredPrompt;
+  const installBtn = document.getElementById('installBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+
+    installBtn.addEventListener('click', () => {
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        deferredPrompt = null;
+      });
+    });
+  });
+
+  /* ==========================================================
+   DÉPENSES – Helpers scroll & ré-initialisation
+   ========================================================== */
+function onScrollDepenses(e) {
+  const el = e.target;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+    chargerHistoriqueDepensesSuivant();
+  }
+}
+
+function attachScrollHandlerDepenses() {
+  const c = document.getElementById("recent-depenses");
+  if (!c || c._scrollAttached) return;
+  c.addEventListener("scroll", onScrollDepenses);
+  c._scrollAttached = true;
+}
+
+function detachScrollHandlerDepenses() {
+  const c = document.getElementById("recent-depenses");
+  if (c && c._scrollAttached) {
+    c.removeEventListener("scroll", onScrollDepenses);
+    c._scrollAttached = false;
+  }
+}
+
+/* Lance un reset complet de l’écran Dépenses */
+function initEcranDepenses() {
+  const cont = document.getElementById("recent-depenses");
+  cont.innerHTML = "";
+  renderedDepenseIds.clear();
+
+  detachScrollHandlerDepenses();      // pour ne pas empiler les listeners
+  chargerHistoriqueDepensesInitial()
+    .then(() => attachScrollHandlerDepenses());
+
+  updateBalanceDisplay();
+}
+
+</script>
+
+<script>
+  document.getElementById('exportStockBtn')
+    .addEventListener('click', () => {
+      // 1. Récupérer tout le stock depuis Firestore
+      getAllStockFirestore()
+        .then(stocks => {
+          // 2. Ne garder que les mobiles
+          const phones = stocks.filter(s => s.category === 'telephones');
+
+          // 3. Calculer les totaux pour les mobiles
+          const totalPhones = phones
+            .reduce((sum, s) => sum + parseInt(s.stock || 0), 0);
+          const valeurPhones = phones
+            .reduce((sum, s) => sum + (parseFloat(s.stock) * parseFloat(s.price)), 0);
+
+          // 4. Préparer les données Excel
+          const data = phones.map(s => ({
+            Produit           : s.name,
+            Stock             : s.stock,
+            'Prix unitaire'   : s.price,
+            'Valeur du stock' : (s.stock * s.price).toFixed(2)
+          }));
+
+          // 5. Ajouter la ligne de synthèse
+          data.push({});
+          data.push({
+            Produit           : 'Total Téléphones',
+            Stock             : totalPhones,
+            'Valeur du stock' : valeurPhones.toFixed(2)
+          });
+
+          // 6. Générer et télécharger le fichier XLSX
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Portables');
+          XLSX.writeFile(wb, 'stock_portables.xlsx');
+        })
+        .catch(err => {
+          console.error('Erreur export stock mobiles :', err);
+          alert('Impossible d\'exporter le stock de portables : ' + err.message);
+        });
+    });
+/* ============================================================
+   MOUVEMENT DE TRESORERIE – NOUVELLE VERSION COMPLÈTE
+   (gère aussi le snapshot quotidien avec les soldes d’ouverture
+    caisse / momo / banque + solde global)
+   ============================================================ */
+   async function enregistrerMouvementTresorerie({
+  compteId,      // 'caisse' | 'momo' | 'banque'
+  type,          // 'vente' | 'depense' | 'papa' | 'remboursement' | ...
+  sens,          // 'in' (entrée) ou 'out' (sortie)
+  montant,       // nombre positif
+  description = '',
+  refId = null
+}) {
+  await dbFirestore.runTransaction(async tx => {
+
+    /* 1) Préparation des références ---------------------------------------- */
+    const today        = new Date();
+    const yyyy_mm_dd   = today.toISOString().slice(0, 10);          // AAAA-MM-JJ
+
+    const balanceDoc   = dbFirestore.collection('tresorerie').doc('balance');
+    const comptesCol   = balanceDoc.collection('comptesTresorerie');
+
+    const compteDoc    = comptesCol.doc(compteId);    // compte concerné
+    const compteCaisse = comptesCol.doc('caisse');
+    const compteMomo   = comptesCol.doc('momo');
+    const compteBanque = comptesCol.doc('banque');
+
+    const snapshotDoc  = dbFirestore
+                           .collection('tresorerieSnapshots')
+                           .doc(yyyy_mm_dd);
+
+    /* 2) Lectures en parallèle --------------------------------------------- */
+    const [
+      snapSnap,
+      globalSnap,
+      compteSnap,
+      caisseSnap,
+      momoSnap,
+      banqueSnap
+    ] = await Promise.all([
+      tx.get(snapshotDoc),
+      tx.get(balanceDoc),
+      tx.get(compteDoc),
+      tx.get(compteCaisse),
+      tx.get(compteMomo),
+      tx.get(compteBanque)
+    ]);
+
+    /* 3) Soldes d’ouverture ------------------------------------------------- */
+    const openingCaisse = caisseSnap.exists ? (caisseSnap.data().solde || 0) : 0;
+    const openingMomo   = momoSnap.exists   ? (momoSnap.data().solde   || 0) : 0;
+    const openingBanque = banqueSnap.exists ? (banqueSnap.data().solde || 0) : 0;
+    const openingGlobal = openingCaisse + openingMomo + openingBanque;
+
+    /* 4) Calcul du nouveau solde du compte touché --------------------------- */
+    const delta          = sens === 'in' ?  montant : -montant;
+    const oldSoldeCompte = compteSnap.exists ? (compteSnap.data().solde || 0) : 0;
+    const newSoldeCompte = oldSoldeCompte + delta;
+
+    /* 5) Écritures ---------------------------------------------------------- */
+
+    /* 5a) Snapshot quotidien : créé UNE fois par jour */
+    if (!snapSnap.exists) {
+      tx.set(snapshotDoc, {
+        dateString           : yyyy_mm_dd,
+        openingCaisse,
+        openingMomo,
+        openingBanque,
+        openingBalanceGlobal : openingGlobal,
+        createdAt            : firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    /* 5b) Mise à jour du solde du sous-compte concerné */
+    tx.set(compteDoc, { solde: newSoldeCompte }, { merge: true });
+
+    /* 5c) Enregistrement du mouvement dans la sous-collection */
+    tx.set(
+      compteDoc.collection('mouvements').doc(),
+      {
+        timestamp  : Date.now(),
+        dateString : yyyy_mm_dd,
+        type,
+        sens,
+        montant,
+        description,
+        refId,
+        newBalance : newSoldeCompte
+      }
+    );
+
+    /* 5d) Mise à jour du solde global (document “tresorerie/balance”) */
+    tx.set(
+      balanceDoc,
+      { montant: firebase.firestore.FieldValue.increment(delta) },
+      { merge: true }
+    );
+  });
+
+  return true;   // succès
+}
+
+/* Helper ------------------------------------------------------ */
+function fmt(x){
+  return Number(x).toLocaleString("fr-FR").replace(/\u202F/g," ");
+}
+
+/* =============================================================
+   EXPORT PDF – Profit • Valeur stock téléphones • Dette Papa
+==============================================================*/
+function exportDailyReportPDF () {
+
+/* ── 1) Choix de la date ─────────────────────────────────── */
+const saisie = prompt(
+  "Date du rapport (AAAA-MM-JJ) :",
+  new Date().toISOString().slice(0, 10)
+);
+if (!saisie) return;
+const jsDate = new Date(saisie);
+if (isNaN(jsDate)) { alert("Date invalide !"); return; }
+
+const startOfDay = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate()).getTime();
+const endOfDay   = startOfDay + 86_399_999;
+
+/* ── 2) VENTES : CA + Profit + Téléphones vendus ─────────── */
+const ventesP = dbFirestore.collection("ventes")
+  .where("dateVente", "==", saisie.split("-").reverse().join("/"))
+  .get()
+  .then(snap => {
+    let qty = 0, ca = 0, profit = 0;
+let soldPhonesQty = 0, soldPhonesVal = 0;
+let soldAccQty    = 0, soldAccVal    = 0;
+let soldPhonesCAMV = 0; 
+
+const phoneRows = [];
+const accRows   = [];
+
+snap.forEach(doc => {
+  const v = doc.data();
+  profit += parseFloat(v.totalProfit) || 0;
+  v.items.forEach(item => {
+    const total = parseFloat(item.total) || 0;
+    qty += item.quantite;
+    ca  += total;
+
+    if (isPhone(item)) {
+      // Téléphones
+      phoneRows.push([
+        item.produit,
+        fmt(item.prix),
+        item.quantite.toString(),
+        fmt(total) + " FCFA"
+      ]);
+      soldPhonesQty += item.quantite;
+      soldPhonesVal += total;
+      soldPhonesCAMV += item.quantite * (item.coutAchat || 0);   // <-- AJOUT
+    } else {
+      // Accessoires
+      accRows.push([
+        item.produit,
+        fmt(item.prix),
+        item.quantite.toString(),
+        fmt(total) + " FCFA"
+      ]);
+      soldAccQty += item.quantite;
+      soldAccVal += total;
+    }
+  });
+});
+
+return {
+  phoneRows,
+  accRows,
+  qty,
+  ca,
+  profit,
+  soldPhonesQty,
+  soldPhonesVal,
+  soldAccQty,
+  soldAccVal,
+  soldPhonesCAMV      // <-- AJOUT
+};
+
+  });
+
+/* ── 3) DÉPENSES ─────────────────────────────────────────── */
+const depensesP = dbFirestore.collection("depenses")
+  .where("timestamp", ">=", startOfDay)
+  .where("timestamp", "<=", endOfDay)
+  .get()
+  .then(snap => {
+    const papa = [], fonc = [];
+    let totPapa = 0, totFonc = 0;
+    snap.forEach(doc => {
+      const d    = doc.data();
+      const desc = d.description || "";
+      const isAppro = desc.toLowerCase().startsWith("approvisionnement");
+      const ligne = [
+        desc,
+        fmt(d.montant)
+      ];
+      if ((d.type || "").toLowerCase() === "papa") {
+        papa.push(ligne);  totPapa += +d.montant;
+      } else if (!isAppro) {
+        fonc.push(ligne);  totFonc += +d.montant;
+      }
+    });
+    return { papa, fonc, totPapa, totFonc };
+  });
+
+/* ── 4) INJECTION (remboursements) ───────────────────────── */
+const injectionP = dbFirestore.collection("remboursements")
+  .where("timestamp", ">=", startOfDay)
+  .where("timestamp", "<=", endOfDay)
+  .get()
+  .then(snap => {
+    let total = 0;
+    snap.forEach(d => total += +d.data().montant);
+    return total;
+  });
+
+// 5) APPROVISIONNEMENTS  ➜  on sépare tout de suite
+const approP = dbFirestore.collection("approvisionnement")
+  .where("timestamp", ">=", startOfDay)
+  .where("timestamp", "<=", endOfDay)
+  .get()
+  .then(snapshot => {
+    const rowsPhones = [];
+    const rowsAcc    = [];
+
+    let totQtyPhones = 0;       // 🆕 total Qté téléphones
+    let totQtyAcc    = 0;       // 🆕 total Qté accessoires
+    let totPhones    = 0;       // FCFA
+    let totAcc       = 0;       // FCFA
+
+    snapshot.forEach(doc => {
+      const h = new Date(doc.data().timestamp).toLocaleTimeString("fr-FR");
+
+      (doc.data().items || []).forEach(it => {
+        const ligne = [
+          it.produit,
+          it.quantite.toString(),
+          fmt(it.prixAchat) + " FCFA",
+          fmt(it.quantite * it.prixAchat) + " FCFA"
+        ];
+
+        if (it.category === "telephones") {
+          rowsPhones.push(ligne);
+          totQtyPhones += it.quantite;                    // 🆕
+          totPhones    += it.quantite * it.prixAchat;
+        } else {
+          rowsAcc.push(ligne);
+          totQtyAcc   += it.quantite;                     // 🆕
+          totAcc      += it.quantite * it.prixAchat;
+        }
+      });
+    });
+
+    return {
+      phones : { rows: rowsPhones, qty: totQtyPhones, total: totPhones },
+      acc    : { rows: rowsAcc,    qty: totQtyAcc,    total: totAcc    },
+      grandTotal : totPhones + totAcc
+    };
+  });
+
+
+/* ── 5bis) APPORT PAPA ───────────────────────────────────── */
+/* ---------- Filtrage sur dateString ---------- */
+const dateFR = jsDate.toLocaleDateString("fr-FR");   // même format que dans Firestore
+
+const papaSupplyP = dbFirestore.collection("apportPapa")
+  .where("dateString", "==", dateFR)
+  .get()
+  .then(snap => {
+    const rows = [];
+    let totalQty = 0;
+    let totalAmount = 0;
+
+    snap.forEach(doc => {
+      (doc.data().items || []).forEach(it => {
+        const lineTotal = it.quantite * it.coutUnitaire;
+        rows.push([
+          it.produit,
+          it.quantite.toString(),
+          fmt(it.coutUnitaire) + " FCFA",
+          fmt(lineTotal) + " FCFA"
+        ]);
+        totalQty    += it.quantite;
+        totalAmount += lineTotal;
+      });
+    });
+
+    return { rows, totalQty, totalAmount };
+  });
+
+
+/* ── 6) SOLDE INITIAL (trésorerie) ───────────────────────── */
+const snapshotP = dbFirestore.collection("tresorerieSnapshots")
+  .doc(saisie)
+  .get()
+  .then(snap => snap.exists ? snap.data().openingBalanceGlobal || 0 : 0);
+
+/* ── 7) VALEUR STOCK TÉLÉPHONES (en fin de journée) ──────── */
+const stockPhonesP = dbFirestore.collection("stock")
+  .where("category", "==", "telephones")
+  .get()
+  .then(snap => {
+    let tot = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      tot += (parseFloat(d.stock) || 0) * (parseFloat(d.price) || 0);
+    });
+    return tot;
+  });
+
+/* ── 8) DETTE PAPA ───────────────────────────────────────── */
+const papaBalanceP = dbFirestore.collection("depensePapa")
+  .doc("balance")
+  .get()
+  .then(doc => doc.exists ? doc.data().montant || 0 : 0);
+
+/* ── 9) STOCK SNAPSHOT – SOLDE INITIAL TÉLÉPHONES ────────── */
+const openingStockP = dbFirestore.collection("stockSnapshots")
+  .doc(saisie)
+  .get()
+  .then(d => d.exists
+      ? { qty: d.data().openingStock || 0,
+          val: d.data().openingStockValue || 0 }
+      : { qty: 0, val: 0 });
+
+/* ── 10) ACHATS TÉLÉPHONES (jour) ────────────────────────── */
+const achatsPhonesP = dbFirestore.collection("approvisionnement")
+  .where("timestamp", ">=", startOfDay)
+  .where("timestamp", "<=", endOfDay)
+  .get()
+  .then(snap => {
+    let qty = 0, val = 0;
+    snap.forEach(doc => {
+      (doc.data().items || []).forEach(it => {
+        if (it.category === "telephones") {
+          qty += +it.quantite;
+          val += +it.quantite * +it.prixAchat;
+        }
+      });
+    });
+    return { qty, val };
+  });
+
+/* ── 11) GÉNÉRATION PDF ─────────────────────────────────── */
+Promise.all([
+    ventesP,
+    depensesP,
+    injectionP,
+    approP,
+    papaSupplyP,    
+    snapshotP,
+    stockPhonesP,
+    papaBalanceP,
+    openingStockP,
+    achatsPhonesP
+  ])
+  .then(([ventes, deps, injection, appro,papaApport,
+          soldeInitial, valeurStockPhones, dettePapa,
+          openingStock, achatsPhones]) => {
+
+    /* Totaux journaliers */
+    const totalEntrees   = ventes.ca;
+    const totalInjection = injection;
+    const totalDepenses  = deps.totPapa + deps.totFonc;
+    const totalAppro     = appro.grandTotal;
+    const totalProfit    = ventes.profit;
+
+    const soldeFinal     = soldeInitial
+                         + totalEntrees
+                         + totalInjection
+                         - totalDepenses
+                         - totalAppro;
+
+    /* Variation stock téléphones */
+    const closingQty = openingStock.qty
+                + achatsPhones.qty
+                + papaApport.totalQty     // ← ajout
+                - ventes.soldPhonesQty;
+
+const closingVal = openingStock.val
+                + achatsPhones.val
+                + papaApport.totalAmount  // ← ajout
+                - ventes.soldPhonesCAMV;
+
+
+    
+    const valeurBusiness = soldeFinal + closingVal + dettePapa;
+
+    /* === PDF === */
+    const { jsPDF } = window.jspdf;
+    const doc       = new jsPDF({ unit: "pt", format: "a4" });
+    const autoTable = doc.autoTable;
+
+    doc.setFontSize(16);
+    doc.text(`Rapport du ${jsDate.toLocaleDateString("fr-FR")}`, 40, 40);
+
+    /* ---- VENTES ---- */
+    // → Section Téléphones
+let y = 60;
+doc.setFontSize(14);
+doc.text("Téléphones vendus", 40, y);
+autoTable.call(doc, {
+  startY: y + 10,
+  head: [["Modèle","Prix U.","Qté","Total"]],
+  body: ventes.phoneRows.length 
+    ? ventes.phoneRows 
+    : [["—","—","0","0"]],
+  foot: [["","", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal)+" FCFA"]],
+  styles: { fontSize: 9 }
+});
+
+// → Section Accessoires
+y = doc.lastAutoTable.finalY + 30;
+doc.setFontSize(14);
+doc.text("Accessoires vendus", 40, y);
+autoTable.call(doc, {
+  startY: y + 10,
+  head: [["Modèle","Prix U.","Qté","Total"]],
+  body: ventes.accRows.length 
+    ? ventes.accRows 
+    : [["—","—","0","0"]],
+  foot: [["","", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal)+" FCFA"]],
+  styles: { fontSize: 9 }
+});
+
+
+/* ---- Achats TÉLÉPHONES ---- */
+y = doc.lastAutoTable.finalY + 30;
+doc.setFontSize(14);
+doc.text("Achats – Téléphones", 40, y);
+
+doc.autoTable({
+  startY: y + 10,
+  head : [["Produit","Qté","Prix U.","Total"]],
+  body : appro.phones.rows.length
+           ? appro.phones.rows
+           : [["—", "0", "0", "0"]],
+  foot : [[
+    "TOTAL",                         // col. 0
+    appro.phones.qty.toString(),     // col. 1
+    "",                              // col. 2 (pas de prix U. global)
+    fmt(appro.phones.total)+" FCFA"  // col. 3
+  ]],
+  showFoot: 'lastPage',
+  headStyles: { fillColor:[0,96,100], textColor:255 },
+  styles: { fontSize: 9 }
+});
+
+/* ---- Achats ACCESSOIRES ---- */
+y = doc.lastAutoTable.finalY + 25;
+doc.setFontSize(14);
+doc.text("Achats – Accessoires", 40, y);
+
+doc.autoTable({
+  startY     : y + 10,
+  head : [["Produit","Qté","Prix U.","Total"]],
+  body : appro.acc.rows.length
+           ? appro.acc.rows
+           : [["—","0","0","0"]],
+  foot : [[
+    "TOTAL",
+    appro.acc.qty.toString(),
+    "",
+    fmt(appro.acc.total)+" FCFA"
+  ]],
+  showFoot   : 'lastPage',
+  headStyles : { fillColor:[0,96,100], textColor:255 },
+  styles     : { fontSize: 9 }
+});
+
+
+    /* ---- Dépenses Papa ---- */
+    y = doc.lastAutoTable.finalY + 30;
+    doc.setFontSize(14);
+    doc.text("Dépenses Papa", 40, y);
+    autoTable.call(doc,{
+  startY : y+10,
+  head   : [["Description","Montant"]],
+
+  body   : deps.papa.length
+              ? deps.papa
+              : [["—","0 FCFA"]],          // ← 2 cellules, pas 3
+
+  foot   : [["Sous-total", fmt(deps.totPapa)+" FCFA"]], // ← 2 cellules
+  showFoot :'lastPage',
+  styles : {fontSize:8},
+  footStyles:{fontStyle:"bold"}
+});
+
+    /* ---- Dépenses fonctionnelles ---- */
+    y = doc.lastAutoTable.finalY + 20;
+    doc.setFontSize(14);
+    doc.text("Dépenses fonctionnelles", 40, y);
+    autoTable.call(doc, {
+      startY     : y + 10,
+      head   : [["Description","Montant"]],
+  body   : deps.fonc.length
+              ? deps.fonc
+              : [["—","0 FCFA"]],
+  foot   : [["Sous-total", fmt(deps.totFonc)+" FCFA"]],
+      showFoot : 'lastPage',
+      footStyles : { fontStyle: "bold" },
+      styles     : { fontSize: 8 },
+      
+    });
+
+
+// ---- Apport de marchandises par Papa ----
+y = doc.lastAutoTable.finalY + 30;
+doc.setFontSize(14);
+doc.text("Apport de marchandises par Papa", 40, y);
+
+doc.autoTable({
+  startY : y + 10,
+  head   : [["Produit", "Qté", "Coût U.", "Total"]],
+  body   : papaApport.rows.length
+              ? papaApport.rows
+              : [["—","0","0","0"]],
+  foot   : [["TOTAL",
+             papaApport.totalQty.toString(),
+             "",
+             fmt(papaApport.totalAmount) + " FCFA"]],
+  showFoot : 'lastPage',
+  styles   : { fontSize: 9 }
+});
+
+
+    /* ---- Variation stock Téléphones ---- */
+    y = doc.lastAutoTable.finalY + 30;
+    doc.setFontSize(14);
+    doc.text("Variation du stock – Téléphones", 40, y);
+    autoTable.call(doc, {
+  startY : y + 10,
+  theme  : "grid",                     // ← ajoute la bordure sur chaque cellule
+  head   : [["Libellé", "Nombre", "Coût d'Achat"]],
+  body: [
+  ["Solde initial",
+    fmt(openingStock.qty),
+    fmt(openingStock.val) + " FCFA"
+  ],
+  ["Apport Papa",                       // ← LIGNE AJOUTÉE
+    "+" + papaApport.totalQty,
+    "+" + fmt(papaApport.totalAmount) + " FCFA"
+  ],
+  ["Ventes",
+    "-" + ventes.soldPhonesQty,
+    "-" + fmt(ventes.soldPhonesCAMV) + " FCFA"
+  ],
+  ["Achats",
+    "+" + achatsPhones.qty,
+    "+" + fmt(achatsPhones.val) + " FCFA"
+  ],
+  ["Solde finale",
+    fmt(closingQty),
+    fmt(closingVal) + " FCFA"
+  ]
+],
+  headStyles   : { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
+  columnStyles : { 0: { fontStyle: "bold" } }, // première colonne en gras
+  styles       : { fontSize: 10 }
+});
+
+
+    /* ---- Synthèse journalière ---- */
+    y = doc.lastAutoTable.finalY + 30;
+    doc.setFontSize(14);
+    doc.text("Variation de la Trésorerie", 40, y);
+    autoTable.call(doc, {
+      startY : y + 10,
+      body   : [
+        ["Solde initial",        fmt(soldeInitial)          + " FCFA"],
+        ["Entrées",              fmt(totalEntrees)          + " FCFA"],
+        ["Injection",            fmt(totalInjection)        + " FCFA"],
+        ["Dépenses",            "-" + fmt(totalDepenses)    + " FCFA"],
+        ["Approvisionnement",   "-" + fmt(totalAppro)       + " FCFA"],
+        ["Profit",               fmt(totalProfit)           + " FCFA"],
+        ["Solde final",          fmt(soldeFinal)            + " FCFA"],
+        ["Dette Papa",           fmt(dettePapa)             + " FCFA"],
+        ["Stock téléphones",     fmt(closingVal)            + " FCFA"],
+        ["Valeur business",      fmt(valeurBusiness)        + " FCFA"],
+      ],
+      theme        : "grid",
+      headStyles   : { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
+      columnStyles : { 0: { fontStyle: "bold" } },
+      styles       : { fontSize: 10 }
+    });
+
+    /* ---- Enregistrement ---- */
+    doc.save(`Rapport_${saisie}.pdf`);
+  })
+  .catch(err => alert("Erreur export PDF : " + err.message));
+}
+
+const isPhone = it => (it.category || "").toLowerCase() === "telephones";
+
+
+function getRange(collection, field, startTs, endTs){
+  return dbFirestore.collection(collection)
+    .where(field, '>=', startTs)
+    .where(field, '<=', endTs)
+    .get();
+}
+
+async function countPhonesSold(startTs, endTs){
+  const snap = await getRange('ventes','timestamp',startTs,endTs);
+  let total = 0;
+  snap.forEach(d=>{
+    (d.data().items||[]).forEach(it=>{
+      if(isPhone(it)) total += parseInt(it.quantite)||0;
+    });
+  });
+  return total;
+}
+
+/* ============================================================
+   UI : demande le mois puis lance l’export
+   ============================================================ */
+function askMonthlyExport(){
+  const mois = prompt('Mois à exporter (AAAA-MM) :',
+                      new Date().toISOString().slice(0,7));
+  if(!mois || !/^\d{4}-\d{2}$/.test(mois)) return;
+  exportMonthlyReportPDF(mois)
+    .catch(err=>alert('Erreur export mensuel : '+err.message));
+}
+// ===== EXPORT MENSUEL AVEC DÉTECTION D’ANOMALIES =====
+async function exportMonthlyReportPDF(month) {
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new Error("Format de mois invalide (AAAA-MM attendu).");
+  }
+
+  // 1) Bornes temporelles
+  const [Y, M] = month.split("-").map(Number);
+  const startTs = new Date(Y, M - 1, 1, 0, 0, 0, 0).getTime();
+  const endTs = new Date(Y, M, 0, 23, 59, 59, 999).getTime();
+
+  // 2) Snapshots
+  const [
+    ventesSnap,
+    depSnap,
+    rembSnap,
+    approSnap,
+    stockPhonesVal,
+    dettePapa,
+    nbPhones
+  ] = await Promise.all([
+    getRange("ventes", "timestamp", startTs, endTs),
+    getRange("depenses", "timestamp", startTs, endTs),
+    getRange("remboursements", "timestamp", startTs, endTs),
+    getRange("approvisionnement", "timestamp", startTs, endTs),
+    dbFirestore
+      .collection("stock")
+      .where("category", "==", "telephones")
+      .get()
+      .then(s => {
+        let v = 0;
+        s.forEach(d => {
+          v += (d.data().stock || 0) * (d.data().price || 0);
+        });
+        return v;
+      }),
+    dbFirestore
+      .collection("depensePapa")
+      .doc("balance")
+      .get()
+      .then(d => (d.exists ? d.data().montant || 0 : 0)),
+    countPhonesSold(startTs, endTs)
+  ]);
+
+  // 3) Agrégations VENTES → CA, profit, quantité
+  let ca = 0,
+    profit = 0,
+    qtyVentes = 0;
+  const caParJour = Array(new Date(Y, M, 0).getDate()).fill(0);
+  const profitByProd = {};
+  const qtyByProd = {};
+
+  ventesSnap.forEach(doc => {
+    const v = doc.data();
+    const dayIdx = new Date(v.timestamp).getDate() - 1;
+    caParJour[dayIdx] += +v.overallTotal;
+    ca += +v.overallTotal;
+    profit += +v.totalProfit;
+    qtyVentes++;
+
+    (v.items || []).forEach(item => {
+      const p = item.produit;
+      const q = parseInt(item.quantite) || 0;
+      const pTot = parseFloat(item.profitTotal) || 0;
+      qtyByProd[p] = (qtyByProd[p] || 0) + q;
+      profitByProd[p] = (profitByProd[p] || 0) + pTot;
+    });
+  });
+
+  // 4) Préparation tableau profit par article
+  const profitRows = Object.entries(profitByProd)
+    .sort((a, b) => b[1] - a[1])
+    .map(([prod, p]) => [prod, qtyByProd[prod].toString(), fmt(p) + " FCFA"]);
+
+  // 5) Détection anomalies sur totalProfit de chaque vente mensuelle
+  const allProfits = ventesSnap.docs.map(d => parseFloat(d.data().totalProfit) || 0);
+  const mean = allProfits.reduce((s, v) => s + v, 0) / allProfits.length || 0;
+  const variance =
+    allProfits.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / allProfits.length || 0;
+  const stdDev = Math.sqrt(variance);
+  const threshold = mean + 3 * stdDev;
+  const outliers = ventesSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(sale => parseFloat(sale.totalProfit) > threshold);
+
+  // 6) Génération du PDF
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
+  doc.setFontSize(18);
+  doc.text(`Rapport mensuel – ${month}`, 40, 40);
+
+  // --- Résumé exécutif ---
+  doc.autoTable({
+    startY: 60,
+    theme: "grid",
+    styles: { fontSize: 10 },
+    body: [
+      ["CA total", fmt(ca) + " FCFA"],
+      ["Profit brute", fmt(profit) + " FCFA"],
+      ["Nb ventes", qtyVentes.toString()],
+      ["Téléphones vendus", nbPhones.toString()],
+
+      [
+        "Approvisionnements",
+        fmt(
+          approSnap.docs
+            .flatMap(d => d.data().items || [])
+            .reduce((s, it) => s + it.quantite * it.prixAchat, 0)
+        ) + " FCFA"
+      ],
+
+    ],
+    columnStyles: { 0: { fontStyle: "bold" } }
+  });
+
+  // --- Top 10 modèles ---
+  const top10 = Object.entries(qtyByProd)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([m, q]) => [m, q.toString()]);
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text("Top 10 modèles (quantité)", 40, 40);
+  doc.autoTable({
+    startY: 50,
+    head: [["Modèle", "Qté"]],
+    body: top10,
+    styles: { fontSize: 10 }
+  });
+
+  // --- Profit par article ---
+  doc.addPage();
+  doc.setFontSize(14);
+  doc.text("Profit par article", 40, 40);
+  doc.autoTable({
+  startY: 50,
+  head: [["Article", "Qté", "Profit cumulé"]],
+  body: profitRows,
+  foot: [["", "TOTAL", fmt(profit) + " FCFA"]],
+  showFoot: 'lastPage',               // ← n’affiche le pied que sur la dernière page
+  headStyles: { fillColor: [240,240,240] },
+  footStyles: { fontStyle: "bold" },
+  styles: { fontSize: 10 }
+});
+
+
+  doc.save(`Rapport_${month}.pdf`);
+}
+
+async function startDay() {
+  const today = new Date().toISOString().slice(0, 10);   // AAAA-MM-JJ
+
+  // 1) Lecture du stock « téléphones » en base
+  const snap = await dbFirestore
+    .collection("stock")
+    .where("category", "==", "telephones")
+    .get();
+
+  // 2) Agrégation : unités + valeur monétaire
+  let openingUnits  = 0;
+  let openingValue  = 0;                // en FCFA
+
+  snap.forEach(doc => {
+    const d       = doc.data();
+    const qty     = parseFloat(d.stock) || 0;
+    const price   = parseFloat(d.price) || 0;  // prix d’achat moyen
+    openingUnits += qty;
+    openingValue += qty * price;
+  });
+
+  // 3) Écriture (ou mise à jour) du snapshot quotidien
+  await dbFirestore
+    .collection("stockSnapshots")
+    .doc(today)
+    .set({
+      openingStock      : openingUnits,        // unités
+      openingStockValue : openingValue         // FCFA
+    }, { merge: true });
+
+  // 4) Feedback & navigation
+  showToast(
+    `Stock initial : ${openingUnits} u. – ` +
+    `${openingValue.toLocaleString()} FCFA`
+  );
+  window.location.hash = 'vendre';
+}
+
+
+// Attacher l’écouteur
+document.getElementById("btnStartDay").addEventListener("click", startDay);
+
+window.addEventListener('load', async () => {
+  const today = new Date().toISOString().slice(0,10);
+  const doc = await dbFirestore.collection("stockSnapshots").doc(today).get();
+  if (!doc.exists) {
+    window.location.hash = 'start-day';
+  } else if (!window.location.hash) {
+    window.location.hash = 'vendre';
+  }
+});
+
+window.addEventListener('hashchange', handleHashChange);
+
+/**
+ * Charge et affiche l’historique des variations
+ * pour un stock donné (appro + ventes).
+ *
+ * @param {string} stockId
+ */
+function chargerHistoriqueStock(stockId) {
+  const container = document.getElementById("stockHistoryContainer");
+  container.innerHTML = "<p>Chargement de l’historique…</p>";
+
+  dbFirestore
+    .collection("stock")
+    .doc(stockId)
+    .collection("history")
+    .orderBy("timestamp", "desc")
+    .get()
+    .then(snapshot => {
+      container.innerHTML = "";
+      if (snapshot.empty) {
+        container.innerHTML = "<p>Aucune variation de stock.</p>";
+        return;
+      }
+      snapshot.forEach(doc => {
+        const d    = doc.data();
+        const date = new Date(d.timestamp).toLocaleString("fr-FR");
+        const signe = d.change > 0 ? "+" : "";
+        const row  = document.createElement("div");
+        row.className = "history-item";
+        row.innerHTML = `
+          <p>
+            <strong>${date}</strong><br>
+            ∆ ${signe}${d.change} unités → stock : ${d.newStock}
+          </p>`;
+        container.appendChild(row);
+      });
+    })
+    .catch(err => {
+      console.error("Erreur historique :", err);
+      container.innerHTML = "<p>Erreur de chargement.</p>";
+    });
+}
+
+
+</script>
+
+</body>
+</html>
+
