@@ -559,86 +559,84 @@
       margin-bottom: 8px;
       font-size: 16px;
     }
-    /* ===============================
-       Interface Menu (Thème Clair)
-       =============================== */
-       #screen-menu {
-        margin: 0;
-      padding: 0;
-      font-family: 'Arial', sans-serif;
-      background-color: var(--background-color);
-      color: var(--text-color); }
+ /* ===============================
+   Interface Menu (Thème Clair)
+   =============================== */
+#screen-menu {
+    /* Garder le padding de base ou ajuster si nécessaire */
+    padding: 0; /* Suppression du padding ici pour le gérer au niveau des .menu-group */
+}
 
+#screen-menu .menu {
+    padding: 15px; /* Padding général pour l'ensemble du contenu du menu */
+}
 
-    #screen-menu .menu {
-      padding: 15px;
-    }
-    #screen-menu .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    #screen-menu .header-icons {
-      display: flex;
-      gap: 15px;
-    }
-    #screen-menu .profile-section {
-      display: flex;
-      align-items: center;
-      background-color: #fff;
-      padding: 10px;
-      border-radius: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 15px;
-    }
-    #screen-menu .profile-pic {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: url('https://via.placeholder.com/40') center/cover;
-      margin-right: 10px;
-    }
-    #screen-menu .profile-info div {
-      font-weight: bold;
-    }
-    #screen-menu .shortcuts {
-      display: flex;
-      overflow-x: auto;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-    #screen-menu .shortcut {
-      width: 60px;
-      flex-shrink: 0;
-      text-align: center;
-      font-size: 12px;
-      color: #555;
-    }
-    #screen-menu .shortcut img {
-      width: 100%;
-      border-radius: 10px;
-      height: 60px;
-      object-fit: cover;
-    }
-    #screen-menu .sections {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    #screen-menu .section {
-      background-color: #fff;
-      padding: 12px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      cursor: pointer;
-    }
-    #screen-menu .section svg {
-      color: #006064;
-    }
+#screen-menu .header,
+#screen-menu .profile-section {
+    /* Garder ces styles car ils sont déjà bons */
+    margin-bottom: 20px; /* Légère augmentation pour plus d'espace */
+}
+
+/* NOUVEAUX STYLES POUR LES GROUPES DE MENU ET LEURS ÉLÉMENTS */
+
+.menu-group {
+    margin-bottom: 25px; /* Espace entre chaque groupe de menu */
+}
+
+.menu-group-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #555; /* Couleur de texte plus foncée pour le titre de groupe */
+    margin-bottom: 10px; /* Espace sous le titre du groupe */
+    padding-left: 5px; /* Petite indentation pour aligner avec les icônes */
+    text-transform: uppercase; /* Comme dans l'exemple eBay */
+    letter-spacing: 0.5px;
+}
+
+.menu-list {
+    list-style: none; /* Supprime les puces par défaut des listes */
+    padding: 0;
+    margin: 0;
+    background-color: var(--white); /* Fond blanc pour la liste */
+    border-radius: var(--border-radius); /* Bords arrondis */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Légère ombre pour la profondeur */
+    overflow: hidden; /* Pour que les bords arrondis s'appliquent bien */
+}
+
+.menu-list-item {
+    display: flex; /* Permet d'aligner l'icône et le texte */
+    align-items: center; /* Aligne verticalement au centre */
+    padding: 15px; /* Espacement interne confortable */
+    color: var(--text-color);
+    font-size: 17px; /* Taille de police plus lisible */
+    font-weight: 500;
+    border-bottom: 1px solid #eee; /* Ligne de séparation entre les éléments */
+    cursor: pointer;
+    transition: background-color 0.1s ease-in-out; /* Effet de transition pour le clic */
+}
+
+.menu-list-item:last-child {
+    border-bottom: none; /* Pas de bordure après le dernier élément de la liste */
+}
+
+.menu-list-item:active {
+    background-color: #f0f0f0; /* Couleur de fond au clic/toucher */
+}
+
+.menu-list-item i {
+    font-size: 24px; /* Taille des icônes */
+    margin-right: 15px; /* Espacement entre l'icône et le texte */
+    color: var(--primary-color); /* Couleur des icônes */
+}
+
+/* Ajustements pour les éléments "Déconnexion", "FAQ", etc. pour qu'ils aient la même apparence */
+/* Ciblez spécifiquement si nécessaire, ou laissez le .menu-list-item général s'appliquer */
+.menu-list-item[onclick="deconnexion()"] {
+    color: #dc3545; /* Rouge pour Déconnexion */
+}
+.menu-list-item[onclick="deconnexion()"] i {
+    color: #dc3545; /* Icône rouge aussi */
+}
     /* CSS pour l'écran de recherche d'article */
     #searchProduitInput {
       width: 100%;
@@ -3136,86 +3134,107 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
-      <div class="menu">
-        <!-- En-tête inchangé -->
-        <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <div id="current-time-menu" style="font-size: 16px; font-weight: bold; color: #006064;">9:40</div>
-          <div class="header-icons" style="display: flex; gap: 15px;">
-            <i data-lucide="camera"></i>
-            <i data-lucide="message-circle"></i>
-            <i data-lucide="bell"></i>
-            <i data-lucide="user-circle"></i>
-          </div>
-        </div>
-        <!-- Section Profil inchangée -->
-        <div class="profile-section">
-          <div class="profile-pic" style="background: url('https://via.placeholder.com/40') center/cover;"></div>
-          <div class="profile-info">
-            <div>Zidane </div>
-          </div>
-          <i data-lucide="chevron-down"></i>
-        </div>
-        <!-- Sections du menu adaptées avec nouvelles fonctionnalités -->
-        <div class="sections">
-          <div class="section" onclick="window.location.hash='clients'">
-            <i data-lucide="users"></i>
-            Clients
-          </div>
-           <div class="section" onclick="window.location.hash='dettes-fournisseurs'">
-            <i data-lucide="receipt-text"></i> Dettes Fournisseurs
-          </div>
-          <div class="section" onclick="window.location.hash='vendeurs'">
-            <i data-lucide="users"></i>
-            Gestion des Vendeurs
-          </div>
-          <div class="section" onclick="window.location.hash='rapports'">
-            <i data-lucide="file-text"></i>
-            Rapports & Statistiques
-          </div>
+    <div class="menu">
+      
 
-          <div class="section" onclick="window.location.hash='approvisionnement'">
-            <i data-lucide="archive"></i>
-            Approvisionnement
-          </div>          
-          <!-- "Base Clients" section supprimée -->
-          <div class="section" onclick="window.location.hash='notifications'">
-            <i data-lucide="bell-ring"></i>
-            Notifications
-          </div>
-          <div class="section" onclick="window.location.hash='tresorerie'">
-            <i data-lucide="dollar-sign"></i>
-            Trésorerie
-          </div>
-          <div class="section" onclick="window.location.hash='depenses'">
-            <i data-lucide="file-minus"></i>
-            Dépenses
-          </div>
-          <!-- Dans la section du Menu, par exemple dans la div contenant les sections -->
-          <div class="section" onclick="window.location.hash='advance'">
-            <i data-lucide="dollar-sign"></i>
-            Avance
-          </div>
-          <div class="section" onclick="window.location.hash='repertoire-imei'">
-            <i data-lucide="list"></i>
-            Répertoire d'IMEI
-          </div>
-
-          <div class="section" onclick="window.location.hash='faq'">
-            <i data-lucide="help-circle"></i>
-            FAQ
-          </div>
-          <div class="section" onclick="window.location.hash='parametres'">
-            <i data-lucide="settings"></i>
-            Paramètres
-          </div>
-          <div class="section" onclick="deconnexion()">
-            <i data-lucide="log-out"></i>
-            Déconnexion
-          </div>
+        <div class="menu-group">
+            <h3 class="menu-group-title">Gestion Quotidienne</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='vendre'">
+                    <i data-lucide="shopping-cart"></i>
+                    <span>Nouvelle Vente</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='stock'">
+                    <i data-lucide="package"></i>
+                    <span>Stock</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='approvisionnement'">
+                    <i data-lucide="archive"></i>
+                    <span>Approvisionnement</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='livraisons'">
+                    <i data-lucide="truck"></i>
+                    <span>Livraisons</span>
+                </li>
+            </ul>
         </div>
-      </div>
-    </section>
-    
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Comptabilité & Rapports</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='tresorerie'">
+                    <i data-lucide="dollar-sign"></i>
+                    <span>Trésorerie</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='depenses'">
+                    <i data-lucide="file-minus"></i>
+                    <span>Dépenses</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='dettes-fournisseurs'">
+                    <i data-lucide="receipt-text"></i>
+                    <span>Dettes Fournisseurs</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='rapports'">
+                    <i data-lucide="file-text"></i>
+                    <span>Rapports & Statistiques</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='profit'">
+                    <i data-lucide="trending-up"></i>
+                    <span>Profit</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='advance'">
+                    <i data-lucide="dollar-sign"></i>
+                    <span>Avance de Paiement</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Base de Données</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='historique'">
+                    <i data-lucide="clock"></i>
+                    <span>Historique des Ventes</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='clients'">
+                    <i data-lucide="users"></i>
+                    <span>Clients</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='vendeurs'">
+                    <i data-lucide="users"></i>
+                    <span>Gestion des Vendeurs</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='repertoire-imei'">
+                    <i data-lucide="list"></i>
+                    <span>Répertoire d'IMEI</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="menu-group">
+            <h3 class="menu-group-title">Plus</h3>
+            <ul class="menu-list">
+                <li class="menu-list-item" onclick="window.location.hash='notifications'">
+                    <i data-lucide="bell-ring"></i>
+                    <span>Notifications</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='faq'">
+                    <i data-lucide="help-circle"></i>
+                    <span>FAQ</span>
+                </li>
+                <li class="menu-list-item" onclick="window.location.hash='parametres'">
+                    <i data-lucide="settings"></i>
+                    <span>Paramètres</span>
+                </li>
+                <li class="menu-list-item" onclick="deconnexion()">
+                    <i data-lucide="log-out"></i>
+                    <span>Déconnexion</span>
+                </li>
+            </ul>
+        </div>
+
+        </div>
+</section>
     <!-- Nouvel écran dédié à la recherche d'article -->
     <section id="screen-search-article" class="screen">
       <header style="position: relative; display: flex; align-items: center; padding: 15px;">
