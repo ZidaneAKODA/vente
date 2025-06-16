@@ -2547,7 +2547,16 @@ async function chargerApprovisionnements() {
       const appro = doc.data();
       appro.id = doc.id;
 
-      const dateAppro = new Date(appro.timestamp).toLocaleDateString("fr-FR", {day: '2-digit', month: 'short', year: 'numeric'});
+      // MODIFICATION ICI: Utilisez toLocaleString pour afficher la date et l'heure
+      // and ensure the timestamp is a Date object if it's coming from Firestore as a Timestamp object
+      const jsDate = appro.timestamp.toDate ? appro.timestamp.toDate() : new Date(appro.timestamp);
+      const dateAppro = jsDate.toLocaleString("fr-FR", {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
 
       let paymentStatusText = '';
@@ -2584,8 +2593,8 @@ async function chargerApprovisionnements() {
         <ion-label>
           <div class="main-content-wrapper">
             <div class="left-info">
+              <div class="purchase-date" style="font-weight: bold; font-size: 15px;">${dateAppro}</div>
               <div class="supplier-name">${appro.fournisseur || 'Fournisseur Inconnu'}</div>
-              <div class="purchase-date">${dateAppro}</div>
               ${itemListHTML}
             </div>
             <div class="right-info">
@@ -5509,7 +5518,7 @@ async function recordCreditPayment(approId, outstandingAmount) {
                  montant: paymentAmount,
                  description: `Paiement crédit achat fournisseur ${approData.fournisseur}`,
                  type: "depense fonctionnelle",
-                 timestamp: Date.now(),
+                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                  date: new Date().toISOString(),
                  dateString: new Date().toLocaleDateString("fr-FR")
              });
@@ -6759,7 +6768,7 @@ function updateStockAfterSaleFirestore(items) {
               return docRef
                 .collection("history")
                 .add({
-                  timestamp: Date.now(),
+                  timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                   change: -item.quantite,
                   newStock: newStock
                 });
@@ -7279,7 +7288,7 @@ function continuerDepuisPanier() {
       observationsVendeur,
       isDelivery,
       deliveryStatus: isDelivery ? "en cours" : null,
-      timestamp: Date.now()
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
     
     const compteId = document.getElementById("compteSelectVente").value;
@@ -8089,7 +8098,7 @@ function confirmerAjoutFournisseur(fournisseurName) {
           return docRef
             .collection("history")
             .add({
-              timestamp: Date.now(),
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
               change: +quantite,
               newStock: newStock
             });
@@ -8114,7 +8123,7 @@ function confirmerAjoutFournisseur(fournisseurName) {
             return docRef
               .collection("history")
               .add({
-                timestamp: Date.now(),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 change: +quantite,
                 newStock: quantite
               });
