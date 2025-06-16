@@ -2273,16 +2273,18 @@ function displaySalesHistory(salesList) {
             </ion-toolbar>
             <ion-toolbar class="segment-toolbar">
                 <ion-segment value="all" id="purchase-tabs">
-                    <ion-segment-button value="all">
-                        <ion-label>Tout</ion-label>
-                    </ion-segment-button>
-                    <ion-segment-button value="credit">
-                        <ion-label>Crédit</ion-label>
-                    </ion-segment-button>
-                    <ion-segment-button value="paid">
-                        <ion-label>Payé</ion-label>
-                    </ion-segment-button>
-                </ion-segment>
+    <ion-segment-button value="all">
+        <ion-label>Tout</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="credit">
+        <div class="credit-badge-container"> <span id="creditSupplierCountCircle" class="credit-circle-count"></span>
+            <ion-label>Crédit</ion-label>
+        </div>
+    </ion-segment-button>
+    <ion-segment-button value="paid">
+        <ion-label>Payé</ion-label>
+    </ion-segment-button>
+</ion-segment>
                 <ion-buttons slot="end">
                     <ion-button>
                         <ion-icon name="options-outline"></ion-icon>
@@ -2330,7 +2332,35 @@ function displaySalesHistory(salesList) {
     padding-left: 10px;
     padding-right: 10px;
 }
+/* Styles pour le conteneur du badge à l'intérieur du segment button */
+#screen-approvisionnement-historique ion-segment-button[value="credit"] .credit-badge-container {
+    display: flex; /* Permet d'aligner le cercle et le texte */
+    align-items: center; /* Centre verticalement */
+    justify-content: center; /* Centre horizontalement le contenu du bouton */
+    width: 100%; /* S'assure que le conteneur prend toute la largeur du bouton */
+    position: relative; /* Pour positionner le cercle si besoin, bien que flex suffise ici */
+    height: 100%; /* S'assure que le conteneur prend toute la hauteur */
+    font-size: 15px; /* Taille de police de base pour aligner avec le texte */
+}
 
+/* Styles pour le cercle du compteur (le "4" dans la pastille) */
+#screen-approvisionnement-historique .credit-circle-count {
+    background-color: #f04141; /* Couleur rouge comme sur l'image */
+    color: white; /* Texte blanc */
+    border-radius: 50%; /* Rend la forme du cercle parfaite */
+    min-width: 20px; /* Taille minimum pour le cercle */
+    height: 20px; /* Hauteur identique pour un cercle parfait */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px; /* Taille de la police pour le chiffre à l'intérieur */
+    font-weight: bold; /* Gras pour le chiffre */
+    margin-right: 4px; /* Espace entre le cercle et le texte "Crédit" */
+    /* Ces propriétés assurent que le cercle est bien rond et que le texte est centré */
+    box-sizing: border-box; /* Inclure padding et border dans la largeur/hauteur */
+    flex-shrink: 0; /* Empêche le cercle de rétrécir si l'espace est limité */
+    padding: 2px; /* Un petit padding pour que le chiffre ne touche pas les bords */
+}
 #screen-approvisionnement-historique ion-title {
     font-weight: 600;
     color: #333; /* Plus sombre pour le titre */
@@ -2497,184 +2527,296 @@ ion-fab-button {
 }
     </style>
 <script>
-async function chargerApprovisionnements() {
-  const container = document.getElementById("approvisionnementHistoryList");
-  container.innerHTML = ""; // Vider le contenu actuel
+async function chargerApprovisionnements(filter = 'all') {
+    const container = document.getElementById("approvisionnementHistoryList");
+    container.innerHTML = ""; // Vider le contenu actuel
 
-  // Afficher le spinner avant de commencer le chargement
-  container.innerHTML = `
-    <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
-      <ion-label style="text-align:center; padding: 20px; color: #888;">
-        <ion-spinner name="crescent" style="width: 30px; height: 30px;"></ion-spinner><br>
-        Chargement des approvisionnements...
-      </ion-label>
-    </ion-item>
-  `;
-  // Assurez-vous que les icônes Ionic (y compris le spinner) sont rendues
-  renderIoniconsInElement(container);
-
-  try {
-    const today = new Date();
-    // Début de la journée (00:00:00)
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
-    // Fin de la journée (23:59:59.999)
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
-
-    const snapshot = await dbFirestore.collection("approvisionnement")
-      .where("timestamp", ">=", startOfToday)
-      .where("timestamp", "<=", endOfToday)
-      .orderBy("timestamp", "desc") // Trie par le plus récent d'abord
-      .get();
-
-    container.innerHTML = ""; // Vider le spinner une fois les données récupérées
-
-    if (snapshot.empty) {
-      container.innerHTML = `
-        <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
-          <ion-label style="text-align:center; padding: 20px; color: #888;">
-            <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
-            Aucun achat enregistré pour aujourd'hui.
-          </ion-label>
-        </ion-item>
-      `;
-      // Assurez-vous que les icônes Ionic sont rendues pour l'état vide
-      renderIoniconsInElement(container);
-      return;
-    }
-
-    snapshot.forEach(doc => {
-      const appro = doc.data();
-      appro.id = doc.id;
-
-      const jsDate = appro.timestamp.toDate ? appro.timestamp.toDate() : new Date(appro.timestamp);
-      const dateAppro = jsDate.toLocaleString("fr-FR", {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
-
-      let paymentStatusText = '';
-      let statusClass = '';
-      let amountColor = '#333'; // Default color for amounts
-
-      if (appro.paymentMethod === 'cash') {
-        paymentStatusText = 'CASH';
-        statusClass = 'status-paid';
-      } else if (appro.paymentMethod === 'credit') {
-        if (appro.remainingAmount > 0) {
-          paymentStatusText = 'DUE';
-          statusClass = 'status-credit';
-          amountColor = '#f04141'; // Red color for DUE amounts
-        } else {
-          paymentStatusText = 'PAID';
-          statusClass = 'status-paid';
-        }
-      }
-
-      // Generate initials for the avatar
-      const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
-      const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-      const avatarBgColor = getAvatarColor(supplierName); // Function to get a consistent color
-
-      // Build the item list HTML
-      let itemListHTML = '';
-      if (appro.items && Array.isArray(appro.items)) {
-        appro.items.forEach(item => {
-          itemListHTML += `<p style="font-size: 13px; color: #555; margin: 2px 0;">${item.quantite} x ${item.produit} - ${parseFloat(item.prixAchat).toLocaleString('fr-FR')} FCFA</p>`;
-        });
-      } else {
-        itemListHTML = '<p style="font-size: 13px; color: #888;">Aucun article</p>';
-      }
-
-      const ionItem = document.createElement('ion-item');
-      ionItem.classList.add(statusClass);
-      ionItem.setAttribute('button', 'true');
-      ionItem.setAttribute('lines', 'none'); // Remove default Ionic lines
-
-      // Add custom border-bottom for separation, as requested
-      ionItem.style.borderBottom = '1px solid #eee';
-      ionItem.style.marginBottom = '0';
-      ionItem.style.paddingLeft = '0'; // Remove Ionic's default start padding
-      ionItem.style.paddingRight = '0'; // Remove Ionic's default end padding
-      ionItem.style.setProperty('--padding-start', '0');
-      ionItem.style.setProperty('--padding-end', '0');
-      ionItem.style.setProperty('--inner-padding-end', '0'); // Remove padding from inside the item
-
-      ionItem.innerHTML = `
-        <ion-label style="padding: 12px 16px;">
-          <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
-            <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
-              ${initials}
-            </div>
-            <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
-              <div class="purchase-date" style="font-weight: bold; font-size: 14px; color: #333;">${dateAppro}</div>
-              <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
-              ${itemListHTML}
-            </div>
-            <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
-              <div class="total-amount" style="font-weight: 600; font-size: 18px; color: ${amountColor};">XOF ${totalCostDisplay}</div>
-              <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${paymentStatusText}</div>
-            </div>
-          </div>
-        </ion-label>
-        <ion-ripple-effect></ion-ripple-effect>
-      `;
-
-      ionItem.addEventListener('click', () => {
-        console.log("Afficher les détails de l'approvisionnement :", appro.id);
-        // showApproDetail(appro.id); // Uncomment if you have this function
-      });
-
-      container.appendChild(ionItem);
-    });
-
-    // Remove the last item's bottom border if it exists
-    if (container.lastElementChild) {
-        container.lastElementChild.style.borderBottom = 'none';
-    }
-
-    // Ensure Ionicons are rendered after dynamic content is added
-    renderIoniconsInElement(container);
-
-  } catch (error) {
-    console.error("Erreur lors du chargement des approvisionnements :", error);
+    // Afficher le spinner avant de commencer le chargement
     container.innerHTML = `
-      <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
-        <ion-label style="text-align:center; color:red; padding:20px;">
-          Erreur de chargement des approvisionnements.
-        </ion-label>
-      </ion-item>
+        <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+            <ion-label style="text-align:center; padding: 20px; color: #888;">
+                <ion-spinner name="crescent" style="width: 30px; height: 30px;"></ion-spinner><br>
+                Chargement des approvisionnements...
+            </ion-label>
+        </ion-item>
     `;
+    // Assurez-vous que les icônes Ionic (y compris le spinner) sont rendues
     renderIoniconsInElement(container);
-  }
+
+    // Récupération de l'élément du compteur pour l'onglet Crédit
+    const creditCountCircle = document.getElementById('creditSupplierCountCircle'); // <-- Cible le nouveau span
+    if (creditCountCircle) {
+        // Cacher le cercle par défaut et le réinitialiser
+        creditCountCircle.textContent = '';
+        creditCountCircle.style.display = 'none'; // Cacher le cercle quand il n'y a pas de dettes
+    }
+
+    try {
+        let query = dbFirestore.collection("approvisionnement");
+        let snapshot;
+
+        if (filter === 'credit') {
+            // Pour l'onglet "Crédit", on affiche toutes les dettes en cours, quelle que soit la date
+            snapshot = await query
+                .where("paymentMethod", "==", "credit")
+                .where("remainingAmount", ">", 0)
+                .orderBy("remainingAmount", "asc")
+                .orderBy("timestamp", "asc")
+                .get();
+
+            const debtsBySupplier = {}; // Agrégateur : { "Nom Fournisseur": { totalDue: X, count: Y, lastDebtDate: Z } }
+
+            snapshot.forEach(doc => {
+                const appro = doc.data();
+                appro.id = doc.id; // Ajouter l'ID du document
+                const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
+                const remaining = parseFloat(appro.remainingAmount || 0);
+
+                if (remaining > 0) {
+                    if (!debtsBySupplier[supplierName]) {
+                        debtsBySupplier[supplierName] = {
+                            totalDue: 0,
+                            count: 0,
+                            lastDebtDate: 0,
+                            approIds: []
+                        };
+                    }
+                    debtsBySupplier[supplierName].totalDue += remaining;
+                    debtsBySupplier[supplierName].count++;
+                    debtsBySupplier[supplierName].approIds.push(appro.id);
+                    if (appro.timestamp > (debtsBySupplier[supplierName].lastDebtDate || 0)) {
+                        debtsBySupplier[supplierName].lastDebtDate = appro.timestamp;
+                    }
+                }
+            });
+
+            // Mettre à jour le compteur de fournisseurs pour l'onglet "Crédit"
+            const numberOfSuppliersWithDebt = Object.keys(debtsBySupplier).length;
+            if (creditCountCircle) { // <-- Utilise le nouveau ID
+                creditCountCircle.textContent = numberOfSuppliersWithDebt;
+                creditCountCircle.style.display = numberOfSuppliersWithDebt > 0 ? 'flex' : 'none'; // Utilise 'flex' pour centrer le chiffre
+            }
+
+            container.innerHTML = ""; // Vider le spinner
+
+            if (numberOfSuppliersWithDebt === 0) {
+                container.innerHTML = `
+                    <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                        <ion-label style="text-align:center; padding: 20px; color: #888;">
+                            <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+                            🎉 Aucune dette fournisseur en cours !
+                        </ion-label>
+                    </ion-item>
+                `;
+                renderIoniconsInElement(container);
+                return;
+            }
+
+            const sortedSuppliers = Object.keys(debtsBySupplier).sort();
+
+            sortedSuppliers.forEach(supplierName => {
+                const data = debtsBySupplier[supplierName];
+                const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                const avatarBgColor = getAvatarColor(supplierName);
+                const dateDisplay = data.lastDebtDate ? new Date(data.lastDebtDate).toLocaleDateString("fr-FR") : 'N/A';
+
+                const ionItem = document.createElement('ion-item');
+                ionItem.classList.add('status-credit');
+                ionItem.setAttribute('button', 'true');
+                ionItem.setAttribute('lines', 'none');
+                ionItem.style.borderBottom = '1px solid #eee';
+                ionItem.style.marginBottom = '0';
+                ionItem.style.paddingLeft = '0';
+                ionItem.style.paddingRight = '0';
+                ionItem.style.setProperty('--padding-start', '0');
+                ionItem.style.setProperty('--padding-end', '0');
+                ionItem.style.setProperty('--inner-padding-end', '0');
+
+                ionItem.innerHTML = `
+                    <ion-label style="padding: 12px 16px;">
+                        <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
+                            <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
+                                ${initials}
+                            </div>
+                            <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
+                                <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
+                                <div class="purchase-date" style="font-size: 13px; color: #888;">${data.count} achat(s) à crédit</div>
+                            </div>
+                            <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
+                                <div class="total-amount" style="font-weight: 600; font-size: 18px; color: #f04141;">XOF ${data.totalDue.toLocaleString('fr-FR')}</div>
+                                <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">DUE</div>
+                            </div>
+                        </div>
+                    </ion-label>
+                    <ion-ripple-effect></ion-ripple-effect>
+                `;
+                container.appendChild(ionItem);
+            });
+
+        } else {
+            // Logique existante pour les onglets "Tout" et "Payé"
+            const today = new Date();
+            const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
+            const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+
+            query = query
+                .where("timestamp", ">=", startOfToday)
+                .where("timestamp", "<=", endOfToday)
+                .orderBy("timestamp", "desc");
+
+            if (filter === 'paid') {
+                query = query.where("isPaid", "==", true);
+            }
+
+            snapshot = await query.get();
+            container.innerHTML = "";
+
+            if (snapshot.empty) {
+                container.innerHTML = `
+                    <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                        <ion-label style="text-align:center; padding: 20px; color: #888;">
+                            <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+                            Aucun achat ${filter === 'paid' ? 'réglé ' : ''}enregistré pour aujourd'hui.
+                        </ion-label>
+                    </ion-item>
+                `;
+                renderIoniconsInElement(container);
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const appro = doc.data();
+                appro.id = doc.id;
+
+                const jsDate = appro.timestamp.toDate ? appro.timestamp.toDate() : new Date(appro.timestamp);
+                const dateAppro = jsDate.toLocaleString("fr-FR", {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
+
+                let paymentStatusText = '';
+                let statusClass = '';
+                let amountColor = '#333';
+
+                if (appro.paymentMethod === 'cash') {
+                    paymentStatusText = 'CASH';
+                    statusClass = 'status-paid';
+                } else if (appro.paymentMethod === 'credit') {
+                    if (appro.remainingAmount > 0) {
+                        paymentStatusText = 'DUE';
+                        statusClass = 'status-credit';
+                        amountColor = '#f04141';
+                    } else {
+                        paymentStatusText = 'RÉGLÉ';
+                        statusClass = 'status-paid';
+                        amountColor = '#3880ff';
+                    }
+                }
+
+                const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
+                const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                const avatarBgColor = getAvatarColor(supplierName);
+
+                let itemListHTML = '';
+                if (appro.items && Array.isArray(appro.items)) {
+                    appro.items.forEach(item => {
+                        itemListHTML += `<p style="font-size: 13px; color: #555; margin: 2px 0;">${item.quantite} x ${item.produit} - ${parseFloat(item.prixAchat).toLocaleString('fr-FR')} FCFA</p>`;
+                    });
+                } else {
+                    itemListHTML = '<p style="font-size: 13px; color: #888;">Aucun article</p>';
+                }
+
+                const ionItem = document.createElement('ion-item');
+                ionItem.classList.add(statusClass);
+                ionItem.setAttribute('button', 'true');
+                ionItem.setAttribute('lines', 'none');
+
+                ionItem.style.borderBottom = '1px solid #eee';
+                ionItem.style.marginBottom = '0';
+                ionItem.style.paddingLeft = '0';
+                ionItem.style.paddingRight = '0';
+                ionItem.style.setProperty('--padding-start', '0');
+                ionItem.style.setProperty('--padding-end', '0');
+                ionItem.style.setProperty('--inner-padding-end', '0');
+
+                ionItem.innerHTML = `
+                    <ion-label style="padding: 12px 16px;">
+                        <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
+                            <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
+                                ${initials}
+                            </div>
+                            <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
+                                <div class="purchase-date" style="font-weight: bold; font-size: 14px; color: #333;">${dateAppro}</div>
+                                <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
+                                ${itemListHTML}
+                            </div>
+                            <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
+                                <div class="total-amount" style="font-weight: 600; font-size: 18px; color: ${amountColor};">XOF ${totalCostDisplay}</div>
+                                <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${paymentStatusText}</div>
+                            </div>
+                        </div>
+                    </ion-label>
+                    <ion-ripple-effect></ion-ripple-effect>
+                `;
+
+                ionItem.addEventListener('click', () => {
+                    console.log("Afficher les détails de l'approvisionnement :", appro.id);
+                });
+
+                container.appendChild(ionItem);
+            });
+        }
+
+        // Remove the last item's bottom border if it exists
+        if (container.lastElementChild) {
+            container.lastElementChild.style.borderBottom = 'none';
+        }
+
+        renderIoniconsInElement(container);
+
+    } catch (error) {
+        console.error("Erreur lors du chargement des approvisionnements :", error);
+        container.innerHTML = `
+            <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                <ion-label style="text-align:center; color:red; padding:20px;">
+                    Erreur de chargement des approvisionnements.
+                </ion-label>
+            </ion-item>
+        `;
+        renderIoniconsInElement(container);
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const purchaseTabs = document.getElementById('purchase-tabs');
+    if (purchaseTabs) {
+        purchaseTabs.addEventListener('ionChange', (event) => {
+            console.log('Segment changed', event.detail.value); // Check if this message appears in your browser's console
+            chargerApprovisionnements(event.detail.value);
+        });
+    }
+});
+// Assurez-vous que la fonction renderIoniconsInElement est définie et accessible
+function renderIoniconsInElement(element) {
+    const ionicons = element.querySelectorAll('ion-icon');
+    ionicons.forEach(icon => {
+        if (icon.name && !icon.src) {
+            icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
+        }
+    });
 }
 
-// Helper function to get a consistent color for the avatar based on initials
+// Assurez-vous que la fonction getAvatarColor est définie et accessible
 function getAvatarColor(name) {
-    // A wider range of "pure" and distinct colors, explicitly excluding yellow and orange
     const colors = [
-        '#3498DB', // Bright Blue
-        '#2ECC71', // Emerald Green
-        '#E74C3C', // Alizarin Red
-        '#9B59B6', // Amethyst Purple
-        '#1ABC9C', // Turquoise
-        '#34495E', // Wet Asphalt (Dark Blue/Grey)
-        '#9B59B6', // Amethyst
-        '#C0392B', // Pomegranate Red
-        '#2980B9', // Belize Hole Blue
-        '#27AE60', // Nephritis Green
-        '#8E44AD', // Wisteria Purple
-        '#7F8C8D', // Asbestos Grey
-        '#D35400' // Dark Orange (as long as it's not the bright, primary orange)
+        '#3498DB', '#2ECC71', '#E74C3C', '#9B59B6', '#1ABC9C',
+        '#34495E', '#9B59B6', '#C0392B', '#2980B9', '#27AE60',
+        '#8E44AD', '#7F8C8D', '#D35400'
     ];
-
-    // Remove any explicitly forbidden colors (like bright yellow/orange if they snuck in)
-    // For this specific request, the list above is curated, but this is a general safeguard
-    const forbiddenColors = ['#FFC107', '#FF9800', '#FFD700', '#FFA500']; // Example hex codes for yellow/orange
-
+    const forbiddenColors = ['#FFC107', '#FF9800', '#FFD700', '#FFA500'];
     const filteredColors = colors.filter(color => !forbiddenColors.includes(color.toUpperCase()));
 
     let hash = 0;
@@ -2684,18 +2826,7 @@ function getAvatarColor(name) {
     const index = Math.abs(hash % filteredColors.length);
     return filteredColors[index];
 }
-
-// Ensure this function is present globally or in a scope accessible by chargerApprovisionnements
-function renderIoniconsInElement(element) {
-    const ionicons = element.querySelectorAll('ion-icon');
-    ionicons.forEach(icon => {
-        if (icon.name && !icon.src) {
-            icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
-        }
-    });
-}
 </script>
-
   
 </section>
 
@@ -5382,7 +5513,7 @@ async function finaliserApprovisionnement() {
           name: item.produit,
           category: item.category,
           stock: newStock,
-          price: adjustedPrixAachat, // Stocke le prix AJUSTÉ comme coût moyen initial
+          price: adjustedPrixAchat, // Stocke le prix AJUSTÉ comme coût moyen initial
           icon: icon,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
