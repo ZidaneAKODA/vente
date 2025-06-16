@@ -2261,11 +2261,6 @@ function displaySalesHistory(salesList) {
     <ion-app>
         <ion-header class="ion-no-border">
             <ion-toolbar>
-                <ion-buttons slot="start">
-                    <ion-button onclick="window.location.hash='menu'">
-                        <ion-icon name="menu-outline"></ion-icon>
-                    </ion-button>
-                </ion-buttons>
                 <ion-title>Historique des Achats</ion-title>
                 <ion-buttons slot="end">
                     <ion-button>
@@ -2321,10 +2316,6 @@ function displaySalesHistory(salesList) {
     font-family: 'Roboto', sans-serif; /* Assure la police globale */
 }
 
-/* Cache la bottom-nav quand l'écran de l'historique d'appro est actif */
-#screen-approvisionnement-historique.active ~ .bottom-nav-pro {
-    display: none;
-}
 
 /* En-tête (Header) - Design plat */
 #screen-approvisionnement-historique ion-header {
