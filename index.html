@@ -2371,6 +2371,29 @@ function displaySalesHistory(salesList) {
     letter-spacing: 0;
     min-height: 40px;
 }
+#screen-approvisionnement-historique ion-content {
+    /* The `fullscreen` property of Ionic already handles a lot, but sometimes an adjustment is needed */
+    /* Ensure that the bottom padding is sufficient for the FAB and the bottom-nav-pro */
+    --padding-bottom: 70px; /* Space for the FAB (~56px) + a small additional offset */
+    /* You could also add space for the bottom-nav-pro if it's not already globally managed */
+    padding-bottom: calc(var(--ion-safe-area-bottom) + 60px + 20px) !important; /* Example: safe-area + nav-bar + margin */
+    /* I add 60px for the bottom-nav-pro and 20px margin above for the FAB,
+       the safe-area is an Ionic variable for notches on mobile */
+}
+
+/* Ensure the floating button does not overlap the content */
+/* The FAB is already `slot="fixed"` and `vertical="bottom"`, `horizontal="end"`
+   so it should position correctly relative to `ion-content`.
+   Make sure there's no negative `margin-bottom` or other oddities. */
+#screen-approvisionnement-historique ion-fab {
+    margin-bottom: calc(var(--ion-safe-area-bottom) + 60px) !important; /* Pousse le bouton de 80px + safe area */
+}
+/* S'assurer que la liste scrollable a un padding-bottom suffisant */
+#approvisionnementHistoryList {
+    /* Si ion-content gère déjà le padding-bottom, ce n'est pas toujours nécessaire,
+       mais peut servir de sécurité pour le contenu interne de la liste */
+    padding-bottom: 80px; /* Un peu plus que le FAB + marge si nécessaire */
+}
 
 /* Conteneur des items (liste) */
 #approvisionnementHistoryList {
