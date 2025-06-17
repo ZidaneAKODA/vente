@@ -1487,8 +1487,7 @@
             }
         });
     }
-
-   function displaySalesHistory(salesList) {
+function displaySalesHistory(salesList) {
         const container = document.getElementById("ventesContainerList");
         container.innerHTML = "";
 
@@ -1513,11 +1512,11 @@
             const ionItem = document.createElement("ion-item");
 
             let statusClass = 'status-vente-directe';
-            let iconName = 'cash-outline';
+            // let iconName = 'cash-outline'; // Not directly used for status styling here, but kept for context
             let statusText = 'Vente directe';
 
             if (sale.isDelivery) {
-                iconName = 'truck-outline';
+                // iconName = 'truck-outline'; // Not directly used for status styling here
                 switch (sale.deliveryStatus) {
                     case 'réussie':
                         statusClass = 'status-reussie';
@@ -1544,34 +1543,29 @@
 
             const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
 
-            // --- NOUVELLE CORRECTION : Forcer le fuseau horaire GMT+1 ('Africa/Lagos') ---
             let displayDate = 'Date invalide';
             let displayTime = '';
 
             if (sale.timestamp && typeof sale.timestamp.toDate === 'function') {
-                const jsDate = sale.timestamp.toDate(); // Convertir le Timestamp Firestore en objet Date JS
-
-                // Options de formatage spécifiques pour GMT+1 (Bénin)
+                const jsDate = sale.timestamp.toDate(); 
                 const optionsDate = {
                     day: '2-digit',
                     month: 'short',
                     year: 'numeric',
-                    timeZone: 'Africa/Lagos' // FORCER le fuseau horaire du Bénin
+                    timeZone: 'Africa/Lagos'
                 };
                 const optionsTime = {
                     hour: '2-digit',
                     minute: '2-digit',
-                    timeZone: 'Africa/Lagos' // FORCER le fuseau horaire du Bénin
+                    timeZone: 'Africa/Lagos'
                 };
 
-                // Utiliser Intl.DateTimeFormat pour plus de contrôle ou toLocaleDateString/Time avec l'option timeZone
                 displayDate = jsDate.toLocaleDateString("fr-FR", optionsDate);
                 displayTime = jsDate.toLocaleTimeString("fr-FR", optionsTime);
 
-            } else { // Fallback pour les données sans timestamp valide (ancien format, etc.)
-                // Tenter de parser comme une Date JavaScript si ce n'est pas un Timestamp Firestore
+            } else { 
                 const jsDate = new Date(sale.timestamp);
-                if (!isNaN(jsDate.getTime())) { // Vérifier si c'est une date valide
+                if (!isNaN(jsDate.getTime())) { 
                     const optionsDate = {
                         day: '2-digit',
                         month: 'short',
@@ -1586,34 +1580,41 @@
                     displayDate = jsDate.toLocaleDateString("fr-FR", optionsDate);
                     displayTime = jsDate.toLocaleTimeString("fr-FR", optionsTime);
                 }
-                // Si la date est toujours invalide, 'displayDate' restera 'Date invalide'
             }
-            // --- FIN NOUVELLE CORRECTION ---
+
+            let itemListHTML = '';
+            if (sale.items && Array.isArray(sale.items)) {
+                sale.items.forEach(item => {
+                    itemListHTML += `<p style="font-size: 13px; color: #555; margin: 2px 0;">${item.quantite} x ${item.produit} - ${parseFloat(item.prix || 0).toLocaleString('fr-FR')} FCFA</p>`;
+                });
+            } else {
+                itemListHTML = '<p style="font-size: 13px; color: #888;">Aucun article</p>';
+            }
 
             ionItem.innerHTML = `
                 <ion-label style="padding: 12px 16px;">
-                    <div class="main-content-wrapper">
-                        <div class="avatar-circle" style="background-color: ${avatarBgColor};">
+                    <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
+                        <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
                             ${initials}
                         </div>
-                        <div class="left-info">
-                            <div class="client-name">${clientName}</div>
-                            <div class="sale-meta-info">
-                                👤 ${sale.vendeur || 'N/A'} •
-                                ${sale.items ? sale.items.length : 0} article(s) •
-                                <span style="font-weight:500;">${statusText}</span>
-                            </div>
-                            <div style="margin-top: 6px;">
-                                <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')" style="font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500; cursor: pointer;">Détails</a>
-                                <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="margin-left: 15px; cursor:pointer; font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                        <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
+                            <div class="purchase-date" style="font-weight: bold; font-size: 14px; color: #333;">${displayDate} ${displayTime}</div>
+                            <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${clientName}</div>
+                            ${itemListHTML}
+                            <div style="margin-top: 10px; display: flex; gap: 15px;">
+                                <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')" style="font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500; cursor: pointer;">
+                                    <ion-icon name="information-circle-outline" style="font-size:16px; vertical-align: -3px; margin-right: 4px;"></ion-icon>
+                                    Détails
+                                </a>
+                                <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="cursor:pointer; font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500;">
                                     <ion-icon name="download-outline" style="font-size:16px; vertical-align: -3px; margin-right: 4px;"></ion-icon>
                                     Facture
                                 </a>
                             </div>
                         </div>
-                        <div class="right-info">
-                            <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
-                            <div class="sale-status-text">${displayDate} ${displayTime}</div>
+                        <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
+                            <div class="total-amount" style="font-weight: 600; font-size: 18px; color: var(--primary-color);">XOF ${totalFormatted}</div>
+                            <div class="sale-status-text" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${statusText}</div>
                         </div>
                     </div>
                 </ion-label>
@@ -1643,7 +1644,6 @@
 
         renderIoniconsInElement(container);
     }
-
       // Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
       window.addEventListener("load", () => {
         const todayISO = new Date().toISOString().split("T")[0];
