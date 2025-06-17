@@ -1213,85 +1213,496 @@
     
     <!-- Screen 3: Historique des Ventes -->
     <section id="screen-historique" class="screen">
-      <header>
-        <h1>Historique des Ventes</h1>
-        <div class="timestamp">
-          <span id="dateAfficheHist"></span>
-        </div>
-      </header>
+      <ion-app>
+        <ion-header class="ion-no-border">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button onclick="window.location.hash='menu'">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+              </ion-button>
+            </ion-buttons>
+            <ion-title>Historique des Ventes</ion-title>
+            <ion-buttons slot="end">
+              <ion-button>
+                <ion-icon name="search-outline"></ion-icon>
+              </ion-button>
+              <ion-button>
+                <ion-icon name="ellipsis-vertical-outline"></ion-icon>
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+          <ion-toolbar class="segment-toolbar">
+            <ion-segment value="all" id="sales-tabs">
+              <ion-segment-button value="all">
+                <ion-label>Tout</ion-label>
+              </ion-segment-button>
+              <ion-segment-button value="successful">
+                <ion-label>Réussies</ion-label>
+              </ion-segment-button>
+              <ion-segment-button value="pending">
+                <ion-label>En Cours</ion-label>
+              </ion-segment-button>
+              <ion-segment-button value="failed">
+                <ion-label>Échouées</ion-label>
+              </ion-segment-button>
+            </ion-segment>
+          </ion-toolbar>
+        </ion-header>
 
-      <div id="history-filters" style="padding:10px; text-align:center;">
-        <input type="date" id="filterHistoryDate" onchange="filterHistory()" />
-        <div id="totalPhonesSold" style="margin-top:10px; font-weight:bold;"></div>
-      </div>
-      <div id="ventesContainer" class="list-container"></div>
-    </section>
+        <ion-content fullscreen>
+          <div id="history-filters" style="padding:10px; text-align:center; background: #f5f7fa; border-bottom: 1px solid #eee;">
+            <input type="date" id="filterHistoryDate" onchange="filterSalesHistory()" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"/>
+            <div id="totalPhonesSold" style="margin-top:5px; font-weight:bold; color: var(--primary-color);"></div>
+          </div>
+          <ion-list lines="full" id="ventesContainerList">
+            <ion-item>
+              <ion-label style="text-align:center; padding: 20px; color: #888;">Chargement des ventes...</ion-label>
+            </ion-item>
+          </ion-list>
+        </ion-content>
+      </ion-app>
 
-    <script>
+      <style>
+        /* ==============================================================
+   STYLES POUR L'HISTORIQUE DES VENTES (Similaire à Achats)
+   ============================================================== */
+
+#screen-historique {
+    --ion-background-color: #ffffff; /* Un arrière-plan très léger */
+    --ion-text-color: #2e3748; /* Couleur de texte principale */
+    font-family: 'Roboto', sans-serif; /* Assure la police globale */
+}
+
+/* En-tête (Header) - Design plat */
+#screen-historique ion-header {
+    /* box-shadow: none !important;  PAS D'OMBRE SUR L'EN-TÊTE */
+    border-bottom: 1px solid #e0e0e0; /* Ligne de séparation fine */
+}
+
+#screen-historique ion-toolbar {
+    --background: #fff; /* Fond blanc */
+    --border-width: 0 !important; /* Pas de bordure */
+    --box-shadow: none !important; /* PAS D'OMBRE */
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+#screen-historique ion-title {
+    font-weight: 600;
+    color: #333; /* Plus sombre pour le titre */
+    font-size: 18px;
+    padding-inline-start: 0;
+}
+
+#screen-historique ion-buttons ion-button {
+    --color: #333; /* Couleur des icônes pour rester plat */
+    font-size: 1.5em;
+    --padding-end: 8px;
+    --padding-start: 8px;
+}
+
+/* Segment (Onglets : Tout, Réussies, En Cours, Échouées) */
+#screen-historique .segment-toolbar {
+    --background: #fff; /* Fond blanc pour la toolbar du segment */
+    border-bottom: 1px solid #e0e0e0; /* Ligne de séparation fine */
+    padding-bottom: 5px;
+    --box-shadow: none !important; /* PAS D'OMBRE */
+}
+
+#screen-historique ion-segment {
+    --background: transparent;
+    --indicator-color: var(--primary-color); /* Couleur de la barre indicatrice */
+    --indicator-height: 2px;
+    flex-grow: 1;
+    margin: 0 5px;
+}
+
+#screen-historique ion-segment-button {
+    --color: #a0a0a0;
+    --color-checked: #2e3748;
+    --indicator-box-shadow: none;
+    text-transform: none;
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 0;
+    min-height: 40px;
+}
+
+#screen-historique ion-content {
+    --padding-bottom: 70px; /* Space for the FAB (if any) and bottom-nav-pro */
+    padding-bottom: calc(var(--ion-safe-area-bottom) + 60px + 20px) !important;
+}
+
+/* Conteneur des items (liste) */
+#ventesContainerList {
+    background-color: transparent; /* Pour que le fond de la liste soit celui de l'écran */
+    padding: 0; /* Supprime le padding par défaut si la liste le gère elle-même */
+    margin-top: 0; /* Espace après les filtres */
+    margin-bottom: 0; /* Pas de marge en bas, géré par padding-bottom du content */
+}
+
+/* Styles des ion-item individuels (remplace les anciennes cartes) */
+#ventesContainerList ion-item {
+    --background: #ffffff; /* Fond blanc pour chaque élément de la liste */
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --inner-padding-end: 16px;
+    --border-width: 0; /* Pas de bordure interne par défaut d'Ionic */
+    border-radius: 0; /* PAS DE COINS ARRONDIS pour un effet "liste propre" */
+    margin-bottom: 0; /* La bordure seule gérera la séparation */
+    min-height: 70px; /* Hauteur minimale pour l'item */
+    align-items: center; /* Aligner le contenu au centre verticalement */
+    padding-top: 12px;
+    padding-bottom: 12px;
+    position: relative; /* Pour les pseudo-éléments si besoin */
+    border-bottom: 1px solid #eee; /* Ligne de séparation fine entre les éléments */
+}
+
+/* Pour le dernier élément, pas de bordure en bas */
+#ventesContainerList ion-item:last-child {
+    border-bottom: none;
+}
+
+/* Pas de bordure par défaut, on les gère par l'ombre et la marge */
+#ventesContainerList ion-list {
+    --ion-item-border-color: transparent;
+    background-color: #ffffff; /* Fond blanc pour la liste entière */
+    border-radius: 8px; /* Coins arrondis pour la liste complète */
+    overflow: hidden; /* Important pour que les coins arrondis s'appliquent sur le contenu */
+    margin: 10px 16px; /* Marges latérales pour que la liste flotte un peu */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08); /* Légère ombre pour la profondeur */
+}
+
+
+/* Mise en forme du contenu d'un ion-item pour qu'il ressemble à la capture Zoho */
+#ventesContainerList ion-item .main-content-wrapper {
+    display: flex;
+    justify-content: space-between; /* Pour pousser le montant à droite */
+    align-items: center; /* Aligner verticalement */
+    width: 100%;
+}
+
+#ventesContainerList ion-item .avatar-circle {
+    background-color: #6daaf2; /* Default blue, will be overridden by JS */
+    color: white;
+    border-radius: 50%;
+    min-width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 15px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+#ventesContainerList ion-item .left-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Permet de prendre l'espace restant */
+}
+
+#ventesContainerList ion-item .client-name { /* Renommé de .supplier-name */
+    font-weight: 500;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+#ventesContainerList ion-item .sale-meta-info { /* Nouveau style pour les infos de vente */
+    font-size: 13px;
+    color: #888;
+}
+
+#ventesContainerList ion-item .right-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Aligner le texte à droite */
+    margin-left: 15px; /* Espace entre les deux colonnes */
+    flex-shrink: 0;
+}
+
+#ventesContainerList ion-item .total-amount {
+    font-weight: 600;
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 4px;
+}
+#ventesContainerList ion-item.status-reussie .total-amount {
+    color: #3880ff; /* Bleu pour "Réussie" */
+}
+#ventesContainerList ion-item.status-echouee .total-amount {
+    color: #f04141; /* Rouge pour "Échouée" */
+}
+
+#ventesContainerList ion-item .sale-status-text { /* Nouveau pour le texte de statut */
+    font-size: 13px;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* Icones de statut spécifiques */
+#ventesContainerList ion-item.status-reussie .avatar-circle { background-color: #4CAF50; }
+#ventesContainerList ion-item.status-echouee .avatar-circle { background-color: #F44336; }
+#ventesContainerList ion-item.status-en-cours .avatar-circle { background-color: #FF9800; }
+#ventesContainerList ion-item.status-vente-directe .avatar-circle { background-color: var(--primary-color); } /* Using var primary color for direct sales */
+      </style>
+
+      <script>
+    // Helper function to generate a consistent color based on a name (for avatars)
+    // You might already have this from the approvisionnement-historique section.
+    // If so, ensure it's globally accessible or copied here.
+    function getAvatarColor(name) {
+        const colors = [
+            '#3498DB', '#2ECC71', '#E74C3C', '#9B59B6', '#1ABC9C',
+            '#34495E', '#9B59B6', '#C0392B', '#2980B9', '#27AE60',
+            '#8E44AD', '#7F8C8D', '#D35400', '#20B2AA', '#BA55D3',
+            '#00CED1', '#4682B4', '#D2691E', '#6A5ACD', '#8B0000'
+        ];
+        // Remove potentially "forbidden" or clashing colors if you have a specific palette
+        const forbiddenColors = ['#FFC107', '#FF9800', '#FFD700', '#FFA500']; // Example
+        const filteredColors = colors.filter(color => !forbiddenColors.includes(color.toUpperCase()));
+
+        let hash = 0;
+        if (name.length === 0) return filteredColors[0]; // Default color for empty name
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const index = Math.abs(hash % filteredColors.length);
+        return filteredColors[index];
+    }
+
+    // Helper function to render Ionicons within a given element
+    // You might already have this from the approvisionnement-historique section.
+    // If so, ensure it's globally accessible or copied here.
+    function renderIoniconsInElement(element) {
+        // Ionic 6+ handles ion-icon rendering automatically if it's imported correctly.
+        // This is a fallback or for custom usage where icons might not render.
+        const ionicons = element.querySelectorAll('ion-icon');
+        ionicons.forEach(icon => {
+            if (icon.name && !icon.src) { // Only set src if name is present and src isn't already set
+                icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
+            }
+        });
+    }
+
+    // New/Modified displaySalesHistory function
+    function displaySalesHistory(salesList) {
+        const container = document.getElementById("ventesContainerList"); // Target the Ionic list
+        container.innerHTML = ""; // Clear the content
+
+        if (salesList.length === 0) {
+            container.innerHTML = `
+                <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                    <ion-label style="text-align:center; padding: 20px; color: #888;">
+                        <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+                        Aucune vente enregistrée pour cette période.
+                    </ion-label>
+                </ion-item>
+            `;
+            renderIoniconsInElement(container); // Render Ionicons for the empty state icon
+            return;
+        }
+
+        // On trie les ventes par ordre décroissant (la plus récente en premier)
+        salesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        salesList.forEach(sale => {
+            const ionItem = document.createElement("ion-item");
+
+            // Determine status class and icon
+            let statusClass = 'status-vente-directe';
+            let iconName = 'cash-outline'; // Default for direct sale (cash/in-person)
+            let statusText = 'Vente directe';
+
+            if (sale.isDelivery) {
+                iconName = 'truck-outline'; // For delivery sales
+                switch (sale.deliveryStatus) {
+                    case 'réussie':
+                        statusClass = 'status-reussie';
+                        statusText = 'Livraison réussie';
+                        break;
+                    case 'échouée':
+                        statusClass = 'status-echouee';
+                        statusText = 'Livraison échouée';
+                        break;
+                    default:
+                        statusClass = 'status-en-cours';
+                        statusText = 'Livraison en cours';
+                        break;
+                }
+            }
+
+            ionItem.classList.add(statusClass);
+            ionItem.setAttribute('button', 'true');
+            ionItem.setAttribute('lines', 'none'); // Remove Ionic's default lines
+
+            const clientName = sale.clientNom || 'Client Inconnu';
+            const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const avatarBgColor = getAvatarColor(clientName); // Use the new function
+
+            const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
+            const saleDate = new Date(sale.timestamp).toLocaleDateString("fr-FR", {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+            const saleTime = new Date(sale.timestamp).toLocaleTimeString("fr-FR", {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            ionItem.innerHTML = `
+                <ion-label style="padding: 12px 16px;">
+                    <div class="main-content-wrapper">
+                        <div class="avatar-circle" style="background-color: ${avatarBgColor};">
+                            ${initials}
+                        </div>
+                        <div class="left-info">
+                            <div class="client-name">${clientName}</div>
+                            <div class="sale-meta-info">
+                                👤 ${sale.vendeur || 'N/A'} •
+                                ${sale.items ? sale.items.length : 0} article(s) •
+                                <span style="font-weight:500;">${statusText}</span>
+                            </div>
+                            <div style="margin-top: 6px;">
+                                <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')" style="font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500; cursor: pointer;">Détails</a>
+                                <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="margin-left: 15px; cursor:pointer; font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                                    <ion-icon name="download-outline" style="font-size:16px; vertical-align: -3px; margin-right: 4px;"></ion-icon>
+                                    Facture
+                                </a>
+                            </div>
+                        </div>
+                        <div class="right-info">
+                            <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
+                            <div class="sale-status-text">${saleDate} ${saleTime}</div>
+                        </div>
+                    </div>
+                </ion-label>
+                <ion-ripple-effect></ion-ripple-effect>
+                `;
+            container.appendChild(ionItem);
+
+             // Attach click listener for the main item to show details (if you want the whole item clickable for details)
+            ionItem.addEventListener('click', () => {
+                ouvrirDetails(sale.id);
+            });
+        });
+
+        // Attach event listeners for the new download buttons using delegation or direct attachment
+        container.querySelectorAll('.download-invoice-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation(); // Prevent the parent ion-item click listener from firing
+                const saleId = event.currentTarget.getAttribute('data-sale-id');
+                const saleData = salesList.find(s => s.id === saleId);
+
+                if (saleData) {
+                    generateInvoicePDF(saleData);
+                } else {
+                    console.error('Données de vente non trouvées pour ID :', saleId);
+                    alert('Erreur: Impossible de trouver les données de la vente.');
+                }
+            });
+        });
+
+        // Ensure Ionicons are rendered after content is added
+        renderIoniconsInElement(container);
+    }
+
       // Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
       window.addEventListener("load", () => {
         const todayISO = new Date().toISOString().split("T")[0];
         document.getElementById("filterHistoryDate").value = todayISO;
-        filterHistory(); // Charge automatiquement les ventes d'aujourd'hui
+        // The filter will be called by handleSalesTabChange when the screen is activated
       });
-    
-      // Fonction pour filtrer l'historique des ventes en fonction de la date sélectionnée
-      function filterHistory() {
+
+      // Function to filter sales history based on selected date and status
+      async function filterSalesHistory(statusFilter = 'all') {
         const dateInput = document.getElementById("filterHistoryDate").value;
         if (!dateInput) {
           console.warn("Aucune date sélectionnée");
           return;
         }
-        // Convertir la date ISO en format "fr-FR" (par exemple "19/03/2025")
-        const selectedDate = new Date(dateInput).toLocaleDateString("fr-FR");
-    
-        dbFirestore.collection("ventes")
-          .where("dateVente", "==", selectedDate)
-          .get()
-          .then(querySnapshot => {
+
+        const container = document.getElementById("ventesContainerList");
+        container.innerHTML = `
+            <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                <ion-label style="text-align:center; padding: 20px; color: #888;">
+                    <ion-spinner name="crescent" style="width: 30px; height: 30px;"></ion-spinner><br>
+                    Chargement des ventes...
+                </ion-label>
+            </ion-item>
+        `;
+        renderIoniconsInElement(container);
+
+        // Convert the ISO date to "fr-FR" format (e.g., "19/03/2025")
+        const selectedDateFR = new Date(dateInput).toLocaleDateString("fr-FR");
+
+        try {
+            let query = dbFirestore.collection("ventes")
+                .where("dateVente", "==", selectedDateFR)
+                .orderBy("timestamp", "desc"); // Order by timestamp for consistent display
+
+            if (statusFilter === 'successful') {
+                query = query.where("deliveryStatus", "==", "réussie");
+            } else if (statusFilter === 'pending') {
+                query = query.where("deliveryStatus", "==", "en cours");
+            } else if (statusFilter === 'failed') {
+                query = query.where("deliveryStatus", "==", "échouée");
+            }
+
+            const querySnapshot = await query.get();
             let totalPhones = 0;
             const salesList = [];
-            
+
             querySnapshot.forEach(doc => {
-              const sale = doc.data();
-              sale.id = doc.id;
-              salesList.push(sale);
-              
-              // Calculer le total des téléphones vendus.
-              // Si l'article ne contient pas de propriété "category", on suppose que c'est un téléphone.
-              if (sale.items && Array.isArray(sale.items)) {
-                sale.items.forEach(item => {
-                  if (!item.category || item.category.toLowerCase() === "telephones") {
-                    totalPhones += parseInt(item.quantite) || 0;
-                  }
-                });
-              }
+                const sale = doc.data();
+                sale.id = doc.id;
+                salesList.push(sale);
+
+                // Calculate total phones sold.
+                if (sale.items && Array.isArray(sale.items)) {
+                    sale.items.forEach(item => {
+                        // Assuming "telephones" category is the one for phones
+                        if (item.category && item.category.toLowerCase() === "telephones") {
+                            totalPhones += parseInt(item.quantite) || 0;
+                        }
+                    });
+                }
             });
-            
-            // Met à jour l'affichage du nombre total de téléphones vendus
+
+            // Update the display for total phones sold
             document.getElementById("totalPhonesSold").innerText =
-              "Total Téléphones vendus : " + totalPhones;
-            
-            // Affiche l'historique des ventes
+                "Total Téléphones vendus : " + totalPhones;
+
+            // Display sales history using the new Ionic card design
             displaySalesHistory(salesList);
-          })
-          .catch(err => {
+
+        } catch (err) {
             console.error("Erreur lors du filtrage des ventes par date:", err);
-          });
+            container.innerHTML = `
+                <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                    <ion-label style="text-align:center; color:red; padding:20px;">
+                        Erreur de chargement des ventes.
+                    </ion-label>
+                </ion-item>
+            `;
+            renderIoniconsInElement(container);
+        }
       }
-    
- /**
- * Génère une facture PDF pour une vente donnée en utilisant jsPDF et jsPDF-AutoTable,
- * en respectant le style visuel du document "Facture AFRICA 9.pdf".
- * Cette version corrigée gère les nombres contenant des slashes (ex: "11/000").
- * @param {object} sale - L'objet de la vente contenant les détails nécessaires.
- */
- /**
- * Génère une facture PDF pour une vente donnée en utilisant jsPDF et jsPDF-AutoTable,
- * en respectant le style visuel du document "Facture AFRICA 9.pdf".
- * Cette version corrigée gère les nombres contenant des slashes (ex: "11/000") et utilise le helper fmt.
- * @param {object} sale - L'objet de la vente contenant les détails nécessaires.
- */
+
+      // Handle tab changes for sales history
+      document.addEventListener('DOMContentLoaded', () => {
+          const salesTabs = document.getElementById('sales-tabs');
+          if (salesTabs) {
+              salesTabs.addEventListener('ionChange', (event) => {
+                  filterSalesHistory(event.detail.value);
+              });
+          }
+      });
+      
 function generateInvoicePDF(sale) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4'); // Utilise les points comme unité pour un meilleur contrôle
@@ -1545,107 +1956,10 @@ function generateInvoicePDF(sale) {
     }
 }
 
-// Remplacez votre fonction displaySalesHistory par celle-ci
-function displaySalesHistory(salesList) {
-    const container = document.getElementById("ventesContainer");
-    container.innerHTML = "";
-    
-    if (salesList.length === 0) {
-        container.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 250px;">
-                <i data-lucide="smile" style="width: 80px; height: 80px; color: #ccc;"></i>
-                <p style="font-size: 18px; color: #888; margin-top: 20px;">Aucune vente enregistrée…</p>
-            </div>`;
-        lucide.createIcons();
-        return;
-    }
-    
-    // On trie les ventes par ordre décroissant (la plus récente en premier)
-    salesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+</script>
+    </section>
 
-    salesList.forEach(sale => {
-        const card = document.createElement("div");
 
-        // Déterminer le statut et l'icône de la vente
-        let statusClass = 'status-vente-directe';
-        let iconName = 'shopping-bag';
-        let statusText = 'Vente directe';
-
-        if (sale.isDelivery) {
-            iconName = 'truck';
-            switch (sale.deliveryStatus) {
-                case 'réussie':
-                    statusClass = 'status-reussie';
-                    statusText = 'Livraison réussie';
-                    break;
-                case 'échouée':
-                    statusClass = 'status-echouee';
-                    statusText = 'Livraison échouée';
-                    break;
-                default:
-                    statusClass = 'status-en-cours';
-                    statusText = 'Livraison en cours';
-                    break;
-            }
-        }
-        
-        card.className = `history-card ${statusClass}`;
-        
-        const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
-        
-        // Construire le HTML de la carte en ajoutant le bouton de téléchargement
-        card.innerHTML = `
-            <div class="icon-container">
-                <i data-lucide="${iconName}"></i>
-            </div>
-            <div class="info-container">
-                <div class="client-name">${sale.clientNom || 'Client Inconnu'}</div>
-                <div class="meta-info">
-                    👤 ${sale.vendeur || 'N/A'} • 
-                    ${sale.items ? sale.items.length : 0} article(s) • 
-                    <span style="font-weight:500;">${statusText}</span>
-                </div>
-                <div style="margin-top: 6px;">
-                    <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">Détails</a>
-                    
-                    <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="margin-left: 15px; cursor:pointer;">
-                        <i data-lucide="download" style="width:16px; height:16px; vertical-align: -3px; margin-right: 4px;"></i>
-                        Facture
-                    </a>
-                </div>
-            </div>
-            <div class="amount-container">
-                <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
-                <div class="sale-time">${sale.heureVente || ''}</div>
-            </div>
-            <button class="cancel-btn-icon" onclick="demanderAnnulation('${sale.id}')" title="Annuler la vente">
-                <i data-lucide="x-circle" style="width:18px; height:18px;"></i>
-            </button>
-        `;
-        container.appendChild(card);
-    });
-
-    // Attacher les écouteurs d'événements pour les nouveaux boutons de téléchargement
-    container.querySelectorAll('.download-invoice-btn').forEach(button => {
-        button.addEventListener('click', (event) => {
-            event.stopPropagation(); 
-            const saleId = event.currentTarget.getAttribute('data-sale-id');
-            const saleData = salesList.find(s => s.id === saleId);
-
-            if (saleData) {
-                generateInvoicePDF(saleData);
-            } else {
-                console.error('Données de vente non trouvées pour ID :', saleId);
-                alert('Erreur: Impossible de trouver les données de la vente.');
-            }
-        });
-    });
-
-    // Recharger les icônes Lucide pour toute la page
-    lucide.createIcons();
-}
-    </script>
-    
     <!-- Screen  : Démarrer la journée -->
 <section id="screen-start-day" class="screen">
   <div class="start-day-container">
@@ -7103,8 +7417,9 @@ function voirHistoriqueStock(stockId, e) {
       lucide.createIcons(); 
       break;
     case 'historique':
-         filterHistory();
-      break;
+         const salesTabsDefaultValue = document.getElementById('sales-tabs').value || 'all';
+        filterSalesHistory(salesTabsDefaultValue); // Pass the current tab value
+        break;
       case 'depenses':
   initEcranDepenses();        // ← nouvelle fonction
   break;
