@@ -6332,7 +6332,7 @@ async function finaliserApprovisionnement() {
     batch.set(approRef, {
       fournisseur,
       items: currentApproItems, // Les articles ici conservent leur prix d'achat initial du fournisseur
-      timestamp: now.getTime(),
+       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
       paymentMethod: paymentMethod,
       isPaid: paymentMethod === 'cash', // Marqué payé si paiement immédiat
       remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0, // Montant restant à payer au fournisseur
