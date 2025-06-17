@@ -1488,10 +1488,9 @@
         });
     }
 
-    // New/Modified displaySalesHistory function
-    function displaySalesHistory(salesList) {
-        const container = document.getElementById("ventesContainerList"); // Target the Ionic list
-        container.innerHTML = ""; // Clear the content
+   function displaySalesHistory(salesList) {
+        const container = document.getElementById("ventesContainerList");
+        container.innerHTML = "";
 
         if (salesList.length === 0) {
             container.innerHTML = `
@@ -1502,23 +1501,23 @@
                     </ion-label>
                 </ion-item>
             `;
-            renderIoniconsInElement(container); // Render Ionicons for the empty state icon
+            renderIoniconsInElement(container);
             return;
         }
 
-        // On trie les ventes par ordre décroissant (la plus récente en premier)
-        salesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        // Tri des ventes par ordre décroissant de timestamp (du plus récent au plus ancien)
+        // Utilise toMillis() pour une comparaison numérique robuste des Timestamps Firestore
+        salesList.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
         salesList.forEach(sale => {
             const ionItem = document.createElement("ion-item");
 
-            // Determine status class and icon
             let statusClass = 'status-vente-directe';
-            let iconName = 'cash-outline'; // Default for direct sale (cash/in-person)
+            let iconName = 'cash-outline';
             let statusText = 'Vente directe';
 
             if (sale.isDelivery) {
-                iconName = 'truck-outline'; // For delivery sales
+                iconName = 'truck-outline';
                 switch (sale.deliveryStatus) {
                     case 'réussie':
                         statusClass = 'status-reussie';
@@ -1537,22 +1536,59 @@
 
             ionItem.classList.add(statusClass);
             ionItem.setAttribute('button', 'true');
-            ionItem.setAttribute('lines', 'none'); // Remove Ionic's default lines
+            ionItem.setAttribute('lines', 'none');
 
             const clientName = sale.clientNom || 'Client Inconnu';
             const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            const avatarBgColor = getAvatarColor(clientName); // Use the new function
+            const avatarBgColor = getAvatarColor(clientName);
 
             const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
-            const saleDate = new Date(sale.timestamp).toLocaleDateString("fr-FR", {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-            });
-            const saleTime = new Date(sale.timestamp).toLocaleTimeString("fr-FR", {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+
+            // --- NOUVELLE CORRECTION : Forcer le fuseau horaire GMT+1 ('Africa/Lagos') ---
+            let displayDate = 'Date invalide';
+            let displayTime = '';
+
+            if (sale.timestamp && typeof sale.timestamp.toDate === 'function') {
+                const jsDate = sale.timestamp.toDate(); // Convertir le Timestamp Firestore en objet Date JS
+
+                // Options de formatage spécifiques pour GMT+1 (Bénin)
+                const optionsDate = {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    timeZone: 'Africa/Lagos' // FORCER le fuseau horaire du Bénin
+                };
+                const optionsTime = {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Africa/Lagos' // FORCER le fuseau horaire du Bénin
+                };
+
+                // Utiliser Intl.DateTimeFormat pour plus de contrôle ou toLocaleDateString/Time avec l'option timeZone
+                displayDate = jsDate.toLocaleDateString("fr-FR", optionsDate);
+                displayTime = jsDate.toLocaleTimeString("fr-FR", optionsTime);
+
+            } else { // Fallback pour les données sans timestamp valide (ancien format, etc.)
+                // Tenter de parser comme une Date JavaScript si ce n'est pas un Timestamp Firestore
+                const jsDate = new Date(sale.timestamp);
+                if (!isNaN(jsDate.getTime())) { // Vérifier si c'est une date valide
+                    const optionsDate = {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        timeZone: 'Africa/Lagos'
+                    };
+                    const optionsTime = {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'Africa/Lagos'
+                    };
+                    displayDate = jsDate.toLocaleDateString("fr-FR", optionsDate);
+                    displayTime = jsDate.toLocaleTimeString("fr-FR", optionsTime);
+                }
+                // Si la date est toujours invalide, 'displayDate' restera 'Date invalide'
+            }
+            // --- FIN NOUVELLE CORRECTION ---
 
             ionItem.innerHTML = `
                 <ion-label style="padding: 12px 16px;">
@@ -1577,7 +1613,7 @@
                         </div>
                         <div class="right-info">
                             <div class="total-amount">${totalFormatted} <small>FCFA</small></div>
-                            <div class="sale-status-text">${saleDate} ${saleTime}</div>
+                            <div class="sale-status-text">${displayDate} ${displayTime}</div>
                         </div>
                     </div>
                 </ion-label>
@@ -1585,16 +1621,14 @@
                 `;
             container.appendChild(ionItem);
 
-             // Attach click listener for the main item to show details (if you want the whole item clickable for details)
             ionItem.addEventListener('click', () => {
                 ouvrirDetails(sale.id);
             });
         });
 
-        // Attach event listeners for the new download buttons using delegation or direct attachment
         container.querySelectorAll('.download-invoice-btn').forEach(button => {
             button.addEventListener('click', (event) => {
-                event.stopPropagation(); // Prevent the parent ion-item click listener from firing
+                event.stopPropagation();
                 const saleId = event.currentTarget.getAttribute('data-sale-id');
                 const saleData = salesList.find(s => s.id === saleId);
 
@@ -1607,7 +1641,6 @@
             });
         });
 
-        // Ensure Ionicons are rendered after content is added
         renderIoniconsInElement(container);
     }
 
@@ -1617,7 +1650,7 @@
         document.getElementById("filterHistoryDate").value = todayISO;
         // The filter will be called by handleSalesTabChange when the screen is activated
       });
-
+// Function to filter sales history based on selected date and status
       // Function to filter sales history based on selected date and status
       async function filterSalesHistory(statusFilter = 'all') {
         const dateInput = document.getElementById("filterHistoryDate").value;
@@ -1637,12 +1670,20 @@
         `;
         renderIoniconsInElement(container);
 
-        // Convert the ISO date to "fr-FR" format (e.g., "19/03/2025")
-        const selectedDateFR = new Date(dateInput).toLocaleDateString("fr-FR");
+        // Convert the input date to start and end of day JavaScript Date objects
+        const selectedDate = new Date(dateInput);
+        const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0);
+        const endOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999);
+
+        // **** CRUCIAL CHANGE HERE: Convert JS Date objects to Firestore Timestamp objects ****
+        const startOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(startOfDay);
+        const endOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(endOfDay);
+        // **********************************************************************************
 
         try {
             let query = dbFirestore.collection("ventes")
-                .where("dateVente", "==", selectedDateFR)
+                .where("timestamp", ">=", startOfDayFirestoreTimestamp) // Use Firestore Timestamp object
+                .where("timestamp", "<=", endOfDayFirestoreTimestamp)   // Use Firestore Timestamp object
                 .orderBy("timestamp", "desc"); // Order by timestamp for consistent display
 
             if (statusFilter === 'successful') {
@@ -1660,6 +1701,15 @@
             querySnapshot.forEach(doc => {
                 const sale = doc.data();
                 sale.id = doc.id;
+                
+                // **** IMPORTANT: Convert Firestore Timestamp back to JS Date for display ****
+                // The `timestamp` field in `sale` object will be a Firestore Timestamp object.
+                // You need to call `.toDate()` on it to get a JavaScript Date object.
+                // This is already handled in your `displaySalesHistory` function:
+                // `new Date(sale.timestamp.toDate()).toLocaleDateString(...)`
+                // So, no changes are needed here, just a reminder that `sale.timestamp` is now a Firestore Timestamp object.
+                // ***************************************************************************
+
                 salesList.push(sale);
 
                 // Calculate total phones sold.
