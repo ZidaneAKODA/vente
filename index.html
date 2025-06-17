@@ -1612,7 +1612,7 @@
                 itemListHTML = '<p class="item-line" style="color: #888;">Aucun article</p>';
             }
 
-            ionItem.innerHTML = `
+             ionItem.innerHTML = `
                 <ion-label style="padding: 12px 16px;">
                     <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
                         <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
@@ -1636,6 +1636,9 @@
                         <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
                             <div class="total-amount" style="font-weight: 600; font-size: 18px; color: var(--primary-color);">XOF ${totalFormatted}</div>
                             <div class="sale-status-text" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${statusText}</div>
+                            <button class="edit-client-btn" onclick="event.stopPropagation(); preparerModificationClient('${sale.id}', '${sale.clientNom}', '${sale.clientNumero || ''}')" title="Modifier le client">
+    <i data-lucide="square-pen"></i>
+</button>
                         </div>
                     </div>
                 </ion-label>
@@ -7204,7 +7207,248 @@ function annulerScan() {
     </div>
   </div>
   
+<ion-modal id="editClientNameModal">
+  <ion-header class="ion-no-border">
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-button onclick="fermerModalModifierClientNom()">
+          <ion-icon name="close-outline"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+      <ion-title>Nouveau vendeur</ion-title> <ion-buttons slot="end">
+        <ion-button onclick="enregistrerNouveauVendeur()"> Enregistrer
+        </ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+  </ion-header>
+  <ion-content class="ion-padding">
+    <form id="formModifierClientNomIonic" onsubmit="event.preventDefault();">
+      <ion-item>
+        <ion-input label="Nom *" label-placement="floating" type="text" id="inputClientNomEditIonic" required></ion-input>
+      </ion-item>
 
+      <ion-item>
+        <ion-input label="Email" label-placement="floating" type="email" id="inputClientEmailEditIonic" placeholder="(facultatif)"></ion-input>
+      </ion-item>
+
+      </form>
+  </ion-content>
+</ion-modal>
+<style>
+  /* Styles spécifiques pour la modale de modification du client (Ionic) */
+#editClientNameModal ion-header {
+  /* Assure que le header est plat comme dans l'exemple Ionic par défaut */
+  box-shadow: none !important;
+  border-bottom: 1px solid #e0e0e0; /* Une fine ligne pour séparer du contenu */
+}
+
+#editClientNameModal ion-toolbar {
+  /* Fond blanc pour la toolbar */
+  --background: #ffffff;
+  /* Assure qu'il n'y a pas d'ombre par défaut si votre thème en ajoute */
+  --box-shadow: none;
+  --border-width: 0;
+}
+
+#editClientNameModal ion-title {
+  /* Centre le titre par défaut */
+  text-align: center;
+  font-weight: 600; /* Plus gras pour le titre */
+  color: #333; /* Couleur de texte sombre */
+}
+
+#editClientNameModal ion-buttons {
+  /* Assure un espacement correct pour les boutons */
+  padding-right: 8px; /* Pour le bouton "Enregistrer" */
+  padding-left: 8px; /* Pour le bouton "Fermer" */
+}
+
+#editClientNameModal ion-button {
+  /* Styles pour les boutons dans la toolbar */
+  --color: var(--primary-color, #006064); /* Couleur bleue/verte pour les icônes/texte des boutons */
+  font-weight: 500;
+  text-transform: none; /* Ne pas mettre en majuscules pour le texte "Enregistrer" */
+}
+
+#editClientNameModal ion-button ion-icon {
+  font-size: 24px; /* Taille de l'icône de fermeture */
+}
+
+#editClientNameModal ion-content {
+  --background: #f5f7fa; /* Un fond légèrement gris pour le contenu de la modale */
+}
+
+#editClientNameModal ion-item {
+  /* Arrière-plan blanc pour les éléments de liste (inputs) */
+  --background: #ffffff;
+  /* Enlève la bordure inférieure par défaut des ion-item si elle n'est pas souhaitée,
+     ou ajustez-la pour correspondre au design de l'image (pas de ligne visible entre Nom et Email). */
+  --border-width: 0;
+  border-radius: 8px; /* Coins légèrement arrondis pour les inputs */
+  margin-bottom: 10px; /* Espace entre les champs */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Une ombre légère pour la profondeur */
+}
+/* Style pour le bouton Modifier sur les cartes de vente */
+/* Style pour le bouton Modifier sur les cartes de vente */
+.edit-client-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(128, 128, 128, 0.15); /* Gris semi-transparent */
+  border: none;
+  color: #333; /* Couleur de l'icône par défaut du bouton */
+  cursor: pointer;
+  width: 36px; /* Taille plus grande pour le bouton (cercle) */
+  height: 36px; /* Taille plus grande pour le bouton (cercle) */
+  display: flex; /* Pour centrer l'icône */
+  align-items: center; /* Pour centrer l'icône */
+  justify-content: center; /* Pour centrer l'icône */
+  border-radius: 50%; /* Pour un cercle parfait */
+  transition: background-color 0.2s ease, color 0.2s ease;
+  z-index: 10;
+}
+
+/* Cibler spécifiquement l'icône Lucide à l'intérieur du bouton */
+.edit-client-btn i[data-lucide] {
+  font-size: 20px; /* Taille légèrement plus grande pour l'icône */
+  color: #333; /* S'assurer que l'icône est sombre */
+  /* Supprimez margin-right ou d'autres styles qui pourraient être hérités et qui décalent l'icône */
+  margin-right: 0;
+}
+
+.edit-client-btn:hover {
+  background-color: rgba(128, 128, 128, 0.25); /* Effet plus prononcé au survol */
+  /* La couleur de l'icône au survol peut être ajustée ici si nécessaire */
+  color: #000;
+}
+
+.edit-client-btn:hover i[data-lucide] { /* S'assurer que l'icône change de couleur au survol */
+    color: #000;
+}
+
+.edit-client-btn:active {
+  background-color: rgba(128, 128, 128, 0.35); /* Effet au clic */
+  /* La couleur de l'icône au clic peut être ajustée ici si nécessaire */
+  color: #000;
+}
+
+.edit-client-btn:active i[data-lucide] { /* S'assurer que l'icône change de couleur au clic */
+    color: #000;
+}
+</style>
+<script>
+  /**
+ * Ouvre la modale Ionic pour modifier les informations du client/vendeur.
+ * Pré-remplit les champs avec les données existantes si fournies.
+ * @param {object} [data=null] - Objet contenant les données à pré-remplir (ex: { nom: '...', email: '...' }).
+ */
+async function ouvrirModalModifierClientNom(data = null) {
+  const modal = document.getElementById('editClientNameModal');
+  if (modal) {
+    if (data) {
+      // Pré-remplir les champs si des données sont passées
+      document.getElementById('inputClientNomEditIonic').value = data.nom || '';
+      document.getElementById('inputClientEmailEditIonic').value = data.email || '';
+    } else {
+      // Vider les champs si aucune donnée n'est passée (pour un "Nouveau Vendeur" par exemple)
+      document.getElementById('inputClientNomEditIonic').value = '';
+      document.getElementById('inputClientEmailEditIonic').value = '';
+    }
+    await modal.present(); // Utilise la méthode 'present()' d'Ionic pour afficher la modale
+  }
+}
+
+/**
+ * Ferme la modale Ionic de modification du client/vendeur.
+ */
+async function fermerModalModifierClientNom() {
+  const modal = document.getElementById('editClientNameModal');
+  if (modal) {
+    await modal.dismiss(); // Utilise la méthode 'dismiss()' d'Ionic pour fermer la modale
+  }
+}
+
+/**
+ * Fonction placeholder pour l'enregistrement du nouveau vendeur.
+ * Sera implémentée dans une étape ultérieure.
+ */
+function enregistrerNouveauVendeur() {
+  const nom = document.getElementById('inputClientNomEditIonic').value;
+  const email = document.getElementById('inputClientEmailEditIonic').value;
+  console.log(`Enregistrer: Nom = ${nom}, Email = ${email}`);
+  showToast("Fonction d'enregistrement à implémenter."); // Utilise votre fonction showToast existante
+  fermerModalModifierClientNom();
+}
+
+let currentSaleIdForClientEdit = null; // Variable pour stocker l'ID de la vente en cours de modification
+
+/**
+ * Prépare les données du client et ouvre la modale de modification.
+ * @param {string} saleId - L'ID de la vente dont le client doit être modifié.
+ * @param {string} clientNom - Le nom actuel du client.
+ * @param {string} clientNumero - Le numéro de téléphone/WhatsApp actuel du client.
+ */
+function preparerModificationClient(saleId, clientNom, clientNumero) {
+  currentSaleIdForClientEdit = saleId; // Stocke l'ID de la vente
+  ouvrirModalModifierClientNom({
+    nom: clientNom,
+    email: clientNumero // On utilise le champ "email" de la modale pour le numéro WhatsApp temporairement
+  });
+  // Mettez à jour le titre de la modale pour indiquer "Modifier client" au lieu de "Nouveau vendeur"
+  const modalTitle = document.querySelector('#editClientNameModal ion-title');
+  if (modalTitle) {
+      modalTitle.textContent = 'Modifier le client';
+  }
+  // On va aussi changer le texte du bouton "Enregistrer" en "Modifier"
+  const saveButton = document.querySelector('#editClientNameModal ion-buttons[slot="end"] ion-button');
+  if (saveButton) {
+      saveButton.textContent = 'Modifier';
+      // Et on va changer son action pour appeler une nouvelle fonction de mise à jour
+      saveButton.onclick = enregistrerModificationClient; // Nouvelle fonction pour la mise à jour
+  }
+}
+
+/**
+ * Enregistre la modification du nom et/ou du numéro du client dans Firestore.
+ */
+async function enregistrerModificationClient() {
+  if (!currentSaleIdForClientEdit) {
+    showToast("Erreur: ID de vente non défini pour la modification.");
+    return;
+  }
+
+  const nouveauNom = document.getElementById('inputClientNomEditIonic').value.trim();
+  const nouveauNumero = document.getElementById('inputClientEmailEditIonic').value.trim(); // Utilisé pour le numéro WhatsApp
+
+  if (!nouveauNom) {
+    showToast("Le nom du client ne peut pas être vide.", "error");
+    return;
+  }
+
+  showSaleLoader(); // Afficher le loader
+
+  try {
+    // Mettre à jour le document de vente dans Firestore
+    await dbFirestore.collection("ventes").doc(currentSaleIdForClientEdit).update({
+      clientNom: nouveauNom,
+      clientNumero: nouveauNumero // Mettre à jour le numéro WhatsApp
+    });
+
+    // Fermer la modale
+    fermerModalModifierClientNom();
+    // Afficher un message de succès
+    showToast("Nom et numéro du client mis à jour avec succès !");
+    // Recharger l'historique des ventes pour que les changements soient visibles
+    filterSalesHistory(document.getElementById('sales-tabs').value); // Recharger le filtre actuel
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du client:", error);
+    showToast("Erreur lors de la mise à jour du client: " + error.message, "error");
+  } finally {
+    hideSaleLoader(); // Cacher le loader
+    currentSaleIdForClientEdit = null; // Réinitialiser l'ID de la vente en cours de modification
+  }
+}
+</script>
   
   <!-- Modal pour ajouter une opération -->
   <div id="modalAjoutOperation" class="modal">
