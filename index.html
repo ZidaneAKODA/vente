@@ -2637,18 +2637,18 @@ function generateInvoicePDF(sale) {
             </ion-toolbar>
             <ion-toolbar class="segment-toolbar">
                 <ion-segment value="all" id="purchase-tabs">
-    <ion-segment-button value="all">
-        <ion-label>Tout</ion-label>
-    </ion-segment-button>
-    <ion-segment-button value="credit">
-        <div class="credit-badge-container"> <span id="creditSupplierCountCircle" class="credit-circle-count"></span>
-            <ion-label>Crédit</ion-label>
-        </div>
-    </ion-segment-button>
-    <ion-segment-button value="paid">
-        <ion-label>Payé</ion-label>
-    </ion-segment-button>
-</ion-segment>
+                    <ion-segment-button value="all">
+                        <ion-label>Tout</ion-label>
+                    </ion-segment-button>
+                    <ion-segment-button value="credit">
+                        <div class="credit-badge-container"> <span id="creditSupplierCountCircle" class="credit-circle-count"></span>
+                            <ion-label>Crédit</ion-label>
+                        </div>
+                    </ion-segment-button>
+                    <ion-segment-button value="paid">
+                        <ion-label>Payé</ion-label>
+                    </ion-segment-button>
+                </ion-segment>
                 <ion-buttons slot="end">
                     <ion-button>
                         <ion-icon name="options-outline"></ion-icon>
@@ -2658,6 +2658,10 @@ function generateInvoicePDF(sale) {
         </ion-header>
 
         <ion-content fullscreen>
+            <div id="purchase-history-filters" style="padding:10px; text-align:center; background: #f5f7fa; border-bottom: 1px solid #eee;">
+                <input type="date" id="filterPurchaseDate" onchange="chargerApprovisionnements()" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"/>
+                <div id="totalPurchaseCost" style="margin-top:5px; font-weight:bold; color: var(--primary-color);"></div>
+            </div>
             <ion-list lines="full" id="approvisionnementHistoryList">
                 <ion-item>
                     <ion-label style="text-align:center; padding: 20px; color: #888;">Chargement des approvisionnements...</ion-label>
@@ -2891,7 +2895,8 @@ ion-fab-button {
 }
     </style>
 <script>
-async function chargerApprovisionnements(filter = 'all') {
+
+  async function chargerApprovisionnements(statusFilter = 'all') { // Ajout du paramètre statusFilter
     const container = document.getElementById("approvisionnementHistoryList");
     container.innerHTML = ""; // Vider le contenu actuel
 
@@ -2908,19 +2913,18 @@ async function chargerApprovisionnements(filter = 'all') {
     renderIoniconsInElement(container);
 
     // Récupération de l'élément du compteur pour l'onglet Crédit
-    const creditCountCircle = document.getElementById('creditSupplierCountCircle'); // <-- Cible le nouveau span
+    const creditCountCircle = document.getElementById('creditSupplierCountCircle');
     if (creditCountCircle) {
-        // Cacher le cercle par défaut et le réinitialiser
         creditCountCircle.textContent = '';
-        creditCountCircle.style.display = 'none'; // Cacher le cercle quand il n'y a pas de dettes
+        creditCountCircle.style.display = 'none';
     }
 
     try {
         let query = dbFirestore.collection("approvisionnement");
         let snapshot;
 
-        if (filter === 'credit') {
-            // Pour l'onglet "Crédit", on affiche toutes les dettes en cours, quelle que soit la date
+        if (statusFilter === 'credit') {
+            // Logique pour l'onglet "Crédit" (ne change pas, car il affiche toutes les dettes non réglées)
             snapshot = await query
                 .where("paymentMethod", "==", "credit")
                 .where("remainingAmount", ">", 0)
@@ -2928,11 +2932,11 @@ async function chargerApprovisionnements(filter = 'all') {
                 .orderBy("timestamp", "asc")
                 .get();
 
-            const debtsBySupplier = {}; // Agrégateur : { "Nom Fournisseur": { totalDue: X, count: Y, lastDebtDate: Z } }
+            const debtsBySupplier = {};
 
             snapshot.forEach(doc => {
                 const appro = doc.data();
-                appro.id = doc.id; // Ajouter l'ID du document
+                appro.id = doc.id;
                 const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
                 const remaining = parseFloat(appro.remainingAmount || 0);
 
@@ -2954,14 +2958,13 @@ async function chargerApprovisionnements(filter = 'all') {
                 }
             });
 
-            // Mettre à jour le compteur de fournisseurs pour l'onglet "Crédit"
             const numberOfSuppliersWithDebt = Object.keys(debtsBySupplier).length;
-            if (creditCountCircle) { // <-- Utilise le nouveau ID
+            if (creditCountCircle) {
                 creditCountCircle.textContent = numberOfSuppliersWithDebt;
-                creditCountCircle.style.display = numberOfSuppliersWithDebt > 0 ? 'flex' : 'none'; // Utilise 'flex' pour centrer le chiffre
+                creditCountCircle.style.display = numberOfSuppliersWithDebt > 0 ? 'flex' : 'none';
             }
 
-            container.innerHTML = ""; // Vider le spinner
+            container.innerHTML = "";
 
             if (numberOfSuppliersWithDebt === 0) {
                 container.innerHTML = `
@@ -2973,6 +2976,7 @@ async function chargerApprovisionnements(filter = 'all') {
                     </ion-item>
                 `;
                 renderIoniconsInElement(container);
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Mettre à jour le total
                 return;
             }
 
@@ -2982,7 +2986,7 @@ async function chargerApprovisionnements(filter = 'all') {
                 const data = debtsBySupplier[supplierName];
                 const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                 const avatarBgColor = getAvatarColor(supplierName);
-                const dateDisplay = data.lastDebtDate ? new Date(data.lastDebtDate).toLocaleDateString("fr-FR") : 'N/A';
+                // const dateDisplay = data.lastDebtDate ? new Date(data.lastDebtDate).toLocaleDateString("fr-FR") : 'N/A'; // Non utilisé ici directement
 
                 const ionItem = document.createElement('ion-item');
                 ionItem.classList.add('status-credit');
@@ -3016,35 +3020,46 @@ async function chargerApprovisionnements(filter = 'all') {
                 `;
                 container.appendChild(ionItem);
             });
+            document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Cachez ce total pour l'onglet crédit
 
         } else {
-            // Logique existante pour les onglets "Tout" et "Payé"
-            const today = new Date();
-            const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
-            const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+            // Logique pour les onglets "Tout" et "Payé" avec filtre de date
+            const dateInput = document.getElementById("filterPurchaseDate").value;
+            if (!dateInput) {
+                console.warn("Aucune date sélectionnée pour l'historique des achats.");
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Mettre à jour le total
+                return;
+            }
+
+            const selectedDate = new Date(dateInput);
+            const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0).getTime();
+            const endOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999).getTime();
 
             query = query
-                .where("timestamp", ">=", startOfToday)
-                .where("timestamp", "<=", endOfToday)
+                .where("timestamp", ">=", startOfDay)
+                .where("timestamp", "<=", endOfDay)
                 .orderBy("timestamp", "desc");
 
-            if (filter === 'paid') {
+            if (statusFilter === 'paid') {
                 query = query.where("isPaid", "==", true);
             }
 
             snapshot = await query.get();
             container.innerHTML = "";
 
+            let totalPurchasesForDate = 0; // Nouveau total pour les achats filtrés par date
+
             if (snapshot.empty) {
                 container.innerHTML = `
                     <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
                         <ion-label style="text-align:center; padding: 20px; color: #888;">
                             <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
-                            Aucun achat ${filter === 'paid' ? 'réglé ' : ''}enregistré pour aujourd'hui.
+                            Aucun achat ${statusFilter === 'paid' ? 'réglé ' : ''}enregistré pour cette date.
                         </ion-label>
                     </ion-item>
                 `;
                 renderIoniconsInElement(container);
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Mettre à jour le total
                 return;
             }
 
@@ -3061,6 +3076,7 @@ async function chargerApprovisionnements(filter = 'all') {
                     minute: '2-digit'
                 });
                 const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
+                totalPurchasesForDate += parseFloat(appro.totalCost || 0); // Accumuler le total
 
                 let paymentStatusText = '';
                 let statusClass = '';
@@ -3133,6 +3149,8 @@ async function chargerApprovisionnements(filter = 'all') {
 
                 container.appendChild(ionItem);
             });
+            // Mettre à jour le total des achats pour la date sélectionnée
+            document.getElementById("totalPurchaseCost").innerText = `Total des achats : ${totalPurchasesForDate.toLocaleString('fr-FR')} FCFA`;
         }
 
         // Remove the last item's bottom border if it exists
@@ -3152,8 +3170,26 @@ async function chargerApprovisionnements(filter = 'all') {
             </ion-item>
         `;
         renderIoniconsInElement(container);
+        document.getElementById("totalPurchaseCost").innerText = "Erreur de chargement";
     }
 }
+
+// Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
+document.addEventListener("DOMContentLoaded", () => {
+    const todayISO = new Date().toISOString().split("T")[0];
+    document.getElementById("filterPurchaseDate").value = todayISO;
+
+    const purchaseTabs = document.getElementById('purchase-tabs');
+    if (purchaseTabs) {
+        purchaseTabs.addEventListener('ionChange', (event) => {
+            chargerApprovisionnements(event.detail.value);
+        });
+    }
+
+    // Appeler la fonction de chargement initial des approvisionnements avec le filtre par défaut 'all'
+    // pour afficher les données dès l'ouverture de l'écran.
+    chargerApprovisionnements('all'); // Ajout de l'appel initial
+});
 document.addEventListener('DOMContentLoaded', () => {
     const purchaseTabs = document.getElementById('purchase-tabs');
     if (purchaseTabs) {
