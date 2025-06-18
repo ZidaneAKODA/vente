@@ -1221,7 +1221,7 @@
     
     <!-- Screen 3: Historique des Ventes -->
      <section id="screen-historique" class="screen">
-  <ion-app>
+
     <ion-header class="ion-no-border">
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -1268,7 +1268,7 @@
         </ion-item>
       </ion-list>
     </ion-content>
-  </ion-app>
+
 
 
       <style>
@@ -1515,28 +1515,7 @@
         return filteredColors[index];
     }
 
-    // Helper function to ensure Ionicons are rendered.
-// This function should generally be used sparingly, as Ionic usually handles this.
-// It's useful for dynamically added content outside of standard Ionic component rendering.
- function renderIoniconsInElement(element) {
-      // A small delay to give Ionic's internal mechanism time to render its icons first.
-      // This is a common workaround for dynamically added Ionic components.
-      setTimeout(() => {
-          const ionicons = element.querySelectorAll('ion-icon');
-          ionicons.forEach(icon => {
-              // Only set src if the icon's name is provided and it doesn't already have one,
-              // or if Ionic hasn't processed it (e.g., no shadow DOM yet).
-              // This prevents overwriting what Ionic might already do correctly.
-              if (icon.name && !icon.hasAttribute('src') && !icon.shadowRoot) {
-                  try {
-                      icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
-                  } catch (e) {
-                      console.warn(`Failed to set src for ion-icon: ${icon.name}`, e);
-                  }
-              }
-          });
-      }, 50); // Small delay (e.g., 50ms)
-  }
+   
     function displaySalesHistory(salesList) {
         const container = document.getElementById("ventesContainerList");
         container.innerHTML = "";
@@ -1550,7 +1529,7 @@
                     </ion-label>
                 </ion-item>
             `;
-            renderIoniconsInElement(container);
+         
             return;
         }
 
@@ -1688,7 +1667,7 @@
             });
         });
 
-        renderIoniconsInElement(container);
+  
     }
 
       // Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
@@ -1717,8 +1696,7 @@
                 </ion-label>
             </ion-item>
         `;
-        renderIoniconsInElement(container);
-
+ 
         // Convert the input date to start and end of day JavaScript Date objects
         const selectedDate = new Date(dateInput);
         const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0);
@@ -1788,7 +1766,7 @@
                     </ion-label>
                 </ion-item>
             `;
-            renderIoniconsInElement(container);
+          
         }
       }
 
@@ -2962,15 +2940,6 @@ function getAvatarColor(name) {
     return filteredColors[index];
 }
 
-// La fonction renderIoniconsInElement (qui est déjà présente dans votre code)
-function renderIoniconsInElement(element) {
-    const ionicons = element.querySelectorAll('ion-icon');
-    ionicons.forEach(icon => {
-        if (icon.name && !icon.src) {
-            icon.src = `https://unpkg.com/ionicons@latest/dist/ionicons/svg/${icon.name}.svg`;
-        }
-    });
-}
 async function chargerApprovisionnements(statusFilter = 'all') {
     const container = document.getElementById("approvisionnementHistoryList");
 
@@ -2981,7 +2950,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 <ion-spinner name="crescent"></ion-spinner><br>Chargement...
             </ion-label>
         </ion-item>`;
-    renderIoniconsInElement(container);
+
 
     const creditCountCircle = document.getElementById('creditSupplierCountCircle');
     if (creditCountCircle) {
@@ -3039,8 +3008,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                             Aucune dette fournisseur en cours !
                         </ion-label>
                     </ion-item>`;
-                renderIoniconsInElement(container);
-                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
+               document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
                 return;
             }
 
@@ -3118,7 +3086,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                              Aucun achat pour cette date.
                         </ion-label>
                     </ion-item>`;
-                renderIoniconsInElement(container);
+           
                 document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
                 return;
             }
@@ -3181,7 +3149,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
         if (container.lastElementChild) {
             container.lastElementChild.style.borderBottom = 'none';
         }
-        renderIoniconsInElement(container);
+
     } catch (error) {
         console.error("Erreur lors du chargement des approvisionnements :", error);
         container.innerHTML = `<ion-item style="color:red; text-align:center;">Erreur de chargement.</ion-item>`;
@@ -3256,10 +3224,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <ion-button>
         <ion-icon slot="icon-only" name="ellipsis-vertical-outline"></ion-icon>
       </ion-button>
-      <ion-button onclick="ouvrirModalPaiementDepuisDetail()">
-  <ion-icon slot="start" name="wallet-outline"></ion-icon>
-  Payer
-</ion-button>
+      
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
@@ -3354,7 +3319,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 <ul id="supplierPaymentsHistoryList" style="list-style: none; padding: 0;">
                   <li>Aucun paiement enregistré.</li>
                 </ul>
-              </ion-card-content>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #1f2937;">Enregistrer un Paiement</h4>
+                <form id="formRecordSupplierPayment" onsubmit="event.preventDefault(); recordSupplierPayment();">
+                  <label for="paymentAmountSupplierDebt">Montant (FCFA)</label>
+                  <input type="number" id="paymentAmountSupplierDebt" placeholder="Montant du paiement" required min="1" />
+
+                  <label for="paymentAccountSupplierDebt">Payer depuis le compte</label>
+                  <select id="paymentAccountSupplierDebt" required>
+                    </select>
+
+                  <button type="submit" class="btn-modern primary" style="margin-top: 15px;">
+                    <i data-lucide="wallet"></i> Enregistrer le Paiement
+                  </button>
+                </form>
+                </ion-card-content>
             </ion-card>
           </div>
 
@@ -3450,7 +3429,6 @@ document.addEventListener('DOMContentLoaded', () => {
         border-top-right-radius: 16px;
         margin-top: -10px;
         position: relative;
-        z-index: 1;
         padding-bottom: 16px;
     }
     #screen-fournisseur-credit-detail ion-segment {
@@ -3558,6 +3536,8 @@ document.addEventListener('DOMContentLoaded', () => {
   </style>
 
   <script>
+    let currentDetailedSupplierData = null;
+
     /**
      * Affiche la page de détails des dettes d'un fournisseur et peuple ses champs.
      * @param {object} supplierData - L'objet contenant les données agrégées du fournisseur.
@@ -3568,10 +3548,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        currentDetailedSupplierData = supplierData; // Stocke les données pour un usage futur
+
         // 1. Navigation vers l'écran de détails
         window.location.hash = 'fournisseur-credit-detail';
 
-        // 2. Récupération des éléments du DOM
+        // 2. Récupération des éléments du DOM (restant inchangé)
         const supplierNameEl = document.getElementById('detailSupplierName');
         const totalDueAmountEl = document.getElementById('detailTotalDueAmount');
         const debtStatusChip = document.getElementById('detailDebtStatus');
@@ -3585,8 +3567,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalRemainingDebtEl = document.getElementById('finalRemainingDebt');
         const paymentsHistoryList = document.getElementById('supplierPaymentsHistoryList');
         const commentsTextEl = document.getElementById('supplierCommentsText');
+        const paymentAccountSelect = document.getElementById('paymentAccountSupplierDebt'); // Le nouveau sélecteur de compte
 
-        // --- 3. Peupler la section Résumé ---
+        // --- 3. Peupler la section Résumé --- (inchangé)
         supplierNameEl.textContent = supplierData.name;
         totalDueAmountEl.textContent = `XOF ${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
 
@@ -3600,7 +3583,7 @@ document.addEventListener('DOMContentLoaded', () => {
             debtStatusChip.style.setProperty('--color', '#856404');
         }
 
-        const sortedProcurements = [...(supplierData.procurements || [])].sort((a, b) => 
+        const sortedProcurements = [...(supplierData.procurements || [])].sort((a, b) =>
             (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0)
         );
 
@@ -3608,13 +3591,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `Dernier achat : ${sortedProcurements[0].timestamp.toDate().toLocaleDateString('fr-FR')}`
             : 'Dernier achat : N/A';
 
-        // --- 4. Peupler l'onglet "Détails" ---
+        // --- 4. Peupler l'onglet "Détails" --- (inchangé, sauf ajout de la récupération du contact)
         numCreditPurchasesEl.textContent = (supplierData.procurements || []).length;
         oldestDebtDateEl.textContent = sortedProcurements.length > 0
             ? sortedProcurements[sortedProcurements.length - 1].timestamp.toDate().toLocaleDateString('fr-FR')
             : 'N/A';
-            
-        // (Optionnel) Récupérer les infos de contact de la collection 'fournisseurs'
+
         try {
             const supplierQuery = await dbFirestore.collection("fournisseurs").where("name", "==", supplierData.name).limit(1).get();
             if (!supplierQuery.empty) {
@@ -3627,8 +3609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch(e) { console.error("Erreur récupération détails fournisseur:", e); }
 
-
-        // --- 5. Peupler l'onglet "Achats Liés" ---
+        // --- 5. Peupler l'onglet "Achats Liés" --- (inchangé)
         itemsListContainer.innerHTML = '';
         let totalPurchasesCost = 0;
         if (supplierData.procurements && supplierData.procurements.length > 0) {
@@ -3663,22 +3644,30 @@ document.addEventListener('DOMContentLoaded', () => {
         paymentsHistoryList.innerHTML = '<li>Chargement...</li>';
         let hasPayments = false;
         let allPaymentsHtml = '';
+        // Récupérer et afficher tous les paiements pour CHAQUE approvisionnement à crédit de ce fournisseur
         for (const appro of (supplierData.procurements || [])) {
             const paymentsSnapshot = await dbFirestore.collection("approvisionnement").doc(appro.id).collection("payments").orderBy("date", "desc").get();
-            if(!paymentsSnapshot.empty) hasPayments = true;
+            if(!paymentsSnapshot.empty) {
+                hasPayments = true;
+                allPaymentsHtml += `<li><strong>Achat du ${appro.timestamp.toDate().toLocaleDateString('fr-FR')} (Dû: ${parseFloat(appro.remainingAmount || 0).toLocaleString('fr-FR')} FCFA):</strong></li>`;
+            }
 
             paymentsSnapshot.forEach(paymentDoc => {
                 const paymentData = paymentDoc.data();
                 const paymentDate = paymentData.date?.toDate().toLocaleString('fr-FR', { day: '2-digit', month: 'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) || 'N/A';
-                allPaymentsHtml += `<li><strong>${paymentDate}</strong>: ${parseFloat(paymentData.amount || 0).toLocaleString('fr-FR')} FCFA</li>`;
+                allPaymentsHtml += `<li>&nbsp;&nbsp;&nbsp;&nbsp;→ ${paymentDate}: ${parseFloat(paymentData.amount || 0).toLocaleString('fr-FR')} FCFA (${paymentData.account})</li>`;
             });
         }
         paymentsHistoryList.innerHTML = hasPayments ? allPaymentsHtml : '<li>Aucun paiement enregistré pour cette dette.</li>';
-        
-        // --- 7. Peupler l'onglet "Commentaires" ---
+
+        // Remplir le sélecteur de compte pour le nouveau paiement
+        remplirTousSelectComptes(paymentAccountSelect); // Remplir spécifiquement ce sélecteur
+        document.getElementById('paymentAmountSupplierDebt').value = ''; // Réinitialiser le montant du paiement
+
+        // --- 7. Peupler l'onglet "Commentaires" --- (inchangé)
         commentsTextEl.textContent = 'Aucun commentaire pour l\'instant.';
 
-        // --- 8. Gérer le changement d'onglet ---
+        // --- 8. Gérer le changement d'onglet --- (inchangé)
         const tabs = document.getElementById('supplier-debt-tabs');
         if (tabs && !tabs.listenerAttached) {
             tabs.listenerFunction = (event) => {
@@ -3700,263 +3689,106 @@ document.addEventListener('DOMContentLoaded', () => {
         tabs.value = 'details';
         // Simuler un événement de changement pour afficher le bon contenu
         tabs.dispatchEvent(new CustomEvent('ionChange', { detail: { value: 'details' } }));
-        
-        setTimeout(() => {
-        renderIoniconsInElement(document.getElementById('screen-fournisseur-credit-detail'));
-    }, 100); 
+        lucide.createIcons();
+    }
+
+
+    /**
+     * Enregistre un paiement pour la dette actuelle du fournisseur.
+     * Cette fonction sera appelée lorsque le formulaire "Enregistrer un Paiement" est soumis.
+     */
+    async function recordSupplierPayment() {
+        if (!currentDetailedSupplierData || !currentDetailedSupplierData.procurements) {
+            alert("Aucune dette fournisseur sélectionnée pour enregistrer le paiement.");
+            return;
+        }
+
+        const paymentAmount = parseFloat(document.getElementById('paymentAmountSupplierDebt').value);
+        const paymentAccount = document.getElementById('paymentAccountSupplierDebt').value;
+
+        if (isNaN(paymentAmount) || paymentAmount <= 0) {
+            alert("Veuillez entrer un montant de paiement valide.");
+            return;
+        }
+        if (!paymentAccount) {
+            alert("Veuillez sélectionner le compte de paiement.");
+            return;
+        }
+
+        showSaleLoader(); // Affiche le loader
+
+        try {
+            let remainingToPay = paymentAmount;
+            const now = firebase.firestore.FieldValue.serverTimestamp();
+
+            // Parcourir les approvisionnements à crédit les plus anciens en premier pour les payer
+            const procurementsToPay = [...currentDetailedSupplierData.procurements].sort((a, b) =>
+                (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0)
+            );
+
+            for (const appro of procurementsToPay) {
+                if (remainingToPay <= 0) break; // Plus rien à payer
+
+                const approRef = dbFirestore.collection("approvisionnement").doc(appro.id);
+                const approDoc = await approRef.get();
+                const approData = approDoc.data();
+
+                const outstandingOnThisAppro = parseFloat(approData.remainingAmount || 0);
+
+                if (outstandingOnThisAppro > 0) {
+                    const amountForThisAppro = Math.min(remainingToPay, outstandingOnThisAppro);
+                    const newRemainingForAppro = outstandingOnThisAppro - amountForThisAppro;
+                    const newIsPaidForAppro = newRemainingForAppro <= 0;
+
+                    // Mettre à jour l'approvisionnement
+                    await approRef.update({
+                        remainingAmount: newRemainingForAppro,
+                        isPaid: newIsPaidForAppro
+                    });
+
+                    // Enregistrer le paiement dans la sous-collection 'payments' de l'approvisionnement
+                    await approRef.collection("payments").add({
+                        amount: amountForThisAppro,
+                        date: now,
+                        account: paymentAccount,
+                        refApproId: appro.id // Lien vers l'approvisionnement parent
+                    });
+
+                    remainingToPay -= amountForThisAppro;
+                }
+            }
+
+            // Enregistrer le mouvement de trésorerie général
+            await enregistrerMouvementTresorerie({
+                compteId: paymentAccount,
+                type: 'paiement_fournisseur_dette',
+                sens: 'out',
+                montant: paymentAmount,
+                description: `Paiement dette fournisseur ${currentDetailedSupplierData.name}`
+            });
+
+            // Mettre à jour le solde global du fournisseur (dans son objet de données principal)
+            const newTotalDue = parseFloat(currentDetailedSupplierData.totalDue || 0) - paymentAmount;
+            currentDetailedSupplierData.totalDue = Math.max(0, newTotalDue);
+
+            // Recharger l'affichage des dettes fournisseurs pour refléter les changements
+            chargerApprovisionnements('credit'); // Actualise la liste des dettes
+            showSupplierDebtDetailsPage(currentDetailedSupplierData); // Actualise l'écran de détail actuel
+            updateBalanceDisplay(); // Met à jour la trésorerie
+
+            alert("Paiement enregistré avec succès !");
+            document.getElementById('paymentAmountSupplierDebt').value = ''; // Réinitialise le champ montant
+
+        } catch (error) {
+            console.error("Erreur lors de l'enregistrement du paiement fournisseur :", error);
+            alert("Erreur lors de l'enregistrement du paiement : " + error.message);
+        } finally {
+            hideSaleLoader(); // Cache le loader
+        }
     }
   </script>
 </section>
-<ion-modal id="paymentModal" css-class="payment-modal">
-  <ion-header class="ion-no-border">
-    <ion-toolbar>
-      <ion-buttons slot="start">
-        <ion-button onclick="fermerModalPaiement()">
-          <ion-icon name="close-outline"></ion-icon>
-        </ion-button>
-      </ion-buttons>
-      <ion-title>Enregistrer un Paiement</ion-title>
-      <ion-buttons slot="end">
-        <ion-button onclick="enregistrerPaiementFournisseur()">
-          Enregistrer
-        </ion-button>
-      </ion-buttons>
-    </ion-toolbar>
-  </ion-header>
-  <ion-content class="ion-padding">
-    <form id="formPaiementFournisseur" onsubmit="event.preventDefault();">
-      <ion-item>
-        <ion-input label="Montant du Paiement (FCFA) *" label-placement="floating" type="number" id="inputPaymentAmount" required min="1"></ion-input>
-      </ion-item>
 
-      <ion-item>
-        <ion-select label="Compte de trésorerie *" label-placement="floating" id="compteSelectPaiement" required>
-          <ion-select-option value="">-- Choisir un compte --</ion-select-option>
-          </ion-select>
-      </ion-item>
-
-      <ion-item>
-        <ion-textarea label="Observations (facultatif)" label-placement="floating" id="inputPaymentObservations"></ion-textarea>
-      </ion-item>
-    </form>
-  </ion-content>
-</ion-modal>
-
-<style>
-  /* Styles spécifiques pour la modale de paiement (similaire à editClientNameModal) */
-  #paymentModal ion-header {
-    box-shadow: none !important;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  #paymentModal ion-toolbar {
-    --background: #ffffff;
-    --box-shadow: none;
-    --border-width: 0;
-  }
-
-  #paymentModal ion-title {
-    text-align: center;
-    font-weight: 600;
-    color: #333;
-  }
-
-  #paymentModal ion-buttons {
-    padding-right: 8px;
-    padding-left: 8px;
-  }
-
-  #paymentModal ion-button {
-    --color: var(--primary-color, #006064);
-    font-weight: 500;
-    text-transform: none;
-  }
-
-  #paymentModal ion-button ion-icon {
-    font-size: 24px;
-  }
-
-  #paymentModal ion-content {
-    --background: #f5f7fa;
-  }
-
-  #paymentModal ion-item {
-    --background: #ffffff;
-    --border-width: 0;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  }
-
-  /* Style pour ion-select pour qu'il ressemble à un input */
-  #paymentModal ion-item ion-select {
-    width: 100%;
-    /* Override Ionic's default padding if needed for consistency with ion-input */
-    --padding-start: 0;
-    --padding-end: 0;
-    --padding-top: 10px; /* Adjust as needed */
-    --padding-bottom: 10px; /* Adjust as needed */
-  }
-
-  /* Adjust label position within ion-item for selects to match inputs */
-  #paymentModal ion-item .item-native {
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-</style>
-
-<script>
-  let currentSupplierDebtData = null; // To store the debt data of the supplier for payment
-
-  /**
-   * Ouvre la modale Ionic pour enregistrer un paiement.
-   * Pré-remplit le montant total dû si des données du fournisseur sont disponibles.
-   */
-  async function ouvrirModalPaiement() {
-    const modal = document.getElementById('paymentModal');
-    if (modal) {
-      const inputAmount = document.getElementById('inputPaymentAmount');
-      const compteSelect = document.getElementById('compteSelectPaiement');
-
-      // Pré-remplir le montant si des données du fournisseur sont disponibles
-      if (currentSupplierDebtData && currentSupplierDebtData.totalDue > 0) {
-        inputAmount.value = currentSupplierDebtData.totalDue;
-      } else {
-        inputAmount.value = ''; // Clear if no specific debt or debt is 0
-      }
-      document.getElementById('inputPaymentObservations').value = ''; // Clear observations
-
-      // Remplir le sélecteur de comptes de trésorerie
-      remplirTousSelectComptes(compteSelect);
-
-      await modal.present();
-    }
-  }
-
-  /**
-   * Ferme la modale Ionic de paiement.
-   */
-  async function fermerModalPaiement() {
-    const modal = document.getElementById('paymentModal');
-    if (modal) {
-      await modal.dismiss();
-    }
-  }
-
-  /**
-   * Fonction pour enregistrer le paiement du fournisseur.
-   */
-  async function enregistrerPaiementFournisseur() {
-    const amount = parseFloat(document.getElementById('inputPaymentAmount').value);
-    const compteId = document.getElementById('compteSelectPaiement').value;
-    const observations = document.getElementById('inputPaymentObservations').value.trim();
-
-    if (isNaN(amount) || amount <= 0) {
-      showToast("Veuillez saisir un montant de paiement valide.", "error");
-      return;
-    }
-    if (!compteId) {
-      showToast("Veuillez sélectionner un compte de trésorerie.", "error");
-      return;
-    }
-    if (!currentSupplierDebtData || !currentSupplierDebtData.procurements) {
-      showToast("Erreur: Aucune dette de fournisseur sélectionnée.", "error");
-      return;
-    }
-
-    showSaleLoader(); // Show loading indicator
-
-    try {
-      const now = new Date();
-      const paymentDate = firebase.firestore.Timestamp.fromDate(now);
-      
-      let amountToDistribute = amount;
-      
-      // Sort procurements by oldest first to pay off older debts first
-      const sortedProcurements = [...currentSupplierDebtData.procurements].sort((a, b) => 
-          (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)
-      );
-
-      const batch = dbFirestore.batch();
-      let totalPaidForSupplier = 0; // Track actual amount paid to supplier from this operation
-
-      for (const appro of sortedProcurements) {
-        if (amountToDistribute <= 0) break; // Stop if no more amount to distribute
-
-        const approRef = dbFirestore.collection("approvisionnement").doc(appro.id);
-        const currentApproData = await approRef.get().then(doc => doc.data());
-        let remainingForThisAppro = currentApproData.remainingAmount || 0;
-
-        if (remainingForThisAppro > 0) {
-          const paymentForThisAppro = Math.min(amountToDistribute, remainingForThisAppro);
-          const newRemaining = remainingForThisAppro - paymentForThisAppro;
-          const newIsPaid = newRemaining <= 0;
-
-          // Update the procurement document
-          batch.update(approRef, {
-            remainingAmount: newRemaining,
-            isPaid: newIsPaid
-          });
-
-          // Add payment to the 'payments' subcollection of the procurement
-          batch.set(approRef.collection("payments").doc(), {
-            amount: paymentForThisAppro,
-            date: paymentDate,
-            compteId: compteId,
-            observations: observations,
-            type: "paiement_fournisseur" // Specific type for supplier payment
-          });
-
-          amountToDistribute -= paymentForThisAppro;
-          totalPaidForSupplier += paymentForThisAppro;
-        }
-      }
-
-      // Record the total outflow from the selected treasury account for THIS payment operation
-      await enregistrerMouvementTresorerie({
-        compteId: compteId,
-        type: 'paiement_fournisseur',
-        sens: 'out',
-        montant: totalPaidForSupplier,
-        description: `Paiement fournisseur: ${currentSupplierDebtData.name} - ${observations}`,
-        refId: currentSupplierDebtData.name // Use supplier name as refId
-      });
-
-      // Commit all batched operations
-      await batch.commit();
-
-      showToast("Paiement enregistré avec succès !");
-      fermerModalPaiement();
-      // Recharger les données de l'historique des achats pour rafraîchir l'affichage
-      chargerApprovisionnements(document.getElementById('purchase-tabs').value);
-      updateBalanceDisplay(); // Refresh treasury display
-
-    } catch (error) {
-      console.error("Erreur lors de l'enregistrement du paiement fournisseur:", error);
-      showToast("Erreur lors de l'enregistrement du paiement: " + error.message, "error");
-    } finally {
-      hideSaleLoader(); // Hide loading indicator
-    }
-  }
-
-  // --- Liaison du bouton "Payer" de l'écran des détails de dette fournisseur ---
-  // Cette fonction sera appelée par le bouton "Payer" sur l'écran des détails de dette
-  function ouvrirModalPaiementDepuisDetail() {
-    // currentSupplierDebtData est supposé être déjà défini par showSupplierDebtDetailsPage
-    if (!currentSupplierDebtData) {
-      showToast("Erreur: Impossible d'ouvrir la modale. Données du fournisseur manquantes.");
-      return;
-    }
-    ouvrirModalPaiement();
-  }
-
-  // Override the showSupplierDebtDetailsPage function to also set currentSupplierDebtData
-  const originalShowSupplierDebtDetailsPage = window.showSupplierDebtDetailsPage;
-  window.showSupplierDebtDetailsPage = async function(supplierData) {
-    currentSupplierDebtData = supplierData; // Set the global variable
-    await originalShowSupplierDebtDetailsPage(supplierData); // Call the original function
-  };
-</script>
 
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
@@ -8909,34 +8741,34 @@ function loadComptes() {
     });
 }
 
-// ── Commence ici ──
-// Function to fill all account select elements with cached accounts
 function remplirTousSelectComptes(specificSelectElement = null) {
     const selectsToFill = specificSelectElement
-        ? [specificSelectElement] // Fill only the provided element
-        : document.querySelectorAll('[id^="compteSelect"]'); // Fill all elements matching the selector
+        ? [specificSelectElement] // Remplir uniquement l'élément fourni
+        : document.querySelectorAll('[id^="compteSelect"]'); // Remplir tous les éléments correspondant au sélecteur
 
     selectsToFill.forEach(sel => {
+        // Empêche la mise à jour des sélecteurs non présents dans le DOM à ce moment
+        if (!document.body.contains(sel)) return; //
+
         sel.innerHTML = '';
 
         /* ➜ option “vide” d’abord */
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = '— Choisir un compte —';
-        placeholder.disabled = true;
-        placeholder.selected = true;
-        sel.appendChild(placeholder);
+        const placeholder = document.createElement('option'); //
+        placeholder.value = ''; //
+        placeholder.textContent = '— Choisir un compte —'; //
+        placeholder.disabled = true; //
+        placeholder.selected = true; //
+        sel.appendChild(placeholder); //
 
         /* ➜ puis les comptes réels */
-        comptesCache.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`;
-            sel.appendChild(opt);
+        comptesCache.forEach(c => { //
+            const opt = document.createElement('option'); //
+            opt.value = c.id; //
+            opt.textContent = `${c.nom} – ${c.solde.toLocaleString()} XOF`; //
+            sel.appendChild(opt); //
         });
     });
 }
-// ── Termine ici ──
 /** Met à jour l'affichage des soldes de chaque compte dans #accounts-balances */
 function majCartesTresorerie() {
   const container = document.getElementById('accounts-balances');
