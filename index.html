@@ -713,16 +713,7 @@
   display: none;
 }
 
-/* Styles pour le conteneur du badge à l'intérieur du segment button */
-#screen-approvisionnement-historique ion-segment-button[value="credit"] .credit-badge-container {
-    display: flex; /* <-- ASSUREZ-VOUS QUE C'EST TOUJOURS FLEX */
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    position: relative;
-    height: 100%;
-    font-size: 15px;
-}
+
 .cart-icon .cart-badge {
   position: absolute;
   top: -5px;
@@ -2961,18 +2952,25 @@ function renderIoniconsInElement(element) {
         }
     });
 }
+
+// Nouvelle version de la fonction chargerApprovisionnements
 async function chargerApprovisionnements(statusFilter = 'all') {
     const container = document.getElementById("approvisionnementHistoryList");
+    container.innerHTML = ""; // Vider le contenu actuel
 
-    // Clear previous content and show loading indicator BEFORE any specific filter logic
+    // Afficher le spinner avant de commencer le chargement
     container.innerHTML = `
         <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
             <ion-label style="text-align:center; padding: 20px; color: #888;">
-                <ion-spinner name="crescent"></ion-spinner><br>Chargement...
+                <ion-spinner name="crescent" style="width: 30px; height: 30px;"></ion-spinner><br>
+                Chargement des approvisionnements...
             </ion-label>
-        </ion-item>`;
+        </ion-item>
+    `;
+    // Assurez-vous que les icônes Ionic (y compris le spinner) sont rendues
     renderIoniconsInElement(container);
 
+    // Récupération de l'élément du compteur pour l'onglet Crédit
     const creditCountCircle = document.getElementById('creditSupplierCountCircle');
     if (creditCountCircle) {
         creditCountCircle.textContent = '';
@@ -2983,12 +2981,13 @@ async function chargerApprovisionnements(statusFilter = 'all') {
         let query = dbFirestore.collection("approvisionnement");
         let snapshot;
 
-        if (statusFilter === 'credit'|| statusFilter === 'all') {
+        if (statusFilter === 'credit') {
+            // Logique pour l'onglet "Crédit" (ne change pas, car il affiche toutes les dettes non réglées)
             snapshot = await query
                 .where("paymentMethod", "==", "credit")
                 .where("remainingAmount", ">", 0)
                 .orderBy("remainingAmount", "asc")
-                .orderBy("timestamp", "asc")
+                .orderBy("timestamp", "asc") // Assurez-vous que le champ timestamp est indexé
                 .get();
 
             const debtsBySupplier = {};
@@ -3002,13 +3001,20 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 if (remaining > 0) {
                     if (!debtsBySupplier[supplierName]) {
                         debtsBySupplier[supplierName] = {
-                            name: supplierName,
                             totalDue: 0,
-                            procurements: []
+                            count: 0,
+                            lastDebtDate: 0,
+                            approIds: []
                         };
                     }
                     debtsBySupplier[supplierName].totalDue += remaining;
-                    debtsBySupplier[supplierName].procurements.push(appro);
+                    debtsBySupplier[supplierName].count++;
+                    debtsBySupplier[supplierName].approIds.push(appro.id);
+                    // Accéder au timestamp via .toMillis() ou .toDate() pour comparaison
+                    const approTimestamp = appro.timestamp && typeof appro.timestamp.toMillis === 'function' ? appro.timestamp.toMillis() : 0;
+                    if (approTimestamp > (debtsBySupplier[supplierName].lastDebtDate || 0)) {
+                        debtsBySupplier[supplierName].lastDebtDate = approTimestamp;
+                    }
                 }
             });
 
@@ -3018,18 +3024,19 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 creditCountCircle.style.display = numberOfSuppliersWithDebt > 0 ? 'flex' : 'none';
             }
 
-            container.innerHTML = ""; // Clear again before populating with supplier cards
+            container.innerHTML = "";
 
             if (numberOfSuppliersWithDebt === 0) {
                 container.innerHTML = `
-                    <ion-item style="text-align:center; --background: transparent; box-shadow: none;">
-                        <ion-label>
-                            <ion-icon name="happy-outline" style="font-size: 40px;"></ion-icon><br>
-                            Aucune dette fournisseur en cours !
+                    <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                        <ion-label style="text-align:center; padding: 20px; color: #888;">
+                            <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+                            🎉 Aucune dette fournisseur en cours !
                         </ion-label>
-                    </ion-item>`;
+                    </ion-item>
+                `;
                 renderIoniconsInElement(container);
-                document.getElementById("totalPurchaseCost").innerText = "";
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Mettre à jour le total
                 return;
             }
 
@@ -3039,12 +3046,18 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 const data = debtsBySupplier[supplierName];
                 const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                 const avatarBgColor = getAvatarColor(supplierName);
-
+                
                 const ionItem = document.createElement('ion-item');
                 ionItem.classList.add('status-credit');
                 ionItem.setAttribute('button', 'true');
                 ionItem.setAttribute('lines', 'none');
-                ionItem.style.cssText = "border-bottom:1px solid #eee; margin:0; padding:0; --padding-start:0; --padding-end:0; --inner-padding-end:0;";
+                ionItem.style.borderBottom = '1px solid #eee';
+                ionItem.style.marginBottom = '0';
+                ionItem.style.paddingLeft = '0';
+                ionItem.style.paddingRight = '0';
+                ionItem.style.setProperty('--padding-start', '0');
+                ionItem.style.setProperty('--padding-end', '0');
+                ionItem.style.setProperty('--inner-padding-end', '0');
 
                 ionItem.innerHTML = `
                     <ion-label style="padding: 12px 16px;">
@@ -3054,7 +3067,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                             </div>
                             <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
                                 <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
-                                <div class="purchase-date" style="font-size: 13px; color: #888;">${data.procurements.length} achat(s) à crédit</div>
+                                <div class="purchase-date" style="font-size: 13px; color: #888;">${data.count} achat(s) à crédit</div>
                             </div>
                             <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
                                 <div class="total-amount" style="font-weight: 600; font-size: 18px; color: #f04141;">XOF ${data.totalDue.toLocaleString('fr-FR')}</div>
@@ -3064,26 +3077,27 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                     </ion-label>
                     <ion-ripple-effect></ion-ripple-effect>
                 `;
-
-                ionItem.addEventListener('click', () => {
-                    showSupplierDebtDetailsPage(data);
-                });
-
                 container.appendChild(ionItem);
             });
-            document.getElementById("totalPurchaseCost").innerText = "";
+            document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Cachez ce total pour l'onglet crédit
 
         } else {
-            // Logic for "Tout" and "Payé" tabs (updated to include avatar AND item details)
+            // Logique pour les onglets "Tout" et "Payé" avec filtre de date
             const dateInput = document.getElementById("filterPurchaseDate").value;
             if (!dateInput) {
-                document.getElementById("totalPurchaseCost").innerText = "Veuillez choisir une date";
+                console.warn("Aucune date sélectionnée pour l'historique des achats.");
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Mettre à jour le total
                 return;
             }
 
             const selectedDate = new Date(dateInput);
-            const startOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0));
-            const endOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999));
+            // Convertir les dates JavaScript en Firestore Timestamps pour la requête
+            const startOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(
+                new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0)
+            );
+            const endOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(
+                new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999)
+            );
 
             query = query
                 .where("timestamp", ">=", startOfDayFirestoreTimestamp)
@@ -3095,87 +3109,138 @@ async function chargerApprovisionnements(statusFilter = 'all') {
             }
 
             snapshot = await query.get();
-            container.innerHTML = ""; // Clear again before populating with individual procurement cards
-            let totalPurchasesForDate = 0;
+            container.innerHTML = "";
+
+            let totalPurchasesForDate = 0; // Nouveau total pour les achats filtrés par date
 
             if (snapshot.empty) {
                 container.innerHTML = `
-                    <ion-item style="text-align:center; --background: transparent; box-shadow: none;">
-                        <ion-label>
-                             <ion-icon name="happy-outline" style="font-size: 40px;"></ion-icon><br>
-                             Aucun achat pour cette date.
+                    <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                        <ion-label style="text-align:center; padding: 20px; color: #888;">
+                            <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+                            Aucun achat ${statusFilter === 'paid' ? 'réglé ' : ''}enregistré pour cette date.
                         </ion-label>
-                    </ion-item>`;
+                    </ion-item>
+                `;
                 renderIoniconsInElement(container);
-                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA"; // Mettre à jour le total
                 return;
             }
 
             snapshot.forEach(doc => {
                 const appro = doc.data();
-                const jsDate = appro.timestamp instanceof firebase.firestore.Timestamp ? appro.timestamp.toDate() : new Date(appro.timestamp);
-                const dateAppro = jsDate.toLocaleString("fr-FR", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-                totalPurchasesForDate += parseFloat(appro.totalCost || 0);
+                appro.id = doc.id;
 
-                let paymentStatusText = appro.paymentMethod === 'cash' ? 'CASH' : (appro.remainingAmount > 0 ? 'DUE' : 'RÉGLÉ');
-                let statusClass = appro.paymentMethod === 'cash' ? 'status-paid' : (appro.remainingAmount > 0 ? 'status-credit' : 'status-paid');
-                let amountColor = appro.paymentMethod === 'credit' && appro.remainingAmount > 0 ? '#f04141' : '#3880ff';
+                // IMPORTANT : Convertir le Firestore Timestamp en objet Date JavaScript pour l'affichage
+                const jsDate = appro.timestamp && typeof appro.timestamp.toDate === 'function' ? appro.timestamp.toDate() : new Date(appro.timestamp);
+                
+                const dateAppro = jsDate.toLocaleString("fr-FR", {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const totalCostDisplay = parseFloat(appro.totalCost || 0).toLocaleString('fr-FR');
+                totalPurchasesForDate += parseFloat(appro.totalCost || 0); // Accumuler le total
 
-                // Get supplier name, initials, and avatar color
+                let paymentStatusText = '';
+                let statusClass = '';
+                let amountColor = '#333';
+
+                if (appro.paymentMethod === 'cash') {
+                    paymentStatusText = 'CASH';
+                    statusClass = 'status-paid';
+                } else if (appro.paymentMethod === 'credit') {
+                    if (appro.remainingAmount > 0) {
+                        paymentStatusText = 'DUE';
+                        statusClass = 'status-credit';
+                        amountColor = '#f04141';
+                    } else {
+                        paymentStatusText = 'RÉGLÉ';
+                        statusClass = 'status-paid';
+                        amountColor = '#3880ff';
+                    }
+                }
+
                 const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
                 const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                 const avatarBgColor = getAvatarColor(supplierName);
 
-                // Build the item list HTML
                 let itemListHTML = '';
                 if (appro.items && Array.isArray(appro.items)) {
-                    // Limit to first 2-3 items for brevity in the list view, add "..." if more
-                    const itemsToDisplay = appro.items.slice(0, 2); // Display first 2 items
-                    itemsToDisplay.forEach(item => {
-                        const itemName = item.produit || 'Article inconnu';
-                        itemListHTML += `<p class="item-line">${item.quantite} x ${itemName} - ${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')} FCFA</p>`;
+                    appro.items.forEach(item => {
+                        itemListHTML += `<p style="font-size: 13px; color: #555; margin: 2px 0;">${item.quantite} x ${item.produit} - ${parseFloat(item.prixAchat).toLocaleString('fr-FR')} FCFA</p>`;
                     });
-                    if (appro.items.length > 2) {
-                        itemListHTML += `<p class="item-line" style="font-style: italic;">...et ${appro.items.length - 2} autre(s) article(s)</p>`;
-                    }
                 } else {
-                    itemListHTML = '<p class="item-line" style="color: #888;">Aucun article détaillé</p>';
+                    itemListHTML = '<p style="font-size: 13px; color: #888;">Aucun article</p>';
                 }
-
 
                 const ionItem = document.createElement('ion-item');
                 ionItem.classList.add(statusClass);
+                ionItem.setAttribute('button', 'true');
+                ionItem.setAttribute('lines', 'none');
+
+                ionItem.style.borderBottom = '1px solid #eee';
+                ionItem.style.marginBottom = '0';
+                ionItem.style.paddingLeft = '0';
+                ionItem.style.paddingRight = '0';
+                ionItem.style.setProperty('--padding-start', '0');
+                ionItem.style.setProperty('--padding-end', '0');
+                ionItem.style.setProperty('--inner-padding-end', '0');
+
                 ionItem.innerHTML = `
-                <ion-label style="padding: 12px 16px;">
-                    <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
-                        <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
-                            ${initials}
+                    <ion-label style="padding: 12px 16px;">
+                        <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
+                            <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
+                                ${initials}
+                            </div>
+                            <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
+                                <div class="purchase-date" style="font-weight: bold; font-size: 14px; color: #333;">${dateAppro}</div>
+                                <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
+                                ${itemListHTML}
+                            </div>
+                            <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
+                                <div class="total-amount" style="font-weight: 600; font-size: 18px; color: ${amountColor};">XOF ${totalCostDisplay}</div>
+                                <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${paymentStatusText}</div>
+                            </div>
                         </div>
-                        <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
-                            <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
-                            <div class="purchase-date" style="font-size: 13px; color: #888;">${dateAppro}</div>
-                            <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div> </div>
-                        <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
-                            <div class="total-amount" style="font-weight: 600; font-size: 18px; color: ${amountColor};">${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')} FCFA</div>
-                            <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${paymentStatusText}</div>
-                        </div>
-                    </div>
-                </ion-label>`;
+                    </ion-label>
+                    <ion-ripple-effect></ion-ripple-effect>
+                `;
+
+                ionItem.addEventListener('click', () => {
+                    console.log("Afficher les détails de l'approvisionnement :", appro.id);
+                });
+
                 container.appendChild(ionItem);
             });
+            // Mettre à jour le total des achats pour la date sélectionnée
             document.getElementById("totalPurchaseCost").innerText = `Total des achats : ${totalPurchasesForDate.toLocaleString('fr-FR')} FCFA`;
         }
 
+        // Remove the last item's bottom border if it exists
         if (container.lastElementChild) {
             container.lastElementChild.style.borderBottom = 'none';
         }
+
         renderIoniconsInElement(container);
+
     } catch (error) {
         console.error("Erreur lors du chargement des approvisionnements :", error);
-        container.innerHTML = `<ion-item style="color:red; text-align:center;">Erreur de chargement.</ion-item>`;
-        document.getElementById("totalPurchaseCost").innerText = "Erreur";
+        container.innerHTML = `
+            <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                <ion-label style="text-align:center; color:red; padding:20px;">
+                    Erreur de chargement des approvisionnements.
+                </ion-label>
+            </ion-item>
+        `;
+        renderIoniconsInElement(container);
+        document.getElementById("totalPurchaseCost").innerText = "Erreur de chargement";
     }
 }
+
+// Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
 document.addEventListener("DOMContentLoaded", () => {
     const todayISO = new Date().toISOString().split("T")[0];
     document.getElementById("filterPurchaseDate").value = todayISO;
@@ -3183,33 +3248,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const purchaseTabs = document.getElementById('purchase-tabs');
     if (purchaseTabs) {
         purchaseTabs.addEventListener('ionChange', (event) => {
-            console.log('Segment changed', event.detail.value);
             chargerApprovisionnements(event.detail.value);
         });
     }
 
-    // --- MODIFICATION STARTS HERE ---
-    // Instead of immediately loading 'all', we'll prepare the screen
-    // by ensuring all relevant data (including credit counts) is fetched.
-    // The default tab will still show 'all' purchases for today first.
-    // We explicitly call for 'all' to be displayed first, but the credit count
-    // will be fetched in the background as part of the 'all' call's flow,
-    // as it is always updated regardless of the filter.
-
-    // Load initial 'all' data for the current date.
-    // The credit count logic is already inside chargerApprovisionnements
-    // and will update the badge regardless of the currently active tab.
-    chargerApprovisionnements('all');
-});
-
-// We also need to ensure that when the hash changes to approvisionnement-historique,
-// the default tab ('all') is loaded and the credit count is updated.
-window.addEventListener('hashchange', () => {
-    if (window.location.hash === '#approvisionnement-historique') {
-        const purchaseTabs = document.getElementById('purchase-tabs');
-        const currentTab = purchaseTabs ? purchaseTabs.value : 'all'; // Get current selected tab, default to 'all'
-        chargerApprovisionnements(currentTab); // Load data for the current tab (usually 'all' on first visit)
-    }
+    // Appeler la fonction de chargement initial des approvisionnements avec le filtre par défaut 'all'
+    // pour afficher les données dès l'ouverture de l'écran.
+    chargerApprovisionnements('all'); // Ajout de l'appel initial
 });
 document.addEventListener('DOMContentLoaded', () => {
     const purchaseTabs = document.getElementById('purchase-tabs');
@@ -4101,22 +4146,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
   </script>
 </section>
-<section id="screen-fournisseur-credit-detail" class="screen">
+
+<section id="screen-vendor-credit-detail" class="screen">
   <ion-app>
-    <ion-header class="ion-no-border" mode="ios">
+    <ion-header class="ion-no-border">
       <ion-toolbar>
         <ion-buttons slot="start">
           <ion-button onclick="window.location.hash='approvisionnement-historique'">
-            <ion-icon slot="icon-only" name="arrow-back-outline"></ion-icon>
+            <ion-icon name="arrow-back-outline"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title id="supplierCreditDetailTitle">Détails de la dette</ion-title>
+        <ion-title id="vendorCreditDetailTitle">Vendor Credit</ion-title>
         <ion-buttons slot="end">
           <ion-button>
             <ion-icon slot="icon-only" name="pencil-outline"></ion-icon>
           </ion-button>
-          <ion-button>
-            <ion-icon slot="icon-only" name="mail-outline"></ion-icon>
+          <ion-button onclick="openVendorCreditPdf()">
+            <ion-icon slot="icon-only" name="document-text-outline"></ion-icon>
+            OPEN
           </ion-button>
           <ion-button>
             <ion-icon slot="icon-only" name="ellipsis-vertical-outline"></ion-icon>
@@ -4125,449 +4172,316 @@ document.addEventListener('DOMContentLoaded', () => {
       </ion-toolbar>
     </ion-header>
 
-    <ion-content [fullscreen]="true">
-      <div class="summary-section">
-        <div class="ion-padding-horizontal">
-          <div class="summary-header">
-            <div>
-              <h1 class="credit-id" id="detailSupplierName">Chargement...</h1>
-              <p class="credit-ref" id="detailSupplierDebtRef">Dette Fournisseur</p>
-            </div>
-            <ion-chip class="draft-chip">
-              <ion-label id="detailDebtStatus">EN COURS</ion-label>
-            </ion-chip>
+    <ion-content>
+      <div class="vendor-credit-summary">
+        <h1 id="vendorCreditSupplierName">Djkd</h1>
+        <p id="vendorCreditSupplierSubName">Kde</p>
+        <div class="credits-remaining-section">
+          <span class="label">Credits Remaining</span>
+          <span id="vendorCreditsRemainingAmount">XOF2,500</span>
+          <div class="attachment-icon"><ion-icon name="attach-outline"></ion-icon></div>
+        </div>
+        <p class="vendor-credit-date">Vendor Credit Date: <span id="vendorCreditDate">17 Jun 2025</span></p>
+      </div>
+
+      <ion-segment value="details" id="vendor-credit-tabs">
+        <ion-segment-button value="details">
+          <ion-label>DETAILS</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="comments-history">
+          <ion-label>COMMENTS & HISTORY</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <div id="vendorCreditDetailsContent" class="tab-content-credit">
+        <div class="items-table">
+          <div class="table-header">
+            <span class="col-item">Items</span>
+            <span class="col-amount">Amount</span>
           </div>
-          <div class="summary-amount">
-            <div>
-              <span class="amount-title">Montant Total Dû</span>
-              <p class="amount-value" id="detailTotalDueAmount">XOF 0</p>
+          <div id="vendorCreditItemsList" class="table-body">
             </div>
-            <ion-button fill="clear" color="medium">
-              <ion-icon slot="icon-only" name="attach-outline"></ion-icon>
-            </ion-button>
+          <div class="table-footer">
+            <div class="footer-row">
+              <span class="col-label">Sub Total</span>
+              <span id="vendorCreditSubTotal" class="col-value">XOF0</span>
+            </div>
+            <div class="footer-row">
+              <span class="col-label">Total</span>
+              <span id="vendorCreditTotal" class="col-value">XOF0</span>
+            </div>
+            <div class="footer-row final-row">
+              <span class="col-label">Credits Remaining</span>
+              <span id="vendorCreditFinalRemaining" class="col-value">XOF0</span>
+            </div>
           </div>
-          <span class="order-date" id="detailLastPurchaseDate">Dernier achat : N/A</span>
         </div>
       </div>
 
-      <div class="main-content">
-        <ion-segment value="details" mode="md" id="supplier-debt-tabs">
-          <ion-segment-button value="details">
-            <ion-label>DÉTAILS</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="purchases">
-            <ion-label>ACHATS LIÉS</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="payments">
-            <ion-label>PAIEMENTS</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="comments">
-            <ion-label>COMMENTAIRES</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-
-        <div class="ion-padding">
-          <div id="supplierDebtDetailsContent" class="tab-content active">
-            <ion-card class="custom-card">
-              <ion-card-content>
-                <span class="card-title" style="color: #6b7280;">Détails du Fournisseur</span>
-                <p class="card-main-text" id="detailSupplierContact">Contact: N/A</p>
-                <p class="card-sub-text" id="detailSupplierEmail">Email: N/A</p>
-              </ion-card-content>
-            </ion-card>
-            <ion-card class="custom-card">
-              <ion-card-content>
-                <span class="card-title" style="color: #6b7280;">Informations sur la dette</span>
-                <p class="card-main-text">Nombre d'achats à crédit : <span id="detailNumCreditPurchases">0</span></p>
-                <p class="card-sub-text">Dette la plus ancienne : <span id="detailOldestDebtDate">N/A</span></p>
-              </ion-card-content>
-            </ion-card>
-          </div>
-
-          <div id="supplierDebtPurchasesContent" class="tab-content" style="display: none;">
-            <ion-card class="custom-card">
-              <div class="items-header">
-                <span class="card-title" style="color: #6b7280;">Articles des achats</span>
-                <span class="card-title" style="color: #6b7280;">Montant</span>
-              </div>
-              <div id="supplierDebtItemsList">
-                <ion-item lines="none">
-                  <ion-label>Chargement des articles...</ion-label>
-                </ion-item>
-              </div>
-              <ion-card-content class="totals-section">
-                <div class="total-row">
-                  <span style="color: #374151;">Total Achats (Fournisseur)</span>
-                  <span style="color: #374151; font-weight: 500;" id="totalSupplierPurchases">XOF 0</span>
-                </div>
-                <div class="total-row final-total">
-                  <span style="color: #1f2937;">Montant restant</span>
-                  <span style="color: #1f2937;" id="finalRemainingDebt">XOF 0</span>
-                </div>
-              </ion-card-content>
-            </ion-card>
-          </div>
-
-          <div id="supplierDebtPaymentsContent" class="tab-content" style="display: none;">
-            <ion-card class="custom-card">
-              <ion-card-content>
-                <span class="card-title" style="color: #6b7280;">Historique des Paiements</span>
-                <ul id="supplierPaymentsHistoryList" style="list-style: none; padding: 0;">
-                  <li>Aucun paiement enregistré.</li>
-                </ul>
-              </ion-card-content>
-            </ion-card>
-          </div>
-
-          <div id="supplierDebtCommentsContent" class="tab-content" style="display: none;">
-            <ion-card class="custom-card">
-              <ion-card-content>
-                <span class="card-title" style="color: #6b7280;">Commentaires</span>
-                <p id="supplierCommentsText">Aucun commentaire pour l'instant.</p>
-              </ion-card-content>
-            </ion-card>
-          </div>
-
-        </div>
+      <div id="vendorCreditCommentsHistoryContent" class="tab-content-credit" style="display: none;">
+        <p style="padding: 15px; text-align: center; color: #888;">No comments or history available for this credit.</p>
       </div>
     </ion-content>
   </ion-app>
 
   <style>
-    #screen-fournisseur-credit-detail {
-        --ion-background-color: #f8f6ff;
-    }
-    #screen-fournisseur-credit-detail ion-header ion-toolbar {
-        --background: #f8f6ff;
-        --color: #333;
-    }
-    #screen-fournisseur-credit-detail ion-title {
-        font-weight: 700;
-        font-size: 1.1rem;
-    }
-    #screen-fournisseur-credit-detail .summary-section {
-        background: #f8f6ff;
-        padding-top: 8px;
-        padding-bottom: 16px;
-    }
-    #screen-fournisseur-credit-detail .summary-section .summary-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
-    #screen-fournisseur-credit-detail .summary-section .credit-id {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: #1f2937;
-        margin: 0;
-    }
-    #screen-fournisseur-credit-detail .summary-section .credit-ref {
-        color: #4b5563;
-        margin-top: 4px;
-    }
-    #screen-fournisseur-credit-detail .summary-section .draft-chip {
-        --background: #e5e7eb;
-        --color: #374151;
-        font-weight: 600;
-        height: 26px;
-        font-size: 0.7rem;
-        margin-top: 4px;
-    }
-    #screen-fournisseur-credit-detail .summary-section .summary-amount {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        margin-top: 16px;
-    }
-    #screen-fournisseur-credit-detail .summary-section .amount-title {
-        font-size: 0.9rem;
-        color: #6b7280;
-    }
-    #screen-fournisseur-credit-detail .summary-section .amount-value {
-        font-size: 2.5rem;
-        font-weight: 800;
-        color: #1f2937;
-        line-height: 1.1;
-        margin-top: 4px;
-        margin-bottom: 0;
-    }
-    #screen-fournisseur-credit-detail .summary-section ion-button[fill="clear"] {
-        --padding-end: 0;
-        --padding-start: 0;
-        margin-bottom: -4px;
-    }
-    #screen-fournisseur-credit-detail .summary-section ion-button ion-icon {
-        font-size: 1.8rem;
-    }
-    #screen-fournisseur-credit-detail .summary-section .order-date {
-        display: block;
-        font-size: 0.9rem;
-        color: #6b7280;
-        margin-top: 8px;
-    }
-    #screen-fournisseur-credit-detail .main-content {
-        background: #fff;
-        border-top-left-radius: 16px;
-        border-top-right-radius: 16px;
-        margin-top: -10px;
-        position: relative;
-        z-index: 1;
-        padding-bottom: 16px;
-    }
-    #screen-fournisseur-credit-detail ion-segment {
-        --background: #fff;
-        border-top-left-radius: 16px;
-        border-top-right-radius: 16px;
-    }
-    #screen-fournisseur-credit-detail ion-segment-button {
-        --color: #6b7280;
-        --color-checked: #4f46e5;
-        --indicator-color: #4f46e5;
-        text-transform: uppercase;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }
-    #screen-fournisseur-credit-detail .custom-card {
-        --background: #ffffff;
-        border-radius: 8px;
-        margin: 0 0 16px 0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    }
-    #screen-fournisseur-credit-detail .custom-card .card-title {
-        font-size: 0.8rem;
-        font-weight: 500;
-        margin-bottom: 4px;
-        display: block;
-    }
-    #screen-fournisseur-credit-detail .custom-card .card-main-text {
-        font-weight: 600;
-        color: #1f2937;
-        margin-bottom: 2px;
-    }
-    #screen-fournisseur-credit-detail .custom-card .card-sub-text {
-        color: #4b5563;
-    }
-    #screen-fournisseur-credit-detail .items-header {
-        display: flex;
-        justify-content: space-between;
-        padding: 16px 16px 8px 16px;
-    }
-    #screen-fournisseur-credit-detail ion-item {
-        --inner-padding-end: 16px;
-        --padding-start: 16px;
-    }
-    #screen-fournisseur-credit-detail ion-item .image-placeholder {
-        width: 48px;
-        height: 48px;
-        background: #f3f4f6;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    #screen-fournisseur-credit-detail ion-item .image-placeholder ion-icon {
-        font-size: 1.5rem;
-    }
-    #screen-fournisseur-credit-detail ion-item .item-name {
-        font-weight: 600;
-        color: #1f2937;
-    }
-    #screen-fournisseur-credit-detail ion-item .item-details {
-        font-size: 0.9rem;
-        color: #6b7280;
-    }
-    #screen-fournisseur-credit-detail ion-item .item-sku {
-        font-size: 0.75rem;
-        color: #9ca3af;
-        margin-top: 4px;
-    }
-    #screen-fournisseur-credit-detail ion-item .item-amount {
-        font-weight: 600;
-        color: #1f2937;
-    }
-    #screen-fournisseur-credit-detail .totals-section {
-        padding-top: 8px;
-    }
-    #screen-fournisseur-credit-detail .totals-section .total-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px 0;
-        font-size: 0.95rem;
-    }
-    #screen-fournisseur-credit-detail .totals-section .total-row.final-total {
-        font-weight: 700;
-        font-size: 1rem;
-    }
-    #screen-fournisseur-credit-detail.active ~ .bottom-nav-pro {
-        display: none;
-    }
-    #screen-fournisseur-credit-detail .tab-content {
-        display: none;
-    }
-    #screen-fournisseur-credit-detail .tab-content.active {
-        display: block;
-    }
-    #supplierPaymentsHistoryList li {
-        padding: 8px 4px;
-        border-bottom: 1px solid #eee;
-        font-size: 0.9rem;
-        color: #333;
-    }
-    #supplierPaymentsHistoryList li:last-child {
-        border-bottom: none;
-    }
+    /* Styles for Vendor Credit Detail Page */
+#screen-vendor-credit-detail {
+  --ion-background-color: #f5f7fa;
+  --ion-text-color: #2e3748;
+}
+
+#screen-vendor-credit-detail ion-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 0 8px; /* Adjust padding for toolbar */
+}
+
+#screen-vendor-credit-detail ion-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 18px;
+  padding-inline-start: 0;
+}
+
+#screen-vendor-credit-detail ion-buttons ion-button {
+  --color: var(--primary-color);
+  font-size: 1.1em;
+  text-transform: uppercase;
+}
+
+#screen-vendor-credit-detail ion-buttons ion-button ion-icon {
+  font-size: 22px;
+  margin-right: 4px;
+}
+
+.vendor-credit-summary {
+  background: #ffffff;
+  padding: 15px;
+  margin: 10px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+}
+
+.vendor-credit-summary h1 {
+  font-size: 22px;
+  margin: 0;
+  color: #333;
+}
+
+.vendor-credit-summary p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.credits-remaining-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.credits-remaining-section .label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+#vendorCreditsRemainingAmount {
+  font-size: 24px;
+  font-weight: bold;
+  color: #dc3545; /* Red for credit remaining */
+}
+
+.credits-remaining-section .attachment-icon {
+  font-size: 24px;
+  color: #999;
+}
+
+.vendor-credit-date {
+  text-align: right;
+  font-size: 12px;
+  color: #888;
+  margin-top: 10px;
+}
+
+#screen-vendor-credit-detail ion-segment {
+  margin: 10px 16px;
+  background: #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#screen-vendor-credit-detail ion-segment-button {
+  --background-checked: #ffffff;
+  --color-checked: var(--primary-color);
+  --indicator-color: transparent;
+  --background-hover: #e9e9e9;
+  --color: #666;
+  font-weight: 500;
+  font-size: 13px;
+  text-transform: uppercase;
+  border-radius: 8px;
+}
+
+#screen-vendor-credit-detail .tab-content-credit {
+  background: #ffffff;
+  margin: 0 16px 16px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  padding: 15px;
+}
+
+.items-table {
+  width: 100%;
+}
+
+.items-table .table-header,
+.items-table .table-row,
+.items-table .footer-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.items-table .table-header {
+  font-weight: bold;
+  color: #555;
+  font-size: 14px;
+}
+
+.items-table .table-body {
+  border-bottom: 1px solid #eee;
+}
+
+.items-table .table-row {
+  font-size: 14px;
+  color: #333;
+}
+
+.items-table .footer-row {
+  font-size: 14px;
+  color: #333;
+}
+
+.items-table .footer-row.final-row {
+  font-size: 16px;
+  font-weight: bold;
+  color: #dc3545; /* Red for final remaining */
+  border-bottom: none; /* No border for the last row */
+}
+
+.items-table .col-item {
+  flex: 2;
+}
+
+.items-table .col-amount {
+  flex: 1;
+  text-align: right;
+}
+
+.items-table .col-label {
+  flex: 2;
+  text-align: right;
+  padding-right: 20px;
+}
+
+.items-table .col-value {
+  flex: 1;
+  text-align: right;
+}
   </style>
 
   <script>
-    /**
-     * Affiche la page de détails des dettes d'un fournisseur et peuple ses champs.
-     * @param {object} supplierData - L'objet contenant les données agrégées du fournisseur.
-     */
-    async function showSupplierDebtDetailsPage(supplierData) {
-        if (!supplierData || !supplierData.name) {
-            console.error("Données du fournisseur invalides pour l'affichage des détails.");
-            return;
-        }
+   let currentVendorCreditSupplierData = null; // Global pour stocker les données du fournisseur
 
-        // 1. Navigation vers l'écran de détails
-        window.location.hash = 'fournisseur-credit-detail';
+async function showVendorCreditDetails(supplierData) { // Renommé 'creditData' en 'supplierData' pour plus de clarté
+  currentVendorCreditSupplierData = supplierData; // Stocke les données complètes du fournisseur
 
-        // 2. Récupération des éléments du DOM
-        const supplierNameEl = document.getElementById('detailSupplierName');
-        const totalDueAmountEl = document.getElementById('detailTotalDueAmount');
-        const debtStatusChip = document.getElementById('detailDebtStatus');
-        const lastPurchaseDateEl = document.getElementById('detailLastPurchaseDate');
-        const contactEl = document.getElementById('detailSupplierContact');
-        const emailEl = document.getElementById('detailSupplierEmail');
-        const numCreditPurchasesEl = document.getElementById('detailNumCreditPurchases');
-        const oldestDebtDateEl = document.getElementById('detailOldestDebtDate');
-        const itemsListContainer = document.getElementById('supplierDebtItemsList');
-        const totalPurchasesEl = document.getElementById('totalSupplierPurchases');
-        const finalRemainingDebtEl = document.getElementById('finalRemainingDebt');
-        const paymentsHistoryList = document.getElementById('supplierPaymentsHistoryList');
-        const commentsTextEl = document.getElementById('supplierCommentsText');
+  // Passe à l'écran de détail
+  window.location.hash = 'vendor-credit-detail';
 
-        // --- 3. Peupler la section Résumé ---
-        supplierNameEl.textContent = supplierData.name;
-        totalDueAmountEl.textContent = `XOF ${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
+  // Peuple les informations de résumé
+  document.getElementById('vendorCreditSupplierName').textContent = supplierData.name || 'N/A';
+  document.getElementById('vendorCreditSupplierSubName').textContent = 'Détails des crédits'; // Texte générique ou ajusté
+  document.getElementById('vendorCreditsRemainingAmount').textContent = `XOF${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
 
-        if (supplierData.totalDue <= 0) {
-            debtStatusChip.textContent = 'RÉGLÉE';
-            debtStatusChip.style.setProperty('--background', '#d4edda');
-            debtStatusChip.style.setProperty('--color', '#155724');
-        } else {
-            debtStatusChip.textContent = 'EN COURS';
-            debtStatusChip.style.setProperty('--background', '#ffeeba');
-            debtStatusChip.style.setProperty('--color', '#856404');
-        }
+  // La date devrait être la dernière date de dette du fournisseur
+  let latestCreditDate = 'N/A';
+  if (supplierData.procurements && supplierData.procurements.length > 0) {
+      // Trouver la date la plus récente parmi les approvisionnements
+      const latestProcurement = supplierData.procurements.reduce((latest, current) => {
+          const latestTs = latest.timestamp?.toMillis ? latest.timestamp.toMillis() : (latest.timestamp || 0);
+          const currentTs = current.timestamp?.toMillis ? current.timestamp.toMillis() : (current.timestamp || 0);
+          return currentTs > latestTs ? current : latest;
+      });
+      const tsDate = latestProcurement.timestamp?.toDate ? latestProcurement.timestamp.toDate() : new Date(latestProcurement.timestamp);
+      latestCreditDate = tsDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  document.getElementById('vendorCreditDate').textContent = latestCreditDate;
 
-        const sortedProcurements = [...(supplierData.procurements || [])].sort((a, b) => 
-            (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0)
-        );
+  // Peuple le tableau des articles
+  const itemsListContainer = document.getElementById('vendorCreditItemsList');
+  itemsListContainer.innerHTML = ''; // Vide les éléments précédents
 
-        lastPurchaseDateEl.textContent = sortedProcurements.length > 0
-            ? `Dernier achat : ${sortedProcurements[0].timestamp.toDate().toLocaleDateString('fr-FR')}`
-            : 'Dernier achat : N/A';
+  let subTotal = 0;
+  if (supplierData.procurements && Array.isArray(supplierData.procurements)) {
+    supplierData.procurements.forEach(appro => {
+        if (appro.items && Array.isArray(appro.items)) {
+            appro.items.forEach(item => {
+                const itemTotal = (parseFloat(item.quantite) || 0) * (parseFloat(item.prixAchat) || 0);
+                subTotal += itemTotal; // Somme de tous les items de tous les approvisionnements
 
-        // --- 4. Peupler l'onglet "Détails" ---
-        numCreditPurchasesEl.textContent = (supplierData.procurements || []).length;
-        oldestDebtDateEl.textContent = sortedProcurements.length > 0
-            ? sortedProcurements[sortedProcurements.length - 1].timestamp.toDate().toLocaleDateString('fr-FR')
-            : 'N/A';
-            
-        // (Optionnel) Récupérer les infos de contact de la collection 'fournisseurs'
-        try {
-            const supplierQuery = await dbFirestore.collection("fournisseurs").where("name", "==", supplierData.name).limit(1).get();
-            if (!supplierQuery.empty) {
-                const supplierDoc = supplierQuery.docs[0].data();
-                contactEl.textContent = `Contact: ${supplierDoc.contact || 'N/A'}`;
-                emailEl.textContent = `Email: ${supplierDoc.email || 'N/A'}`;
-            } else {
-                contactEl.textContent = `Contact: N/A`;
-                emailEl.textContent = `Email: N/A`;
-            }
-        } catch(e) { console.error("Erreur récupération détails fournisseur:", e); }
-
-
-        // --- 5. Peupler l'onglet "Achats Liés" ---
-        itemsListContainer.innerHTML = '';
-        let totalPurchasesCost = 0;
-        if (supplierData.procurements && supplierData.procurements.length > 0) {
-            supplierData.procurements.forEach(appro => {
-                totalPurchasesCost += parseFloat(appro.totalCost || 0);
-                if (appro.items && Array.isArray(appro.items)) {
-                    appro.items.forEach(item => {
-                        const itemRow = document.createElement('ion-item');
-                        itemRow.setAttribute('lines', 'full');
-                        itemRow.innerHTML = `
-                            <div slot="start" class="image-placeholder">
-                                <ion-icon name="cube-outline" color="medium"></ion-icon>
-                            </div>
-                            <ion-label>
-                                <h2 class="item-name">${item.produit || 'Article inconnu'}</h2>
-                                <p class="item-details">${item.quantite || 0} x XOF ${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')}</p>
-                                <p class="item-sku">Achat du ${appro.timestamp.toDate().toLocaleDateString('fr-FR')}</p>
-                            </ion-label>
-                            <span slot="end" class="item-amount">XOF ${parseFloat(item.quantite * item.prixAchat || 0).toLocaleString('fr-FR')}</span>
-                        `;
-                        itemsListContainer.appendChild(itemRow);
-                    });
-                }
-            });
-        } else {
-            itemsListContainer.innerHTML = `<ion-item lines="none"><ion-label style="text-align: center;">Aucun achat lié.</ion-label></ion-item>`;
-        }
-        totalPurchasesEl.textContent = `XOF ${totalPurchasesCost.toLocaleString('fr-FR')}`;
-        finalRemainingDebtEl.textContent = `XOF ${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
-
-        // --- 6. Peupler l'onglet "Paiements" ---
-        paymentsHistoryList.innerHTML = '<li>Chargement...</li>';
-        let hasPayments = false;
-        let allPaymentsHtml = '';
-        for (const appro of (supplierData.procurements || [])) {
-            const paymentsSnapshot = await dbFirestore.collection("approvisionnement").doc(appro.id).collection("payments").orderBy("date", "desc").get();
-            if(!paymentsSnapshot.empty) hasPayments = true;
-
-            paymentsSnapshot.forEach(paymentDoc => {
-                const paymentData = paymentDoc.data();
-                const paymentDate = paymentData.date?.toDate().toLocaleString('fr-FR', { day: '2-digit', month: 'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) || 'N/A';
-                allPaymentsHtml += `<li><strong>${paymentDate}</strong>: ${parseFloat(paymentData.amount || 0).toLocaleString('fr-FR')} FCFA</li>`;
+                const itemRow = document.createElement('div');
+                itemRow.className = 'table-row';
+                itemRow.innerHTML = `
+                    <span class="col-item">${item.produit || 'N/A'} <br> ${item.quantite || 0} x XOF${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')}</span>
+                    <span class="col-amount">XOF${itemTotal.toLocaleString('fr-FR')}</span>
+                `;
+                itemsListContainer.appendChild(itemRow);
             });
         }
-        paymentsHistoryList.innerHTML = hasPayments ? allPaymentsHtml : '<li>Aucun paiement enregistré pour cette dette.</li>';
-        
-        // --- 7. Peupler l'onglet "Commentaires" ---
-        commentsTextEl.textContent = 'Aucun commentaire pour l\'instant.';
+    });
+  } else {
+    itemsListContainer.innerHTML = `<div class="table-row"><span class="col-item">Aucun article trouvé pour ce fournisseur.</span><span class="col-amount"></span></div>`;
+  }
 
-        // --- 8. Gérer le changement d'onglet ---
-        const tabs = document.getElementById('supplier-debt-tabs');
-        if (tabs && !tabs.listenerAttached) {
-            tabs.listenerFunction = (event) => {
-                document.querySelectorAll('#screen-fournisseur-credit-detail .tab-content').forEach(content => {
-                    content.style.display = 'none';
-                    content.classList.remove('active');
-                });
-                const selectedTabContent = document.getElementById(`supplierDebt${event.detail.value.charAt(0).toUpperCase() + event.detail.value.slice(1)}Content`);
-                if (selectedTabContent) {
-                    selectedTabContent.style.display = 'block';
-                    selectedTabContent.classList.add('active');
-                }
-            };
-            tabs.addEventListener('ionChange', tabs.listenerFunction);
-            tabs.listenerAttached = true;
-        }
+  document.getElementById('vendorCreditSubTotal').textContent = `XOF${subTotal.toLocaleString('fr-FR')}`;
+  document.getElementById('vendorCreditTotal').textContent = `XOF${subTotal.toLocaleString('fr-FR')}`;
+  document.getElementById('vendorCreditFinalRemaining').textContent = `XOF${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
 
-        // Réinitialiser à l'onglet "Détails" par défaut
-        tabs.value = 'details';
-        // Simuler un événement de changement pour afficher le bon contenu
-        tabs.dispatchEvent(new CustomEvent('ionChange', { detail: { value: 'details' } }));
-        
-        // Rendre les icônes sur le nouvel écran
-        renderIoniconsInElement(document.getElementById('screen-fournisseur-credit-detail'));
+
+  // Configure le changement d'onglet (le code existant devrait déjà le faire)
+  const tabs = document.getElementById('vendor-credit-tabs');
+  if (tabs) {
+    if (tabs.listenerAttached) {
+      tabs.removeEventListener('ionChange', tabs.listenerFunction);
     }
+    tabs.listenerFunction = (event) => {
+      document.querySelectorAll('#screen-vendor-credit-detail .tab-content-credit').forEach(content => {
+        content.style.display = 'none';
+      });
+      if (event.detail.value === 'details') {
+        document.getElementById('vendorCreditDetailsContent').style.display = 'block';
+      } else if (event.detail.value === 'comments-history') {
+        document.getElementById('vendorCreditCommentsHistoryContent').style.display = 'block';
+      }
+    };
+    tabs.addEventListener('ionChange', tabs.listenerFunction);
+    tabs.listenerAttached = true;
+    tabs.value = 'details';
+  }
+
+  // Rend les Ionicons sur le nouvel écran
+  renderIoniconsInElement(document.getElementById('screen-vendor-credit-detail'));
+}
   </script>
 </section>
-
 
     <!-- Screen 6: Menu Principal (Thème Clair) -->
     <section id="screen-menu" class="screen">
@@ -8263,10 +8177,6 @@ case 'article-detail':
       // The content will be loaded by showVendorCreditDetails when the card is clicked.
       // Nothing extra needed here for initial screen display besides making it active.
       break;
-
-    case 'fournisseur-credit-detail':
-      // L'appel à showSupplierDebtDetailsPage peuple déjà l'écran, donc pas de logique ici.
-      break;
   }
 }
 
@@ -10801,4 +10711,3 @@ function chargerHistoriqueStock(stockId) {
 
 </body>
 </html>
-
