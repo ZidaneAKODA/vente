@@ -1221,7 +1221,7 @@
     
     <!-- Screen 3: Historique des Ventes -->
      <section id="screen-historique" class="screen">
-
+<ion-app>
     <ion-header class="ion-no-border">
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -1268,9 +1268,7 @@
         </ion-item>
       </ion-list>
     </ion-content>
-
-
-
+  </ion-app>
       <style>
       /* ==============================================================
        STYLES POUR L'HISTORIQUE DES VENTES (Similaire à Achats)
@@ -2939,18 +2937,14 @@ function getAvatarColor(name) {
     const index = Math.abs(hash % filteredColors.length);
     return filteredColors[index];
 }
-
 async function chargerApprovisionnements(statusFilter = 'all') {
     const container = document.getElementById("approvisionnementHistoryList");
-
-    // Clear previous content and show loading indicator BEFORE any specific filter logic
     container.innerHTML = `
         <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
             <ion-label style="text-align:center; padding: 20px; color: #888;">
                 <ion-spinner name="crescent"></ion-spinner><br>Chargement...
             </ion-label>
         </ion-item>`;
-
 
     const creditCountCircle = document.getElementById('creditSupplierCountCircle');
     if (creditCountCircle) {
@@ -2962,17 +2956,15 @@ async function chargerApprovisionnements(statusFilter = 'all') {
         let query = dbFirestore.collection("approvisionnement");
         let snapshot;
 
-        // --- Logique pour l'onglet "Crédit" : afficher les dettes par fournisseur ---
         if (statusFilter === 'credit') {
             snapshot = await query
                 .where("paymentMethod", "==", "credit")
                 .where("remainingAmount", ">", 0)
-                .orderBy("remainingAmount", "asc")
+                .orderBy("remainingAmount", "desc") // Show highest debts first or sort by supplier name
                 .orderBy("timestamp", "asc")
                 .get();
 
             const debtsBySupplier = {};
-
             snapshot.forEach(doc => {
                 const appro = doc.data();
                 appro.id = doc.id;
@@ -2982,7 +2974,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 if (remaining > 0) {
                     if (!debtsBySupplier[supplierName]) {
                         debtsBySupplier[supplierName] = {
-                            name: supplierName, // Ajout du nom du fournisseur pour la carte
+                            name: supplierName,
                             totalDue: 0,
                             procurements: []
                         };
@@ -2998,7 +2990,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 creditCountCircle.style.display = numberOfSuppliersWithDebt > 0 ? 'flex' : 'none';
             }
 
-            container.innerHTML = ""; // Clear again before populating with supplier cards
+            container.innerHTML = ""; 
 
             if (numberOfSuppliersWithDebt === 0) {
                 container.innerHTML = `
@@ -3008,56 +3000,47 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                             Aucune dette fournisseur en cours !
                         </ion-label>
                     </ion-item>`;
-               document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
+                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
                 return;
             }
 
-            const sortedSuppliers = Object.keys(debtsBySupplier).sort();
+            const sortedSuppliers = Object.keys(debtsBySupplier).sort((a, b) => debtsBySupplier[b].totalDue - debtsBySupplier[a].totalDue); // Sort by totalDue desc
 
             sortedSuppliers.forEach(supplierName => {
                 const data = debtsBySupplier[supplierName];
                 const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                 const avatarBgColor = getAvatarColor(supplierName);
-
                 const ionItem = document.createElement('ion-item');
                 ionItem.classList.add('status-credit');
                 ionItem.setAttribute('button', 'true');
                 ionItem.setAttribute('lines', 'none');
                 ionItem.style.cssText = "border-bottom:1px solid #eee; margin:0; padding:0; --padding-start:0; --padding-end:0; --inner-padding-end:0;";
-
                 ionItem.innerHTML = `
                     <ion-label style="padding: 12px 16px;">
                         <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
-                            <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
-                                ${initials}
+                            <div class="avatar-circle" style="background-color: ${avatarBgColor};"> ${initials} </div>
+                            <div class="left-info">
+                                <div class="supplier-name">${supplierName}</div>
+                                <div class="purchase-date">${data.procurements.length} achat(s) à crédit</div>
                             </div>
-                            <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
-                                <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
-                                <div class="purchase-date" style="font-size: 13px; color: #888;">${data.procurements.length} achat(s) à crédit</div>
-                            </div>
-                            <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
-                                <div class="total-amount" style="font-weight: 600; font-size: 18px; color: #f04141;">XOF ${data.totalDue.toLocaleString('fr-FR')}</div>
-                                <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">DUE</div>
+                            <div class="right-info">
+                                <div class="total-amount" style="color: #f04141;">XOF ${data.totalDue.toLocaleString('fr-FR')}</div>
+                                <div class="payment-method">DUE</div>
                             </div>
                         </div>
                     </ion-label>
                     <ion-ripple-effect></ion-ripple-effect>
                 `;
-
-                ionItem.addEventListener('click', () => {
-                    // Assurez-vous que showSupplierDebtDetailsPage est définie dans votre code
-                    showSupplierDebtDetailsPage(data);
-                });
-
+                ionItem.addEventListener('click', () => showSupplierDebtDetailsPage(data));
                 container.appendChild(ionItem);
             });
-            document.getElementById("totalPurchaseCost").innerText = ""; // Pas de total pour cet affichage agrégé
-
+            document.getElementById("totalPurchaseCost").innerText = ""; 
         } else {
-            // Logique pour les onglets "Tout" et "Payé" : afficher la liste des approvisionnements individuels
+            // Logic for "All" and "Paid" tabs
             const dateInput = document.getElementById("filterPurchaseDate").value;
             if (!dateInput) {
                 document.getElementById("totalPurchaseCost").innerText = "Veuillez choisir une date";
+                 container.innerHTML = `<ion-item style="text-align:center; --background: transparent; box-shadow: none;"><ion-label>Veuillez choisir une date.</ion-label></ion-item>`;
                 return;
             }
 
@@ -3073,9 +3056,10 @@ async function chargerApprovisionnements(statusFilter = 'all') {
             if (statusFilter === 'paid') {
                 query = query.where("isPaid", "==", true);
             }
+            // No specific filter for 'all' other than date and timestamp order.
 
             snapshot = await query.get();
-            container.innerHTML = ""; // Clear again before populating with individual procurement cards
+            container.innerHTML = ""; 
             let totalPurchasesForDate = 0;
 
             if (snapshot.empty) {
@@ -3083,34 +3067,45 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                     <ion-item style="text-align:center; --background: transparent; box-shadow: none;">
                         <ion-label>
                              <ion-icon name="happy-outline" style="font-size: 40px;"></ion-icon><br>
-                             Aucun achat pour cette date.
+                             Aucun achat pour cette date et ce filtre.
                         </ion-label>
                     </ion-item>`;
-           
                 document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
                 return;
             }
 
             snapshot.forEach(doc => {
                 const appro = doc.data();
+                appro.id = doc.id; // Store ID for potential operations
                 const jsDate = appro.timestamp instanceof firebase.firestore.Timestamp ? appro.timestamp.toDate() : new Date(appro.timestamp);
-                const dateAppro = jsDate.toLocaleString("fr-FR", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                const dateAppro = jsDate.toLocaleString("fr-FR", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 totalPurchasesForDate += parseFloat(appro.totalCost || 0);
 
-                let paymentStatusText = appro.paymentMethod === 'cash' ? 'CASH' : (appro.remainingAmount > 0 ? 'DUE' : 'RÉGLÉ');
-                let statusClass = appro.paymentMethod === 'cash' ? 'status-paid' : (appro.remainingAmount > 0 ? 'status-credit' : 'status-paid');
-                let amountColor = appro.paymentMethod === 'credit' && appro.remainingAmount > 0 ? '#f04141' : '#3880ff';
+                let paymentStatusText = 'PAYÉ'; // Default for cash or fully paid credit
+                let statusClass = 'status-paid';
+                let amountColor = '#3880ff'; // Blue for paid
+                let remainingAmountDisplay = '';
 
-                // Get supplier name, initials, and avatar color
+                if (appro.paymentMethod === 'credit') {
+                    if (parseFloat(appro.remainingAmount || 0) > 0) {
+                        paymentStatusText = 'DUE';
+                        statusClass = 'status-credit';
+                        amountColor = '#f04141'; // Red for due
+                        remainingAmountDisplay = `<div class="purchase-date" style="color: ${amountColor};">Solde: ${parseFloat(appro.remainingAmount || 0).toLocaleString('fr-FR')} FCFA</div>`;
+                    } else {
+                         paymentStatusText = 'RÉGLÉ'; // Credit fully paid
+                    }
+                } else if (appro.paymentMethod === 'cash') {
+                    paymentStatusText = 'CASH';
+                }
+
+
                 const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
                 const initials = supplierName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                 const avatarBgColor = getAvatarColor(supplierName);
-
-                // Build the item list HTML
                 let itemListHTML = '';
                 if (appro.items && Array.isArray(appro.items)) {
-                    // Limit to first 2-3 items for brevity in the list view, add "..." if more
-                    const itemsToDisplay = appro.items.slice(0, 2); // Display first 2 items
+                    const itemsToDisplay = appro.items.slice(0, 2); 
                     itemsToDisplay.forEach(item => {
                         const itemName = item.produit || 'Article inconnu';
                         itemListHTML += `<p class="item-line">${item.quantite} x ${itemName} - ${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')} FCFA</p>`;
@@ -3122,37 +3117,64 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                     itemListHTML = '<p class="item-line" style="color: #888;">Aucun article détaillé</p>';
                 }
 
-
                 const ionItem = document.createElement('ion-item');
                 ionItem.classList.add(statusClass);
+                ionItem.setAttribute('button', 'true'); // Make it clickable
+                ionItem.setAttribute('lines', 'none');
+                ionItem.style.cssText = "border-bottom:1px solid #eee; margin:0; padding:0; --padding-start:0; --padding-end:0; --inner-padding-end:0;";
+
                 ionItem.innerHTML = `
                 <ion-label style="padding: 12px 16px;">
                     <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
-                        <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
-                            ${initials}
+                        <div class="avatar-circle" style="background-color: ${avatarBgColor};"> ${initials} </div>
+                        <div class="left-info">
+                            <div class="supplier-name">${supplierName}</div>
+                            <div class="purchase-date">${dateAppro}</div>
+                            <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
+                            ${remainingAmountDisplay} 
                         </div>
-                        <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
-                            <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${supplierName}</div>
-                            <div class="purchase-date" style="font-size: 13px; color: #888;">${dateAppro}</div>
-                            <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div> </div>
-                        <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
-                            <div class="total-amount" style="font-weight: 600; font-size: 18px; color: ${amountColor};">${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')} FCFA</div>
-                            <div class="payment-method" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${paymentStatusText}</div>
+                        <div class="right-info">
+                            <div class="total-amount" style="color: ${amountColor};">XOF ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')}</div>
+                            <div class="payment-method">${paymentStatusText}</div>
                         </div>
                     </div>
-                </ion-label>`;
+                </ion-label>
+                <ion-ripple-effect></ion-ripple-effect>`;
+                
+                // Add click listener to show details IF it's a credit purchase with remaining amount
+                if (appro.paymentMethod === 'credit' && parseFloat(appro.remainingAmount || 0) > 0) {
+                    ionItem.addEventListener('click', () => {
+                        // We need to construct the 'supplierData' object expected by showSupplierDebtDetailsPage
+                        // This might require fetching all debts for that supplier if not already available
+                        // For simplicity, we'll pass a minimal object and let showSupplierDebtDetailsPage handle full data loading if necessary
+                        // Or, we find the supplier in the previously fetched credit list (if available from another tab load)
+                        // This part might need refinement depending on how you want navigation to work from "All" tab to supplier details.
+                        // For now, let's assume we can construct or fetch the necessary supplierData.
+                        const supplierDetailData = {
+                            name: supplierName,
+                            totalDue: parseFloat(appro.remainingAmount || 0), // This is not the supplier's total due, but for this specific item.
+                                                                           // showSupplierDebtDetailsPage should ideally fetch the full supplier debt info.
+                            procurements: [appro] // Pass this specific procurement
+                        };
+                        showSupplierDebtDetailsPage(supplierDetailData);
+                    });
+                }
+
                 container.appendChild(ionItem);
             });
             document.getElementById("totalPurchaseCost").innerText = `Total des achats : ${totalPurchasesForDate.toLocaleString('fr-FR')} FCFA`;
         }
 
-        if (container.lastElementChild) {
-            container.lastElementChild.style.borderBottom = 'none';
+        if (container.lastElementChild && container.lastElementChild.style) { // Check if lastElementChild and style exist
+             if (container.lastElementChild.tagName === 'ION-ITEM') { // Apply only to ion-item
+                container.lastElementChild.style.borderBottom = 'none';
+             }
         }
+
 
     } catch (error) {
         console.error("Erreur lors du chargement des approvisionnements :", error);
-        container.innerHTML = `<ion-item style="color:red; text-align:center;">Erreur de chargement.</ion-item>`;
+        container.innerHTML = `<ion-item style="color:red; text-align:center; --background: transparent; box-shadow: none;"><ion-label>Erreur de chargement.</ion-label></ion-item>`;
         document.getElementById("totalPurchaseCost").innerText = "Erreur";
     }
 }
@@ -3538,254 +3560,356 @@ document.addEventListener('DOMContentLoaded', () => {
   <script>
     let currentDetailedSupplierData = null;
 
-    /**
-     * Affiche la page de détails des dettes d'un fournisseur et peuple ses champs.
-     * @param {object} supplierData - L'objet contenant les données agrégées du fournisseur.
-     */
     async function showSupplierDebtDetailsPage(supplierData) {
-        if (!supplierData || !supplierData.name) {
-            console.error("Données du fournisseur invalides pour l'affichage des détails.");
-            return;
-        }
+    if (!supplierData || !supplierData.name) {
+        console.error("Données du fournisseur invalides pour l'affichage des détails.");
+        // Optionally, navigate back or show an error message on the page
+        window.location.hash = 'approvisionnement-historique'; // Go back to list
+        showToast("Impossible d'afficher les détails du fournisseur.", "error");
+        return;
+    }
 
-        currentDetailedSupplierData = supplierData; // Stocke les données pour un usage futur
+    currentDetailedSupplierData = supplierData; 
 
-        // 1. Navigation vers l'écran de détails
-        window.location.hash = 'fournisseur-credit-detail';
-
-        // 2. Récupération des éléments du DOM (restant inchangé)
-        const supplierNameEl = document.getElementById('detailSupplierName');
-        const totalDueAmountEl = document.getElementById('detailTotalDueAmount');
-        const debtStatusChip = document.getElementById('detailDebtStatus');
-        const lastPurchaseDateEl = document.getElementById('detailLastPurchaseDate');
-        const contactEl = document.getElementById('detailSupplierContact');
-        const emailEl = document.getElementById('detailSupplierEmail');
-        const numCreditPurchasesEl = document.getElementById('detailNumCreditPurchases');
-        const oldestDebtDateEl = document.getElementById('detailOldestDebtDate');
-        const itemsListContainer = document.getElementById('supplierDebtItemsList');
-        const totalPurchasesEl = document.getElementById('totalSupplierPurchases');
-        const finalRemainingDebtEl = document.getElementById('finalRemainingDebt');
-        const paymentsHistoryList = document.getElementById('supplierPaymentsHistoryList');
-        const commentsTextEl = document.getElementById('supplierCommentsText');
-        const paymentAccountSelect = document.getElementById('paymentAccountSupplierDebt'); // Le nouveau sélecteur de compte
-
-        // --- 3. Peupler la section Résumé --- (inchangé)
-        supplierNameEl.textContent = supplierData.name;
-        totalDueAmountEl.textContent = `XOF ${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
-
-        if (supplierData.totalDue <= 0) {
-            debtStatusChip.textContent = 'RÉGLÉE';
-            debtStatusChip.style.setProperty('--background', '#d4edda');
-            debtStatusChip.style.setProperty('--color', '#155724');
-        } else {
-            debtStatusChip.textContent = 'EN COURS';
-            debtStatusChip.style.setProperty('--background', '#ffeeba');
-            debtStatusChip.style.setProperty('--color', '#856404');
-        }
-
-        const sortedProcurements = [...(supplierData.procurements || [])].sort((a, b) =>
-            (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0)
-        );
-
-        lastPurchaseDateEl.textContent = sortedProcurements.length > 0
-            ? `Dernier achat : ${sortedProcurements[0].timestamp.toDate().toLocaleDateString('fr-FR')}`
-            : 'Dernier achat : N/A';
-
-        // --- 4. Peupler l'onglet "Détails" --- (inchangé, sauf ajout de la récupération du contact)
-        numCreditPurchasesEl.textContent = (supplierData.procurements || []).length;
-        oldestDebtDateEl.textContent = sortedProcurements.length > 0
-            ? sortedProcurements[sortedProcurements.length - 1].timestamp.toDate().toLocaleDateString('fr-FR')
-            : 'N/A';
-
+    // Fetch all procurements for this supplier if not fully passed
+    // This ensures `currentDetailedSupplierData.procurements` is complete for payment allocation
+    if (!supplierData.procurements || supplierData.procurements.length === 0 || 
+        (supplierData.procurements.length === 1 && supplierData.procurements[0].id === undefined)) { // Heuristic: if only one item without ID, it's likely a summary
         try {
-            const supplierQuery = await dbFirestore.collection("fournisseurs").where("name", "==", supplierData.name).limit(1).get();
-            if (!supplierQuery.empty) {
-                const supplierDoc = supplierQuery.docs[0].data();
-                contactEl.textContent = `Contact: ${supplierDoc.contact || 'N/A'}`;
-                emailEl.textContent = `Email: ${supplierDoc.email || 'N/A'}`;
-            } else {
-                contactEl.textContent = `Contact: N/A`;
-                emailEl.textContent = `Email: N/A`;
-            }
-        } catch(e) { console.error("Erreur récupération détails fournisseur:", e); }
-
-        // --- 5. Peupler l'onglet "Achats Liés" --- (inchangé)
-        itemsListContainer.innerHTML = '';
-        let totalPurchasesCost = 0;
-        if (supplierData.procurements && supplierData.procurements.length > 0) {
-            supplierData.procurements.forEach(appro => {
-                totalPurchasesCost += parseFloat(appro.totalCost || 0);
-                if (appro.items && Array.isArray(appro.items)) {
-                    appro.items.forEach(item => {
-                        const itemRow = document.createElement('ion-item');
-                        itemRow.setAttribute('lines', 'full');
-                        itemRow.innerHTML = `
-                            <div slot="start" class="image-placeholder">
-                                <ion-icon name="cube-outline" color="medium"></ion-icon>
-                            </div>
-                            <ion-label>
-                                <h2 class="item-name">${item.produit || 'Article inconnu'}</h2>
-                                <p class="item-details">${item.quantite || 0} x XOF ${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')}</p>
-                                <p class="item-sku">Achat du ${appro.timestamp.toDate().toLocaleDateString('fr-FR')}</p>
-                            </ion-label>
-                            <span slot="end" class="item-amount">XOF ${parseFloat(item.quantite * item.prixAchat || 0).toLocaleString('fr-FR')}</span>
-                        `;
-                        itemsListContainer.appendChild(itemRow);
-                    });
+            const procurementsSnapshot = await dbFirestore.collection("approvisionnement")
+                .where("fournisseur", "==", supplierData.name)
+                .where("paymentMethod", "==", "credit")
+                // .where("remainingAmount", ">", 0) // Fetch all credit purchases, even paid ones, for full history
+                .orderBy("timestamp", "asc")
+                .get();
+            
+            currentDetailedSupplierData.procurements = [];
+            let calculatedTotalDue = 0;
+            procurementsSnapshot.forEach(doc => {
+                const procData = { id: doc.id, ...doc.data() };
+                currentDetailedSupplierData.procurements.push(procData);
+                if (parseFloat(procData.remainingAmount || 0) > 0) {
+                     calculatedTotalDue += parseFloat(procData.remainingAmount || 0);
                 }
             });
+            currentDetailedSupplierData.totalDue = calculatedTotalDue; // Recalculate total due from fresh data
+        } catch (e) {
+            console.error("Erreur lors de la récupération des achats du fournisseur:", e);
+            showToast("Erreur de chargement des achats du fournisseur.", "error");
+            // return; // Or handle gracefully
+        }
+    }
+
+
+    window.location.hash = 'fournisseur-credit-detail';
+
+    const supplierNameEl = document.getElementById('detailSupplierName');
+    const totalDueAmountEl = document.getElementById('detailTotalDueAmount');
+    const debtStatusChip = document.getElementById('detailDebtStatus');
+    const lastPurchaseDateEl = document.getElementById('detailLastPurchaseDate');
+    const contactEl = document.getElementById('detailSupplierContact');
+    const emailEl = document.getElementById('detailSupplierEmail');
+    const numCreditPurchasesEl = document.getElementById('detailNumCreditPurchases');
+    const oldestDebtDateEl = document.getElementById('detailOldestDebtDate');
+    const itemsListContainer = document.getElementById('supplierDebtItemsList'); // This is for "Achats Liés"
+    const totalPurchasesEl = document.getElementById('totalSupplierPurchases');
+    const finalRemainingDebtEl = document.getElementById('finalRemainingDebt');
+    const paymentsHistoryList = document.getElementById('supplierPaymentsHistoryList');
+    const paymentAccountSelect = document.getElementById('paymentAccountSupplierDebt');
+
+    supplierNameEl.textContent = currentDetailedSupplierData.name;
+    totalDueAmountEl.textContent = `XOF ${parseFloat(currentDetailedSupplierData.totalDue || 0).toLocaleString('fr-FR')}`;
+
+    if (parseFloat(currentDetailedSupplierData.totalDue || 0) <= 0) {
+        debtStatusChip.textContent = 'RÉGLÉE';
+        debtStatusChip.style.setProperty('--background', '#d4edda');
+        debtStatusChip.style.setProperty('--color', '#155724');
+    } else {
+        debtStatusChip.textContent = 'EN COURS';
+        debtStatusChip.style.setProperty('--background', '#ffeeba'); // Using a common color for "pending/in progress"
+        debtStatusChip.style.setProperty('--color', '#856404');
+    }
+    
+    const sortedProcurements = [...(currentDetailedSupplierData.procurements || [])].sort((a, b) => {
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (new Date(a.timestamp).getTime() || 0);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (new Date(b.timestamp).getTime() || 0);
+        return dateB - dateA; // Most recent first for "last purchase"
+    });
+
+
+    lastPurchaseDateEl.textContent = sortedProcurements.length > 0
+        ? `Dernier achat à crédit : ${ (sortedProcurements[0].timestamp?.toDate ? sortedProcurements[0].timestamp.toDate() : new Date(sortedProcurements[0].timestamp)).toLocaleDateString('fr-FR')}`
+        : 'Dernier achat à crédit : N/A';
+
+    numCreditPurchasesEl.textContent = (currentDetailedSupplierData.procurements || []).filter(p => p.paymentMethod === 'credit').length;
+    
+    const oldestProcurement = [...(currentDetailedSupplierData.procurements || [])]
+        .filter(p => p.paymentMethod === 'credit' && parseFloat(p.remainingAmount || 0) > 0)
+        .sort((a, b) => {
+            const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (new Date(a.timestamp).getTime() || 0);
+            const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (new Date(b.timestamp).getTime() || 0);
+            return dateA - dateB; // Oldest first
+        })[0];
+
+    oldestDebtDateEl.textContent = oldestProcurement
+        ? (oldestProcurement.timestamp?.toDate ? oldestProcurement.timestamp.toDate() : new Date(oldestProcurement.timestamp)).toLocaleDateString('fr-FR')
+        : 'N/A';
+
+    try {
+        const supplierDocQuery = await dbFirestore.collection("fournisseurs").where("name", "==", currentDetailedSupplierData.name).limit(1).get();
+        if (!supplierDocQuery.empty) {
+            const supplierDocData = supplierDocQuery.docs[0].data();
+            contactEl.textContent = `Contact: ${supplierDocData.contact || 'N/A'}`;
+            emailEl.textContent = `Email: ${supplierDocData.email || 'N/A'}`;
         } else {
-            itemsListContainer.innerHTML = `<ion-item lines="none"><ion-label style="text-align: center;">Aucun achat lié.</ion-label></ion-item>`;
+            contactEl.textContent = `Contact: N/A`;
+            emailEl.textContent = `Email: N/A`;
         }
-        totalPurchasesEl.textContent = `XOF ${totalPurchasesCost.toLocaleString('fr-FR')}`;
-        finalRemainingDebtEl.textContent = `XOF ${parseFloat(supplierData.totalDue || 0).toLocaleString('fr-FR')}`;
+    } catch(e) { console.error("Erreur récupération détails fournisseur:", e); }
 
-        // --- 6. Peupler l'onglet "Paiements" ---
-        paymentsHistoryList.innerHTML = '<li>Chargement...</li>';
-        let hasPayments = false;
-        let allPaymentsHtml = '';
-        // Récupérer et afficher tous les paiements pour CHAQUE approvisionnement à crédit de ce fournisseur
-        for (const appro of (supplierData.procurements || [])) {
-            const paymentsSnapshot = await dbFirestore.collection("approvisionnement").doc(appro.id).collection("payments").orderBy("date", "desc").get();
-            if(!paymentsSnapshot.empty) {
-                hasPayments = true;
-                allPaymentsHtml += `<li><strong>Achat du ${appro.timestamp.toDate().toLocaleDateString('fr-FR')} (Dû: ${parseFloat(appro.remainingAmount || 0).toLocaleString('fr-FR')} FCFA):</strong></li>`;
-            }
+    // Populate "Achats Liés" (Purchases Tab)
+    itemsListContainer.innerHTML = ''; 
+    let sumOfOriginalCreditCosts = 0;
+    const creditProcurementsWithDebt = (currentDetailedSupplierData.procurements || [])
+        .filter(p => p.paymentMethod === 'credit' /*&& parseFloat(p.remainingAmount || 0) > 0*/) // Show all credit purchases for history, not just those with debt
+        .sort((a,b) => ( (a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime()) || 0) - ( (b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime()) || 0)); // Oldest first
 
-            paymentsSnapshot.forEach(paymentDoc => {
-                const paymentData = paymentDoc.data();
-                const paymentDate = paymentData.date?.toDate().toLocaleString('fr-FR', { day: '2-digit', month: 'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) || 'N/A';
-                allPaymentsHtml += `<li>&nbsp;&nbsp;&nbsp;&nbsp;→ ${paymentDate}: ${parseFloat(paymentData.amount || 0).toLocaleString('fr-FR')} FCFA (${paymentData.account})</li>`;
-            });
-        }
-        paymentsHistoryList.innerHTML = hasPayments ? allPaymentsHtml : '<li>Aucun paiement enregistré pour cette dette.</li>';
+    if (creditProcurementsWithDebt.length === 0) {
+        itemsListContainer.innerHTML = `<ion-item lines="none"><ion-label style="text-align: center;">Aucun achat à crédit pour ce fournisseur.</ion-label></ion-item>`;
+    } else {
+        creditProcurementsWithDebt.forEach(appro => {
+            sumOfOriginalCreditCosts += parseFloat(appro.totalCost || 0);
+            const procurementRow = document.createElement('ion-item');
+            procurementRow.setAttribute('lines', 'full');
+            let itemsSummary = (appro.items || []).map(it => `${it.quantite}x ${it.produit}`).join(', ');
+            if (itemsSummary.length > 50) itemsSummary = itemsSummary.substring(0, 47) + "...";
+            const approDate = appro.timestamp?.toDate ? appro.timestamp.toDate() : new Date(appro.timestamp);
 
-        // Remplir le sélecteur de compte pour le nouveau paiement
-        remplirTousSelectComptes(paymentAccountSelect); // Remplir spécifiquement ce sélecteur
-        document.getElementById('paymentAmountSupplierDebt').value = ''; // Réinitialiser le montant du paiement
+            procurementRow.innerHTML = `
+                <div slot="start" class="image-placeholder" style="background-color: ${getAvatarColor(approDate.toISOString())}; color: white; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:0.7em; padding:2px; text-align:center; width:52px; height:52px;">
+                   <span>${approDate.getDate()}</span>
+                   <span style="text-transform:uppercase;">${approDate.toLocaleString('fr-FR', { month: 'short' })}</span>
+                   <span>${approDate.getFullYear()}</span>
+                </div>
+                <ion-label>
+                    <h2 class="item-name">Coût Initial: XOF ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')}</h2>
+                    <p class="item-details" style="${parseFloat(appro.remainingAmount || 0) > 0 ? 'color: red; font-weight: bold;' : 'color: green;'}">
+                        Solde Actuel: XOF ${parseFloat(appro.remainingAmount || 0).toLocaleString('fr-FR')}
+                        ${parseFloat(appro.remainingAmount || 0) <= 0 && appro.paymentMethod === 'credit' ? ' (Réglé)' : ''}
+                    </p>
+                    <p class="item-sku">Articles: ${itemsSummary || 'Détails non disponibles'}</p>
+                </ion-label>
+                <span slot="end" class="item-amount" style="${parseFloat(appro.remainingAmount || 0) > 0 ? 'color: red;' : 'color: green;'}">
+                    XOF ${parseFloat(appro.remainingAmount || 0).toLocaleString('fr-FR')}
+                </span>
+            `;
+            itemsListContainer.appendChild(procurementRow);
+        });
+    }
+    totalPurchasesEl.textContent = `XOF ${sumOfOriginalCreditCosts.toLocaleString('fr-FR')}`; // Sum of all original credit purchase costs
+    finalRemainingDebtEl.textContent = `XOF ${parseFloat(currentDetailedSupplierData.totalDue || 0).toLocaleString('fr-FR')}`;
 
-        // --- 7. Peupler l'onglet "Commentaires" --- (inchangé)
-        commentsTextEl.textContent = 'Aucun commentaire pour l\'instant.';
 
-        // --- 8. Gérer le changement d'onglet --- (inchangé)
-        const tabs = document.getElementById('supplier-debt-tabs');
-        if (tabs && !tabs.listenerAttached) {
-            tabs.listenerFunction = (event) => {
-                document.querySelectorAll('#screen-fournisseur-credit-detail .tab-content').forEach(content => {
-                    content.style.display = 'none';
-                    content.classList.remove('active');
+    // Populate "Paiements" (Payments Tab) - Unified Chronological List
+    paymentsHistoryList.innerHTML = '<li>Chargement des paiements...</li>';
+    let allPaymentsList = [];
+    if (currentDetailedSupplierData.procurements && currentDetailedSupplierData.procurements.length > 0) {
+        for (const appro of currentDetailedSupplierData.procurements) {
+            if (appro.id) { // Ensure procurement has an ID to fetch payments
+                const paymentsSnapshot = await dbFirestore.collection("approvisionnement").doc(appro.id).collection("payments").orderBy("date", "desc").get();
+                paymentsSnapshot.forEach(paymentDoc => {
+                    const paymentData = paymentDoc.data();
+                    const paymentTimestamp = paymentData.date?.toDate ? paymentData.date.toDate() : (paymentData.date ? new Date(paymentData.date) : new Date());
+                    allPaymentsList.push({
+                        date: paymentTimestamp,
+                        amount: parseFloat(paymentData.amount || 0),
+                        account: paymentData.account || 'N/A',
+                        procurementDate: appro.timestamp?.toDate ? appro.timestamp.toDate() : new Date(appro.timestamp)
+                    });
                 });
-                const selectedTabContent = document.getElementById(`supplierDebt${event.detail.value.charAt(0).toUpperCase() + event.detail.value.slice(1)}Content`);
-                if (selectedTabContent) {
-                    selectedTabContent.style.display = 'block';
-                    selectedTabContent.classList.add('active');
-                }
-            };
-            tabs.addEventListener('ionChange', tabs.listenerFunction);
-            tabs.listenerAttached = true;
+            }
         }
-
-        // Réinitialiser à l'onglet "Détails" par défaut
-        tabs.value = 'details';
-        // Simuler un événement de changement pour afficher le bon contenu
-        tabs.dispatchEvent(new CustomEvent('ionChange', { detail: { value: 'details' } }));
-        lucide.createIcons();
     }
 
+    if (allPaymentsList.length > 0) {
+        allPaymentsList.sort((a, b) => b.date.getTime() - a.date.getTime()); // Sort most recent first
 
-    /**
-     * Enregistre un paiement pour la dette actuelle du fournisseur.
-     * Cette fonction sera appelée lorsque le formulaire "Enregistrer un Paiement" est soumis.
-     */
-    async function recordSupplierPayment() {
-        if (!currentDetailedSupplierData || !currentDetailedSupplierData.procurements) {
-            alert("Aucune dette fournisseur sélectionnée pour enregistrer le paiement.");
-            return;
+        let paymentsHtml = '';
+        allPaymentsList.forEach(p => {
+            paymentsHtml += `<li>
+                ${p.date.toLocaleString('fr-FR', { day: '2-digit', month: 'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}: 
+                <strong>${p.amount.toLocaleString('fr-FR')} FCFA</strong> 
+                (Compte: ${p.account}) 
+                <small>- Appliqué à l'achat du ${p.procurementDate.toLocaleDateString('fr-FR')}</small>
+            </li>`;
+        });
+        paymentsHistoryList.innerHTML = paymentsHtml;
+    } else {
+        paymentsHistoryList.innerHTML = '<li>Aucun paiement enregistré pour ce fournisseur.</li>';
+    }
+    
+    remplirTousSelectComptes(paymentAccountSelect);
+    document.getElementById('paymentAmountSupplierDebt').value = ''; 
+
+    // Comments Tab (Placeholder)
+    document.getElementById('supplierCommentsText').textContent = 'Aucun commentaire pour l\'instant.';
+
+    // Tab Management
+    const tabs = document.getElementById('supplier-debt-tabs');
+    if (tabs) {
+        // Remove existing listener if any, to prevent multiple attachments
+        if (tabs.listenerFunction) {
+            tabs.removeEventListener('ionChange', tabs.listenerFunction);
         }
-
-        const paymentAmount = parseFloat(document.getElementById('paymentAmountSupplierDebt').value);
-        const paymentAccount = document.getElementById('paymentAccountSupplierDebt').value;
-
-        if (isNaN(paymentAmount) || paymentAmount <= 0) {
-            alert("Veuillez entrer un montant de paiement valide.");
-            return;
-        }
-        if (!paymentAccount) {
-            alert("Veuillez sélectionner le compte de paiement.");
-            return;
-        }
-
-        showSaleLoader(); // Affiche le loader
-
-        try {
-            let remainingToPay = paymentAmount;
-            const now = firebase.firestore.FieldValue.serverTimestamp();
-
-            // Parcourir les approvisionnements à crédit les plus anciens en premier pour les payer
-            const procurementsToPay = [...currentDetailedSupplierData.procurements].sort((a, b) =>
-                (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0)
-            );
-
-            for (const appro of procurementsToPay) {
-                if (remainingToPay <= 0) break; // Plus rien à payer
-
-                const approRef = dbFirestore.collection("approvisionnement").doc(appro.id);
-                const approDoc = await approRef.get();
-                const approData = approDoc.data();
-
-                const outstandingOnThisAppro = parseFloat(approData.remainingAmount || 0);
-
-                if (outstandingOnThisAppro > 0) {
-                    const amountForThisAppro = Math.min(remainingToPay, outstandingOnThisAppro);
-                    const newRemainingForAppro = outstandingOnThisAppro - amountForThisAppro;
-                    const newIsPaidForAppro = newRemainingForAppro <= 0;
-
-                    // Mettre à jour l'approvisionnement
-                    await approRef.update({
-                        remainingAmount: newRemainingForAppro,
-                        isPaid: newIsPaidForAppro
-                    });
-
-                    // Enregistrer le paiement dans la sous-collection 'payments' de l'approvisionnement
-                    await approRef.collection("payments").add({
-                        amount: amountForThisAppro,
-                        date: now,
-                        account: paymentAccount,
-                        refApproId: appro.id // Lien vers l'approvisionnement parent
-                    });
-
-                    remainingToPay -= amountForThisAppro;
-                }
+        tabs.listenerFunction = (event) => {
+            document.querySelectorAll('#screen-fournisseur-credit-detail .tab-content').forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+            const selectedTabValue = event.detail.value;
+            let contentId;
+            if (selectedTabValue === 'details') contentId = 'supplierDebtDetailsContent';
+            else if (selectedTabValue === 'purchases') contentId = 'supplierDebtPurchasesContent';
+            else if (selectedTabValue === 'payments') contentId = 'supplierDebtPaymentsContent';
+            else if (selectedTabValue === 'comments') contentId = 'supplierDebtCommentsContent';
+            
+            const selectedTabContent = document.getElementById(contentId);
+            if (selectedTabContent) {
+                selectedTabContent.style.display = 'block';
+                selectedTabContent.classList.add('active');
             }
+        };
+        tabs.addEventListener('ionChange', tabs.listenerFunction);
+        tabs.listenerAttached = true; // Mark that a listener is attached
 
-            // Enregistrer le mouvement de trésorerie général
-            await enregistrerMouvementTresorerie({
-                compteId: paymentAccount,
-                type: 'paiement_fournisseur_dette',
-                sens: 'out',
-                montant: paymentAmount,
-                description: `Paiement dette fournisseur ${currentDetailedSupplierData.name}`
+        // Set default tab and trigger change
+        if (tabs.value !== 'details') { // Only set if not already details to avoid redundant trigger
+             tabs.value = 'details';
+        }
+        // Manually trigger the display for the default tab
+        tabs.listenerFunction({ detail: { value: tabs.value } });
+    }
+    lucide.createIcons();
+}
+    async function recordSupplierPayment() {
+    if (!currentDetailedSupplierData || !currentDetailedSupplierData.procurements) {
+        alert("Aucune dette fournisseur sélectionnée ou détails des achats manquants.");
+        return;
+    }
+
+    const paymentAmount = parseFloat(document.getElementById('paymentAmountSupplierDebt').value);
+    const paymentAccount = document.getElementById('paymentAccountSupplierDebt').value;
+
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        alert("Veuillez entrer un montant de paiement valide.");
+        return;
+    }
+    if (!paymentAccount) {
+        alert("Veuillez sélectionner le compte de paiement.");
+        return;
+    }
+
+    showSaleLoader(); 
+
+    try {
+        let remainingToPayGlobally = paymentAmount;
+        const nowForPayments = firebase.firestore.Timestamp.now(); // Use a single timestamp for all payment records in this batch
+
+        // Sort procurements: oldest first, and among those with same timestamp, those with smaller remaining amount first (to clear smaller debts)
+        const procurementsToPay = [...currentDetailedSupplierData.procurements]
+            .filter(p => p.paymentMethod === 'credit' && parseFloat(p.remainingAmount || 0) > 0) // Only pay outstanding credit purchases
+            .sort((a, b) => {
+                const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (new Date(a.timestamp).getTime() || 0);
+                const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (new Date(b.timestamp).getTime() || 0);
+                if (dateA !== dateB) return dateA - dateB; // Oldest timestamp first
+                return (parseFloat(a.remainingAmount || 0)) - (parseFloat(b.remainingAmount || 0)); // Smaller remaining amount first
             });
 
-            // Mettre à jour le solde global du fournisseur (dans son objet de données principal)
-            const newTotalDue = parseFloat(currentDetailedSupplierData.totalDue || 0) - paymentAmount;
-            currentDetailedSupplierData.totalDue = Math.max(0, newTotalDue);
-
-            // Recharger l'affichage des dettes fournisseurs pour refléter les changements
-            chargerApprovisionnements('credit'); // Actualise la liste des dettes
-            showSupplierDebtDetailsPage(currentDetailedSupplierData); // Actualise l'écran de détail actuel
-            updateBalanceDisplay(); // Met à jour la trésorerie
-
-            alert("Paiement enregistré avec succès !");
-            document.getElementById('paymentAmountSupplierDebt').value = ''; // Réinitialise le champ montant
-
-        } catch (error) {
-            console.error("Erreur lors de l'enregistrement du paiement fournisseur :", error);
-            alert("Erreur lors de l'enregistrement du paiement : " + error.message);
-        } finally {
-            hideSaleLoader(); // Cache le loader
+        if (procurementsToPay.length === 0 && paymentAmount > 0) {
+            alert("Ce fournisseur n'a aucune dette à crédit en cours. Paiement non applicable.");
+            hideSaleLoader();
+            return;
         }
+
+
+        const batch = dbFirestore.batch();
+
+        for (const appro of procurementsToPay) {
+            if (remainingToPayGlobally <= 0) break; 
+
+            const approRef = dbFirestore.collection("approvisionnement").doc(appro.id);
+            // Note: In a batched write, we operate on the assumption of current data.
+            // For critical consistency, one might fetch within a transaction, but batch is usually for optimistic updates.
+            // Here, we use the `appro.remainingAmount` from the `currentDetailedSupplierData` which was recently fetched/updated.
+
+            const outstandingOnThisAppro = parseFloat(appro.remainingAmount || 0);
+            if (outstandingOnThisAppro > 0) {
+                const amountForThisAppro = Math.min(remainingToPayGlobally, outstandingOnThisAppro);
+                const newRemainingForAppro = outstandingOnThisAppro - amountForThisAppro;
+                const newIsPaidForAppro = newRemainingForAppro <= 0;
+
+                batch.update(approRef, {
+                    remainingAmount: newRemainingForAppro,
+                    isPaid: newIsPaidForAppro
+                });
+
+                const paymentRecordRef = approRef.collection("payments").doc();
+                batch.set(paymentRecordRef, {
+                    amount: amountForThisAppro,
+                    date: nowForPayments, // Consistent timestamp
+                    account: paymentAccount,
+                    refApproId: appro.id 
+                });
+                
+                // Update local data for UI refresh
+                appro.remainingAmount = newRemainingForAppro;
+                appro.isPaid = newIsPaidForAppro;
+
+                remainingToPayGlobally -= amountForThisAppro;
+            }
+        }
+        
+        await batch.commit(); // Commit all batched writes
+
+        // Record the overall cash movement from the selected account
+        await enregistrerMouvementTresorerie({
+            compteId: paymentAccount,
+            type: 'paiement_fournisseur_dette',
+            sens: 'out',
+            montant: paymentAmount - remainingToPayGlobally, // Actual amount paid out
+            description: `Paiement dette fournisseur ${currentDetailedSupplierData.name}`
+        });
+        
+        // Update the supplier's total due locally for UI refresh
+        currentDetailedSupplierData.totalDue = Math.max(0, parseFloat(currentDetailedSupplierData.totalDue || 0) - (paymentAmount - remainingToPayGlobally));
+
+        if (remainingToPayGlobally > 0) {
+             alert(`Paiement de ${(paymentAmount - remainingToPayGlobally).toLocaleString('fr-FR')} FCFA enregistré. Il restait ${remainingToPayGlobally.toLocaleString('fr-FR')} FCFA du paiement qui n'a pas pu être alloué (dettes soldées).`);
+        } else {
+            alert("Paiement enregistré avec succès !");
+        }
+        
+        document.getElementById('paymentAmountSupplierDebt').value = ''; 
+        
+        // Refresh UI
+        // Option 1: Full refresh of supplier list and then detail page (safer for data consistency)
+        await chargerApprovisionnements('credit'); // This will update the main list
+        // We need to ensure currentDetailedSupplierData is fully up-to-date before calling showSupplierDebtDetailsPage
+        // The best way is to re-fetch the specific supplier's aggregated data if chargerApprovisionnements doesn't return it
+        // For now, we rely on local updates to currentDetailedSupplierData and then refresh the detail page.
+        showSupplierDebtDetailsPage(currentDetailedSupplierData);
+
+
+        updateBalanceDisplay(); 
+
+    } catch (error) {
+        console.error("Erreur lors de l'enregistrement du paiement fournisseur :", error);
+        alert("Erreur lors de l'enregistrement du paiement : " + error.message);
+    } finally {
+        hideSaleLoader(); 
     }
+}
+
   </script>
 </section>
 
@@ -5521,62 +5645,46 @@ function retirerApproItem(index) {
   updatePanierApprovisionnement(); // Rafraîchit l'affichage après suppression
 }
 
-  // Fonction de finalisation de l’approvisionnement, qui propage la catégorie au stock
-// Modified finaliserApprovisionnement function
-async function finaliserApprovisionnement() {
+ async function finaliserApprovisionnement() {
   if (currentApproItems.length === 0) {
     alert("Le panier d'approvisionnement est vide.");
     return;
   }
 
-  const fournisseur = currentApproItems[0].fournisseur; // Suppose tous les articles proviennent du même fournisseur
-  
-  // totalCostFromSupplier: C'est le montant total *dû au fournisseur*, SANS les frais de transport.
+  const fournisseur = currentApproItems[0].fournisseur; 
   const totalCostFromSupplier = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
-  
   const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
-  const compteId = document.getElementById("compteSelectAppro").value; // Compte pour le paiement au fournisseur
-  
-  // Frais de transport saisis par l'utilisateur
+  const compteId = document.getElementById("compteSelectAppro").value; 
   const fraisTransport = parseFloat(document.getElementById("fraisTransportAppro").value) || 0; 
 
-  // Vérification de la sélection du mode de paiement au fournisseur
   if (!paymentMethod) {
     alert("Veuillez sélectionner un mode de paiement au fournisseur.");
     return;
   }
-
-  // Vérification du compte si paiement en cash au fournisseur
   if (paymentMethod === 'cash' && !compteId) {
     alert("Veuillez sélectionner un compte de trésorerie pour le paiement au fournisseur.");
     return;
   }
 
-  // Afficher le loader pour indiquer que des opérations sont en cours
   showSaleLoader();
 
   try {
-    const batch = dbFirestore.batch(); // Utilisation d'un batch pour les opérations atomiques
+    const batch = dbFirestore.batch(); 
     const now = new Date();
+    const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
 
-    // Calcul du coût total des articles du panier AVANT frais de transport.
-    // Utilisé pour la répartition proportionnelle des frais de transport.
     let totalCostOfAllItemsBeforeTransport = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
     
-    // --- Phase 1: Mise à jour du stock pour chaque article ---
     const stockUpdatePromises = currentApproItems.map(item => {
-        // Calcul du coût unitaire ajusté (prix d'achat fournisseur + part des frais de transport)
         let adjustedPrixAchat = parseFloat(item.prixAchat);
         if (totalCostOfAllItemsBeforeTransport > 0 && fraisTransport > 0) {
-            // Calcul de la part proportionnelle des frais de transport pour cet article
             const itemShareOfTransport = (parseFloat(item.coutTotal) / totalCostOfAllItemsBeforeTransport) * fraisTransport;
             adjustedPrixAchat = parseFloat(item.prixAchat) + (itemShareOfTransport / item.quantite);
         }
-
         return dbFirestore.collection("stock").where("name", "==", item.produit).get().then(snapshot => ({
             item,
             snapshot,
-            adjustedPrixAchat // Passage du prix ajusté pour la suite du processus
+            adjustedPrixAchat 
         }));
     });
 
@@ -5585,149 +5693,116 @@ async function finaliserApprovisionnement() {
     for (const { item, snapshot, adjustedPrixAchat } of stockDocs) {
       let stockDocRef;
       let newStock;
-
       if (snapshot.empty) {
-        // L'article n'existe pas encore dans le stock, on le crée
         stockDocRef = dbFirestore.collection("stock").doc();
         newStock = item.quantite;
-        const icon = item.category === "accessoires" ? "🎧" : "📱"; // Déterminer l'icône
+        const icon = item.category === "accessoires" ? "🎧" : "📱"; 
         batch.set(stockDocRef, {
           name: item.produit,
           category: item.category,
           stock: newStock,
-          price: adjustedPrixAchat, // Stocke le prix AJUSTÉ comme coût moyen initial
+          price: adjustedPrixAchat, 
           icon: icon,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          createdAt: serverTimestamp
         });
       } else {
-        // L'article existe déjà, on met à jour le stock et le prix moyen pondéré
         stockDocRef = snapshot.docs[0].ref;
         const stockData = snapshot.docs[0].data();
         const oldStock = stockData.stock || 0;
-        const oldPrice = stockData.price || 0; // Ancien prix d'achat moyen (dans le stock)
-
+        const oldPrice = stockData.price || 0; 
         newStock = oldStock + item.quantite;
-        // Recalcul du prix moyen pondéré : (ancien stock * ancien prix) + (nouvelle qté * nouveau prix ajusté) / nouveau stock total
-        const newAveragePrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * adjustedPrixAchat)) / newStock : 0;
-
+        const newAveragePrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * adjustedPrixAchat)) / newStock : adjustedPrixAchat;
         batch.update(stockDocRef, {
           stock: newStock,
-          price: newAveragePrice // Stocke le nouveau prix moyen pondéré
+          price: newAveragePrice 
         });
       }
-
-      // Enregistrement de l'historique de mouvement de stock (pour le suivi)
       const historyRef = stockDocRef.collection("history").doc();
       batch.set(historyRef, {
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        timestamp: serverTimestamp,
         change: +item.quantite,
         newStock: newStock,
         type: 'approvisionnement'
       });
-
-      // Gestion des IMEI pour les téléphones (si applicable)
       if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
         item.imeis.forEach(imei => {
           const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
-          batch.set(imeiDocRef, {
-            status: "disponible",
-            dateEntree: now
-          });
+          batch.set(imeiDocRef, { status: "disponible", dateEntree: serverTimestamp });
         });
       }
     }
 
-    // --- Phase 2: Enregistrement de la transaction d'approvisionnement (côté fournisseur) ---
     const approRef = dbFirestore.collection("approvisionnement").doc();
     batch.set(approRef, {
       fournisseur,
-      items: currentApproItems, // Les articles ici conservent leur prix d'achat initial du fournisseur
-       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      items: currentApproItems, 
+      timestamp: serverTimestamp,
       paymentMethod: paymentMethod,
-      isPaid: paymentMethod === 'cash', // Marqué payé si paiement immédiat
-      remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0, // Montant restant à payer au fournisseur
-      totalCost: totalCostFromSupplier // Coût total DÛ AU FOURNISSEUR
+      isPaid: paymentMethod === 'cash', // THIS IS KEY
+      remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0, // THIS IS KEY
+      totalCost: totalCostFromSupplier 
     });
 
-    // --- Phase 3: Enregistrement du paiement au fournisseur (si "cash") ---
     if (paymentMethod === 'cash') {
-      const depenseSupplierRef = dbFirestore.collection("depenses").doc();
-      batch.set(depenseSupplierRef, {
-        montant: totalCostFromSupplier,
-        description: `Approvisionnement ${fournisseur} (Cash)`,
-        type: "depense_appro_fournisseur", // Type spécifique pour le paiement fournisseur
-        timestamp: now.getTime(),
-        date: now.toISOString(),
-        dateString: now.toLocaleDateString("fr-FR")
-      });
-
-      // Mouvement de trésorerie pour le paiement au fournisseur
+      // No need to create a separate "depenses" doc for supplier payment if using enregistrerMouvementTresorerie
+      // enregistrerMouvementTresorerie handles the cash outflow.
       await enregistrerMouvementTresorerie({
-        compteId: compteId, // Utilise le compte sélectionné par l'utilisateur
-        type: 'paiement_fournisseur', // Type spécifique pour le mouvement de trésorerie
+        compteId: compteId,
+        type: 'paiement_fournisseur', 
         sens: 'out',
         montant: totalCostFromSupplier,
-        description: `Paiement approvisionnement ${fournisseur}`
+        description: `Paiement approvisionnement ${fournisseur} (Cash direct)`,
+        refId: approRef.id // Link to the procurement document
       });
     }
 
-    // --- Phase 4: Enregistrement des frais de transport (toujours depuis la caisse) ---
     if (fraisTransport > 0) {
-        const depenseTransportRef = dbFirestore.collection("depenses").doc();
-        batch.set(depenseTransportRef, {
-            montant: fraisTransport,
-            description: `Frais de transport pour approvisionnement ${fournisseur}`,
-            type: "depense fonctionnelle", 
-            timestamp: now.getTime(),
-            date: now.toISOString(),
-            dateString: now.toLocaleDateString("fr-FR")
-        });
-
-        // Mouvement de trésorerie pour les frais de transport (toujours de la caisse)
+        // Frais de transport are always an expense from 'caisse'
         await enregistrerMouvementTresorerie({
-            compteId: 'caisse', // Toujours payé de la 'caisse' comme spécifié
-            type: 'frais_transport', // Type spécifique pour le mouvement de trésorerie
+            compteId: 'caisse', 
+            type: 'frais_transport_appro', 
             sens: 'out',
             montant: fraisTransport,
-            description: `Frais de transport approvisionnement ${fournisseur}`
+            description: `Frais transport achat ${fournisseur}`,
+            refId: approRef.id
         });
+        // Log for depenses history if needed (enregistrerMouvementTresorerie might handle this already depending on its internal logic)
+         const depenseTransportRef = dbFirestore.collection("depenses").doc();
+         batch.set(depenseTransportRef, { // Add to batch or call directly if not part of main transaction logic
+             montant: fraisTransport,
+             description: `Frais transport achat ${fournisseur}`,
+             type: "depense fonctionnelle", 
+             timestamp: now.getTime(), // Use consistent JS Date timestamp for depenses if needed
+             date: now.toISOString(),
+             dateString: now.toLocaleDateString("fr-FR"),
+             compteId: 'caisse', // Record which account paid
+             refId: approRef.id
+         });
     }
 
-    // Exécuter toutes les opérations du batch de manière atomique
     await batch.commit();
 
-    // Message de succès final
     alert(`Approvisionnement enregistré avec succès !
            Montant fournisseur: ${totalCostFromSupplier.toLocaleString('fr-FR')} FCFA.
            Frais de transport: ${fraisTransport.toLocaleString('fr-FR')} FCFA.`);
 
   } catch (error) {
     console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
-    alert("Une erreur est survenue lors de l'enregistrement de l'achat : " + error.message);
+    alert("Une erreur est survenue : " + error.message);
   } finally {
-    // Réinitialisation de l'interface et du panier, quel que soit le résultat
     currentApproItems = [];
-    updatePanierApprovisionnement(); // Cela videra le panier affiché
+    updatePanierApprovisionnement(); 
     document.getElementById("fournisseurAppro").value = "";
-    document.getElementById("paymentMethodApproBasket").value = "";
-    document.getElementById("fraisTransportAppro").value = "0"; // Réinitialise les frais de transport
-    togglePaymentAccount(); // Réapplique la visibilité par défaut des comptes
-    chargerApprovisionnements(); // Recharge l'historique des approvisionnements
-    updateStockSummary(); // Met à jour le résumé du stock
-    updateBalanceDisplay(); // Met à jour l'affichage de la trésorerie
-    hideSaleLoader(); // Cache le loader
+    document.getElementById("paymentMethodApproBasket").value = ""; // Reset dropdown
+    document.getElementById("compteSelectAppro").value = ""; // Reset account selection
+    document.getElementById("fraisTransportAppro").value = ""; 
+    togglePaymentAccount(); 
+    chargerApprovisionnements(); 
+    updateStockSummary(); 
+    updateBalanceDisplay(); 
+    hideSaleLoader(); 
   }
 }
-
-
-  
-// Initial call to set up the correct visibility when the page loads or hash changes to 'approvisionnement'
-window.addEventListener('hashchange', () => {
-    if (window.location.hash === '#approvisionnement') {
-        togglePaymentAccount(); // Set initial state
-    }
-});
-window.addEventListener('load', togglePaymentAccount); // Also on initial page load
 
 
 // Function to record a payment for a credit purchase (Placeholder)
