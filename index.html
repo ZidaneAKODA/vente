@@ -3081,6 +3081,13 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 const dateAppro = jsDate.toLocaleString("fr-FR", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 totalPurchasesForDate += parseFloat(appro.totalCost || 0);
 
+                // Ajout du coût de transport à afficher
+                const fraisTransport = parseFloat(appro.fraisTransport || 0); // Récupère les frais de transport
+                let fraisTransportDisplay = '';
+                if (fraisTransport > 0) {
+                    fraisTransportDisplay = `<p class="item-line">Frais transport: <strong>${fraisTransport.toLocaleString('fr-FR')} FCFA</strong></p>`;
+                }
+
                 let paymentStatusText = 'PAYÉ'; // Default for cash or fully paid credit
                 let statusClass = 'status-paid';
                 let amountColor = '#3880ff'; // Blue for paid
@@ -3105,7 +3112,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 const avatarBgColor = getAvatarColor(supplierName);
                 let itemListHTML = '';
                 if (appro.items && Array.isArray(appro.items)) {
-                    const itemsToDisplay = appro.items.slice(0, 2); 
+                    const itemsToDisplay = appro.items.slice(0, 2);
                     itemsToDisplay.forEach(item => {
                         const itemName = item.produit || 'Article inconnu';
                         itemListHTML += `<p class="item-line">${item.quantite} x ${itemName} - ${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')} FCFA</p>`;
@@ -3131,7 +3138,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                             <div class="supplier-name">${supplierName}</div>
                             <div class="purchase-date">${dateAppro}</div>
                             <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
-                            ${remainingAmountDisplay} 
+                            ${fraisTransportDisplay} ${remainingAmountDisplay}
                         </div>
                         <div class="right-info">
                             <div class="total-amount" style="color: ${amountColor};">XOF ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')}</div>
@@ -5740,7 +5747,8 @@ function retirerApproItem(index) {
       paymentMethod: paymentMethod,
       isPaid: paymentMethod === 'cash', // THIS IS KEY
       remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0, // THIS IS KEY
-      totalCost: totalCostFromSupplier 
+      totalCost: totalCostFromSupplier ,
+      fraisTransport: fraisTransport // <-- AJOUTE CETTE LIGNE
     });
 
     if (paymentMethod === 'cash') {
