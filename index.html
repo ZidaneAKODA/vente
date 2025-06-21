@@ -3247,6 +3247,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <ion-button>
         <ion-icon slot="icon-only" name="pencil-outline"></ion-icon>
       </ion-button>
+      <ion-button onclick="generateSupplierCreditPDF()">
+        <ion-icon slot="icon-only" name="download-outline"></ion-icon>
+      </ion-button>
       <ion-button>
         <ion-icon slot="icon-only" name="mail-outline"></ion-icon>
       </ion-button>
@@ -3915,6 +3918,181 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
         hideSaleLoader(); 
     }
+}
+
+async function generateSupplierCreditPDF() {
+    if (!currentDetailedSupplierData) {
+        showToast("Aucun détail de fournisseur n'est chargé.", "error");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'pt', 'a4');
+
+    const supplierName = currentDetailedSupplierData.name || 'Fournisseur Inconnu';
+    const totalDue = parseFloat(currentDetailedSupplierData.totalDue || 0);
+
+    let yOffset = 40;
+
+    // Header: Company Info (assuming you want to reuse your company's header)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("AFRICA PHONE", 40, yOffset);
+    yOffset += 15;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("RB/ABC/24 B 8356", 40, yOffset); yOffset += 13;
+    doc.text("N° Ifu: 3202413299289", 40, yOffset); yOffset += 13;
+    doc.text("Ilot: 168, Agori, Abomey-Calavi, Bénin", 40, yOffset); yOffset += 13;
+    doc.text("E-mail: africaphone24@gmail.com", 40, yOffset); yOffset += 13;
+    doc.text("+229 54 15 15 22", 40, yOffset); yOffset += 20;
+
+    // Title: Point de Crédit Fournisseur
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("POINT DE CRÉDIT FOURNISSEUR", doc.internal.pageSize.getWidth() / 2, yOffset, { align: 'center' });
+    yOffset += 30;
+
+    // Supplier and Debt Summary
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Fournisseur : ${supplierName}`, 40, yOffset); yOffset += 15;
+    doc.text(`Date du rapport : ${new Date().toLocaleDateString('fr-FR')}`, 40, yOffset); yOffset += 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`Montant total dû : ${totalDue.toLocaleString('fr-FR')} FCFA`, 40, yOffset);
+    yOffset += 30;
+
+    // --- Section Achats Liés ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Achats à Crédit Liés", 40, yOffset);
+    yOffset += 15;
+
+    const purchaseColumns = ["Date Achat", "Articles", "Coût Initial", "Montant Restant"];
+    const purchaseRows = [];
+
+    let totalOriginalCost = 0;
+    const sortedPurchases = [...currentDetailedSupplierData.procurements || []].sort((a, b) => {
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (new Date(a.timestamp).getTime() || 0);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (new Date(b.timestamp).getTime() || 0);
+        return dateA - dateB; // Oldest first
+    });
+
+    sortedPurchases.forEach(appro => {
+        const approDate = appro.timestamp?.toDate ? appro.timestamp.toDate().toLocaleDateString('fr-FR') : 'N/A';
+        const itemsSummary = (appro.items || []).map(it => `${it.produit} (${it.quantite})`).join(', ');
+        const initialCost = parseFloat(appro.totalCost || 0);
+        const remaining = parseFloat(appro.remainingAmount || 0);
+
+        purchaseRows.push([
+            approDate,
+            itemsSummary,
+            `${initialCost.toLocaleString('fr-FR')} FCFA`,
+            `${remaining.toLocaleString('fr-FR')} FCFA`
+        ]);
+        totalOriginalCost += initialCost;
+    });
+
+    if (purchaseRows.length === 0) {
+        purchaseRows.push(["Aucun achat à crédit enregistré.", "", "", ""]);
+    }
+
+    doc.autoTable({
+        startY: yOffset,
+        head: [purchaseColumns],
+        body: purchaseRows,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 96, 100], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 5 },
+        columnStyles: {
+            0: { cellWidth: 70 }, // Date Achat
+            1: { cellWidth: 220 }, // Articles
+            2: { cellWidth: 80, halign: 'right' }, // Coût Initial
+            3: { cellWidth: 80, halign: 'right' }  // Montant Restant
+        },
+        margin: { left: 40, right: 40 }
+    });
+
+    yOffset = doc.lastAutoTable.finalY + 20;
+
+    // Total original des achats
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`Total initial des achats à crédit : ${totalOriginalCost.toLocaleString('fr-FR')} FCFA`, 40, yOffset);
+    yOffset += 20;
+
+    // --- Section Historique des Paiements ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Historique des Paiements", 40, yOffset);
+    yOffset += 15;
+
+    const paymentColumns = ["Date Paiement", "Montant Payé", "Compte"];
+    const paymentRows = [];
+    let totalPaid = 0;
+
+    // Fetch payments for each procurement
+    let allPayments = [];
+    for (const appro of sortedPurchases) {
+        if (appro.id) {
+            const paymentsSnapshot = await dbFirestore.collection("approvisionnement").doc(appro.id).collection("payments").orderBy("date", "desc").get();
+            paymentsSnapshot.forEach(paymentDoc => {
+                const pData = paymentDoc.data();
+                const paymentDate = pData.date?.toDate ? pData.date.toDate() : new Date(pData.date);
+                allPayments.push({
+                    date: paymentDate,
+                    amount: parseFloat(pData.amount || 0),
+                    account: pData.account || 'N/A',
+                    refApproDate: appro.timestamp?.toDate ? appro.timestamp.toDate().toLocaleDateString('fr-FR') : 'N/A' // Link to the purchase date
+                });
+            });
+        }
+    }
+
+    allPayments.sort((a, b) => a.date.getTime() - b.date.getTime()); // Oldest payment first
+
+    allPayments.forEach(payment => {
+        paymentRows.push([
+            `${payment.date.toLocaleDateString('fr-FR')} (${payment.date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})})`,
+            `${payment.amount.toLocaleString('fr-FR')} FCFA`,
+            `${payment.account} (pour achat du ${payment.refApproDate})`
+        ]);
+        totalPaid += payment.amount;
+    });
+
+    if (paymentRows.length === 0) {
+        paymentRows.push(["Aucun paiement enregistré.", "", ""]);
+    }
+
+    doc.autoTable({
+        startY: yOffset,
+        head: [paymentColumns],
+        body: paymentRows,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 96, 100], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 5 },
+        columnStyles: {
+            0: { cellWidth: 120 }, // Date Paiement
+            1: { cellWidth: 80, halign: 'right' }, // Montant Payé
+            2: { cellWidth: 'auto' } // Compte
+        },
+        margin: { left: 40, right: 40 }
+    });
+
+    yOffset = doc.lastAutoTable.finalY + 20;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`Total des paiements effectués : ${totalPaid.toLocaleString('fr-FR')} FCFA`, 40, yOffset);
+    yOffset += 15;
+    doc.text(`Solde restant dû : ${totalDue.toLocaleString('fr-FR')} FCFA`, 40, yOffset);
+
+    // Footer (optional, e.g., signature space)
+    // Add more content if needed, check doc.internal.pageSize.height and addPage()
+
+    doc.save(`Point_Credit_${supplierName.replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    showToast('Point de crédit fournisseur généré avec succès.');
 }
 
   </script>
