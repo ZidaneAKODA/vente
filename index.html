@@ -9511,492 +9511,261 @@ function fmt(x){
 }
 
 
-function exportDailyReportPDF () {
+function exportDailyReportPDF() {
 
-/* ── 1) Choix de la date ─────────────────────────────────── */
-const saisie = prompt(
-  "Date du rapport (AAAA-MM-JJ) :",
-  new Date().toISOString().slice(0, 10)
-);
-if (!saisie) return;
-const jsDate = new Date(saisie);
-if (isNaN(jsDate)) { alert("Date invalide !"); return; }
+  /* ── 1) Choix de la date ─────────────────────────────────── */
+  const saisie = prompt(
+    "Date du rapport (AAAA-MM-JJ) :",
+    new Date().toISOString().slice(0, 10)
+  );
+  if (!saisie) return;
 
-const startOfDay = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate()).getTime();
-const endOfDay   = startOfDay + 86_399_999;
+  // On s'assure que la date est bien interprétée en ajoutant l'heure
+  const jsDate = new Date(saisie + 'T00:00:00');
+  if (isNaN(jsDate.getTime())) {
+    alert("Date invalide !");
+    return;
+  }
 
-/* ── 2) VENTES : CA + Profit + Téléphones vendus ─────────── */
-const ventesP = dbFirestore.collection("ventes")
-  .where("dateVente", "==", saisie.split("-").reverse().join("/"))
-  .get()
-  .then(snap => {
-    let qty = 0, ca = 0, profit = 0;
-let soldPhonesQty = 0, soldPhonesVal = 0;
-let soldAccQty    = 0, soldAccVal    = 0;
-let soldPhonesCAMV = 0; 
+  // --- Définition des bornes temporelles pour les requêtes ---
+  const startOfDayMillis = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 0, 0, 0, 0).getTime();
+  const endOfDayMillis = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 23, 59, 59, 999).getTime();
+  
+  // Objets Timestamp pour les collections qui utilisent le format Firestore (ventes, approvisionnement)
+  const startOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(startOfDayMillis);
+  const endOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(endOfDayMillis);
 
-const phoneRows = [];
-const accRows   = [];
+  // Variable pour le format de date DD/MM/YYYY utilisé dans certains anciens documents
+  const dateFR = jsDate.toLocaleDateString("fr-FR");
 
-snap.forEach(doc => {
-  const v = doc.data();
-  profit += parseFloat(v.totalProfit) || 0;
-  v.items.forEach(item => {
-    const total = parseFloat(item.total) || 0;
-    qty += item.quantite;
-    ca  += total;
+  /* ── 2) VENTES : CA + Profit + Téléphones vendus ─────────── */
+  const ventesP = dbFirestore.collection("ventes")
+    .where("timestamp", ">=", startOfDayTimestamp)
+    .where("timestamp", "<=", endOfDayTimestamp)
+    .get()
+    .then(snap => {
+      let qty = 0, ca = 0, profit = 0;
+      let soldPhonesQty = 0, soldPhonesVal = 0;
+      let soldAccQty = 0, soldAccVal = 0;
+      let soldPhonesCAMV = 0;
 
-    if (isPhone(item)) {
-      // Téléphones
-      phoneRows.push([
-        item.produit,
-        fmt(item.prix),
-        item.quantite.toString(),
-        fmt(total) + " FCFA"
-      ]);
-      soldPhonesQty += item.quantite;
-      soldPhonesVal += total;
-      soldPhonesCAMV += item.quantite * (item.coutAchat || 0);   // <-- AJOUT
-    } else {
-      // Accessoires
-      accRows.push([
-        item.produit,
-        fmt(item.prix),
-        item.quantite.toString(),
-        fmt(total) + " FCFA"
-      ]);
-      soldAccQty += item.quantite;
-      soldAccVal += total;
-    }
-  });
-});
+      const phoneRows = [];
+      const accRows = [];
 
-return {
-  phoneRows,
-  accRows,
-  qty,
-  ca,
-  profit,
-  soldPhonesQty,
-  soldPhonesVal,
-  soldAccQty,
-  soldAccVal,
-  soldPhonesCAMV      // <-- AJOUT
-};
+      snap.forEach(doc => {
+        const v = doc.data();
+        profit += parseFloat(v.totalProfit) || 0;
+        v.items.forEach(item => {
+          const total = parseFloat(item.total) || 0;
+          qty += item.quantite;
+          ca += total;
 
-  });
+          if (isPhone(item)) {
+            phoneRows.push([item.produit, fmt(item.prix), item.quantite.toString(), fmt(total) + " FCFA"]);
+            soldPhonesQty += item.quantite;
+            soldPhonesVal += total;
+            soldPhonesCAMV += item.quantite * (item.coutAchat || 0);
+          } else {
+            accRows.push([item.produit, fmt(item.prix), item.quantite.toString(), fmt(total) + " FCFA"]);
+            soldAccQty += item.quantite;
+            soldAccVal += total;
+          }
+        });
+      });
 
-/* ── 3) DÉPENSES ─────────────────────────────────────────── */
-const depensesP = dbFirestore.collection("depenses")
-  .where("timestamp", ">=", startOfDay)
-  .where("timestamp", "<=", endOfDay)
-  .get()
-  .then(snap => {
-    const papa = [], fonc = [];
-    let totPapa = 0, totFonc = 0;
-    snap.forEach(doc => {
-      const d    = doc.data();
-      const desc = d.description || "";
-      const isAppro = desc.toLowerCase().startsWith("approvisionnement");
-      const ligne = [
-        desc,
-        fmt(d.montant)
-      ];
-      if ((d.type || "").toLowerCase() === "papa") {
-        papa.push(ligne);  totPapa += +d.montant;
-      } else if (!isAppro) {
-        fonc.push(ligne);  totFonc += +d.montant;
-      }
+      return { phoneRows, accRows, qty, ca, profit, soldPhonesQty, soldPhonesVal, soldAccQty, soldAccVal, soldPhonesCAMV };
     });
-    return { papa, fonc, totPapa, totFonc };
-  });
 
-/* ── 4) INJECTION (remboursements) ───────────────────────── */
-const injectionP = dbFirestore.collection("remboursements")
-  .where("timestamp", ">=", startOfDay)
-  .where("timestamp", "<=", endOfDay)
-  .get()
-  .then(snap => {
-    let total = 0;
-    snap.forEach(d => total += +d.data().montant);
-    return total;
-  });
-
-// 5) APPROVISIONNEMENTS  ➜  on sépare tout de suite
-const approP = dbFirestore.collection("approvisionnement")
-  .where("timestamp", ">=", startOfDay)
-  .where("timestamp", "<=", endOfDay)
-  .get()
-  .then(snapshot => {
-    const rowsPhones = [];
-    const rowsAcc    = [];
-
-    let totQtyPhones = 0;       // 🆕 total Qté téléphones
-    let totQtyAcc    = 0;       // 🆕 total Qté accessoires
-    let totPhones    = 0;       // FCFA
-    let totAcc       = 0;       // FCFA
-
-    snapshot.forEach(doc => {
-      const h = new Date(doc.data().timestamp).toLocaleTimeString("fr-FR");
-
-      (doc.data().items || []).forEach(it => {
-        const ligne = [
-          it.produit,
-          it.quantite.toString(),
-          fmt(it.prixAchat) + " FCFA",
-          fmt(it.quantite * it.prixAchat) + " FCFA"
-        ];
-
-        if (it.category === "telephones") {
-          rowsPhones.push(ligne);
-          totQtyPhones += it.quantite;                    // 🆕
-          totPhones    += it.quantite * it.prixAchat;
-        } else {
-          rowsAcc.push(ligne);
-          totQtyAcc   += it.quantite;                     // 🆕
-          totAcc      += it.quantite * it.prixAchat;
+  /* ── 3) DÉPENSES (utilise les millisecondes) ────────────────────────── */
+  const depensesP = dbFirestore.collection("depenses")
+    .where("timestamp", ">=", startOfDayMillis)
+    .where("timestamp", "<=", endOfDayMillis)
+    .get()
+    .then(snap => {
+      const papa = [], fonc = [];
+      let totPapa = 0, totFonc = 0;
+      snap.forEach(doc => {
+        const d = doc.data();
+        const desc = d.description || "";
+        const isAppro = desc.toLowerCase().startsWith("approvisionnement");
+        const ligne = [desc, fmt(d.montant)];
+        if ((d.type || "").toLowerCase() === "papa") {
+          papa.push(ligne);
+          totPapa += +d.montant;
+        } else if (!isAppro) {
+          fonc.push(ligne);
+          totFonc += +d.montant;
         }
       });
+      return { papa, fonc, totPapa, totFonc };
     });
 
-    return {
-      phones : { rows: rowsPhones, qty: totQtyPhones, total: totPhones },
-      acc    : { rows: rowsAcc,    qty: totQtyAcc,    total: totAcc    },
-      grandTotal : totPhones + totAcc
-    };
-  });
+  /* ── 4) INJECTION (remboursements, utilise les millisecondes) ────────── */
+  const injectionP = dbFirestore.collection("remboursements")
+    .where("timestamp", ">=", startOfDayMillis)
+    .where("timestamp", "<=", endOfDayMillis)
+    .get()
+    .then(snap => {
+      let total = 0;
+      snap.forEach(d => total += +d.data().montant);
+      return total;
+    });
 
+  // 5) APPROVISIONNEMENTS
+  const approP = dbFirestore.collection("approvisionnement")
+    .where("timestamp", ">=", startOfDayTimestamp)
+    .where("timestamp", "<=", endOfDayTimestamp)
+    .get()
+    .then(snapshot => {
+      const rowsPhones = [], rowsAcc = [];
+      let totQtyPhones = 0, totQtyAcc = 0;
+      let totPhones = 0, totAcc = 0;
 
-/* ── 5bis) APPORT PAPA ───────────────────────────────────── */
-/* ---------- Filtrage sur dateString ---------- */
-const dateFR = jsDate.toLocaleDateString("fr-FR");   // même format que dans Firestore
-
-const papaSupplyP = dbFirestore.collection("apportPapa")
-  .where("dateString", "==", dateFR)
-  .get()
-  .then(snap => {
-    const rows = [];
-    let totalQty = 0;
-    let totalAmount = 0;
-
-    snap.forEach(doc => {
-      (doc.data().items || []).forEach(it => {
-        const lineTotal = it.quantite * it.coutUnitaire;
-        rows.push([
-          it.produit,
-          it.quantite.toString(),
-          fmt(it.coutUnitaire) + " FCFA",
-          fmt(lineTotal) + " FCFA"
-        ]);
-        totalQty    += it.quantite;
-        totalAmount += lineTotal;
+      snapshot.forEach(doc => {
+        (doc.data().items || []).forEach(it => {
+          const ligne = [it.produit, it.quantite.toString(), fmt(it.prixAchat) + " FCFA", fmt(it.quantite * it.prixAchat) + " FCFA"];
+          if (it.category === "telephones") {
+            rowsPhones.push(ligne);
+            totQtyPhones += it.quantite;
+            totPhones += it.quantite * it.prixAchat;
+          } else {
+            rowsAcc.push(ligne);
+            totQtyAcc += it.quantite;
+            totAcc += it.quantite * it.prixAchat;
+          }
+        });
       });
+      return { phones: { rows: rowsPhones, qty: totQtyPhones, total: totPhones }, acc: { rows: rowsAcc, qty: totQtyAcc, total: totAcc }, grandTotal: totPhones + totAcc };
     });
 
-    return { rows, totalQty, totalAmount };
-  });
-
-
-/* ── 6) SOLDE INITIAL (trésorerie) ───────────────────────── */
-const snapshotP = dbFirestore.collection("tresorerieSnapshots")
-  .doc(saisie)
-  .get()
-  .then(snap => snap.exists ? snap.data().openingBalanceGlobal || 0 : 0);
-
-/* ── 7) VALEUR STOCK TÉLÉPHONES (en fin de journée) ──────── */
-const stockPhonesP = dbFirestore.collection("stock")
-  .where("category", "==", "telephones")
-  .get()
-  .then(snap => {
-    let tot = 0;
-    snap.forEach(doc => {
-      const d = doc.data();
-      tot += (parseFloat(d.stock) || 0) * (parseFloat(d.price) || 0);
-    });
-    return tot;
-  });
-
-/* ── 8) DETTE PAPA ───────────────────────────────────────── */
-const papaBalanceP = dbFirestore.collection("depensePapa")
-  .doc("balance")
-  .get()
-  .then(doc => doc.exists ? doc.data().montant || 0 : 0);
-
-/* ── 9) STOCK SNAPSHOT – SOLDE INITIAL TÉLÉPHONES ────────── */
-const openingStockP = dbFirestore.collection("stockSnapshots")
-  .doc(saisie)
-  .get()
-  .then(d => d.exists
-      ? { qty: d.data().openingStock || 0,
-          val: d.data().openingStockValue || 0 }
-      : { qty: 0, val: 0 });
-
-/* ── 10) ACHATS TÉLÉPHONES (jour) ────────────────────────── */
-const achatsPhonesP = dbFirestore.collection("approvisionnement")
-  .where("timestamp", ">=", startOfDay)
-  .where("timestamp", "<=", endOfDay)
-  .get()
-  .then(snap => {
-    let qty = 0, val = 0;
-    snap.forEach(doc => {
-      (doc.data().items || []).forEach(it => {
-        if (it.category === "telephones") {
-          qty += +it.quantite;
-          val += +it.quantite * +it.prixAchat;
-        }
+  /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
+  const papaSupplyP = dbFirestore.collection("apportPapa")
+    .where("dateString", "==", dateFR)
+    .get()
+    .then(snap => {
+      const rows = [];
+      let totalQty = 0, totalAmount = 0;
+      snap.forEach(doc => {
+        (doc.data().items || []).forEach(it => {
+          const lineTotal = it.quantite * it.coutUnitaire;
+          rows.push([it.produit, it.quantite.toString(), fmt(it.coutUnitaire) + " FCFA", fmt(lineTotal) + " FCFA"]);
+          totalQty += it.quantite;
+          totalAmount += lineTotal;
+        });
       });
-    });
-    return { qty, val };
-  });
-
-/* ── 11) GÉNÉRATION PDF ─────────────────────────────────── */
-Promise.all([
-    ventesP,
-    depensesP,
-    injectionP,
-    approP,
-    papaSupplyP,    
-    snapshotP,
-    stockPhonesP,
-    papaBalanceP,
-    openingStockP,
-    achatsPhonesP
-  ])
-  .then(([ventes, deps, injection, appro,papaApport,
-          soldeInitial, valeurStockPhones, dettePapa,
-          openingStock, achatsPhones]) => {
-
-    /* Totaux journaliers */
-    const totalEntrees   = ventes.ca;
-    const totalInjection = injection;
-    const totalDepenses  = deps.totPapa + deps.totFonc;
-    const totalAppro     = appro.grandTotal;
-    const totalProfit    = ventes.profit;
-
-    const soldeFinal     = soldeInitial
-                         + totalEntrees
-                         + totalInjection
-                         - totalDepenses
-                         - totalAppro;
-
-    /* Variation stock téléphones */
-    const closingQty = openingStock.qty
-                + achatsPhones.qty
-                + papaApport.totalQty     // ← ajout
-                - ventes.soldPhonesQty;
-
-const closingVal = openingStock.val
-                + achatsPhones.val
-                + papaApport.totalAmount  // ← ajout
-                - ventes.soldPhonesCAMV;
-
-
-    
-    const valeurBusiness = soldeFinal + closingVal + dettePapa;
-
-    /* === PDF === */
-    const { jsPDF } = window.jspdf;
-    const doc       = new jsPDF({ unit: "pt", format: "a4" });
-    const autoTable = doc.autoTable;
-
-    doc.setFontSize(16);
-    doc.text(`Rapport du ${jsDate.toLocaleDateString("fr-FR")}`, 40, 40);
-
-    /* ---- VENTES ---- */
-    // → Section Téléphones
-let y = 60;
-doc.setFontSize(14);
-doc.text("Téléphones vendus", 40, y);
-autoTable.call(doc, {
-  startY: y + 10,
-  head: [["Modèle","Prix U.","Qté","Total"]],
-  body: ventes.phoneRows.length 
-    ? ventes.phoneRows 
-    : [["—","—","0","0"]],
-  foot: [["","", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal)+" FCFA"]],
-  styles: { fontSize: 9 }
-});
-
-// → Section Accessoires
-y = doc.lastAutoTable.finalY + 30;
-doc.setFontSize(14);
-doc.text("Accessoires vendus", 40, y);
-autoTable.call(doc, {
-  startY: y + 10,
-  head: [["Modèle","Prix U.","Qté","Total"]],
-  body: ventes.accRows.length 
-    ? ventes.accRows 
-    : [["—","—","0","0"]],
-  foot: [["","", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal)+" FCFA"]],
-  styles: { fontSize: 9 }
-});
-
-
-/* ---- Achats TÉLÉPHONES ---- */
-y = doc.lastAutoTable.finalY + 30;
-doc.setFontSize(14);
-doc.text("Achats – Téléphones", 40, y);
-
-doc.autoTable({
-  startY: y + 10,
-  head : [["Produit","Qté","Prix U.","Total"]],
-  body : appro.phones.rows.length
-           ? appro.phones.rows
-           : [["—", "0", "0", "0"]],
-  foot : [[
-    "TOTAL",                         // col. 0
-    appro.phones.qty.toString(),     // col. 1
-    "",                              // col. 2 (pas de prix U. global)
-    fmt(appro.phones.total)+" FCFA"  // col. 3
-  ]],
-  showFoot: 'lastPage',
-  headStyles: { fillColor:[0,96,100], textColor:255 },
-  styles: { fontSize: 9 }
-});
-
-/* ---- Achats ACCESSOIRES ---- */
-y = doc.lastAutoTable.finalY + 25;
-doc.setFontSize(14);
-doc.text("Achats – Accessoires", 40, y);
-
-doc.autoTable({
-  startY     : y + 10,
-  head : [["Produit","Qté","Prix U.","Total"]],
-  body : appro.acc.rows.length
-           ? appro.acc.rows
-           : [["—","0","0","0"]],
-  foot : [[
-    "TOTAL",
-    appro.acc.qty.toString(),
-    "",
-    fmt(appro.acc.total)+" FCFA"
-  ]],
-  showFoot   : 'lastPage',
-  headStyles : { fillColor:[0,96,100], textColor:255 },
-  styles     : { fontSize: 9 }
-});
-
-
-    /* ---- Dépenses Papa ---- */
-    y = doc.lastAutoTable.finalY + 30;
-    doc.setFontSize(14);
-    doc.text("Dépenses Papa", 40, y);
-    autoTable.call(doc,{
-  startY : y+10,
-  head   : [["Description","Montant"]],
-
-  body   : deps.papa.length
-              ? deps.papa
-              : [["—","0 FCFA"]],          // ← 2 cellules, pas 3
-
-  foot   : [["Sous-total", fmt(deps.totPapa)+" FCFA"]], // ← 2 cellules
-  showFoot :'lastPage',
-  styles : {fontSize:8},
-  footStyles:{fontStyle:"bold"}
-});
-
-    /* ---- Dépenses fonctionnelles ---- */
-    y = doc.lastAutoTable.finalY + 20;
-    doc.setFontSize(14);
-    doc.text("Dépenses fonctionnelles", 40, y);
-    autoTable.call(doc, {
-      startY     : y + 10,
-      head   : [["Description","Montant"]],
-  body   : deps.fonc.length
-              ? deps.fonc
-              : [["—","0 FCFA"]],
-  foot   : [["Sous-total", fmt(deps.totFonc)+" FCFA"]],
-      showFoot : 'lastPage',
-      footStyles : { fontStyle: "bold" },
-      styles     : { fontSize: 8 },
-      
+      return { rows, totalQty, totalAmount };
     });
 
+  /* ── 6) SOLDE INITIAL (trésorerie) ───────────────────────── */
+  const snapshotP = dbFirestore.collection("tresorerieSnapshots")
+    .doc(saisie)
+    .get()
+    .then(snap => snap.exists ? snap.data().openingBalanceGlobal || 0 : 0);
 
-// ---- Apport de marchandises par Papa ----
-y = doc.lastAutoTable.finalY + 30;
-doc.setFontSize(14);
-doc.text("Apport de marchandises par Papa", 40, y);
-
-doc.autoTable({
-  startY : y + 10,
-  head   : [["Produit", "Qté", "Coût U.", "Total"]],
-  body   : papaApport.rows.length
-              ? papaApport.rows
-              : [["—","0","0","0"]],
-  foot   : [["TOTAL",
-             papaApport.totalQty.toString(),
-             "",
-             fmt(papaApport.totalAmount) + " FCFA"]],
-  showFoot : 'lastPage',
-  styles   : { fontSize: 9 }
-});
-
-
-    /* ---- Variation stock Téléphones ---- */
-    y = doc.lastAutoTable.finalY + 30;
-    doc.setFontSize(14);
-    doc.text("Variation du stock – Téléphones", 40, y);
-    autoTable.call(doc, {
-  startY : y + 10,
-  theme  : "grid",                     // ← ajoute la bordure sur chaque cellule
-  head   : [["Libellé", "Nombre", "Coût d'Achat"]],
-  body: [
-  ["Solde initial",
-    fmt(openingStock.qty),
-    fmt(openingStock.val) + " FCFA"
-  ],
-  ["Apport Papa",                       // ← LIGNE AJOUTÉE
-    "+" + papaApport.totalQty,
-    "+" + fmt(papaApport.totalAmount) + " FCFA"
-  ],
-  ["Ventes",
-    "-" + ventes.soldPhonesQty,
-    "-" + fmt(ventes.soldPhonesCAMV) + " FCFA"
-  ],
-  ["Achats",
-    "+" + achatsPhones.qty,
-    "+" + fmt(achatsPhones.val) + " FCFA"
-  ],
-  ["Solde finale",
-    fmt(closingQty),
-    fmt(closingVal) + " FCFA"
-  ]
-],
-  headStyles   : { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
-  columnStyles : { 0: { fontStyle: "bold" } }, // première colonne en gras
-  styles       : { fontSize: 10 }
-});
-
-
-    /* ---- Synthèse journalière ---- */
-    y = doc.lastAutoTable.finalY + 30;
-    doc.setFontSize(14);
-    doc.text("Variation de la Trésorerie", 40, y);
-    autoTable.call(doc, {
-      startY : y + 10,
-      body   : [
-        ["Solde initial",        fmt(soldeInitial)          + " FCFA"],
-        ["Entrées",              fmt(totalEntrees)          + " FCFA"],
-        ["Injection",            fmt(totalInjection)        + " FCFA"],
-        ["Dépenses",            "-" + fmt(totalDepenses)    + " FCFA"],
-        ["Approvisionnement",   "-" + fmt(totalAppro)       + " FCFA"],
-        ["Profit",               fmt(totalProfit)           + " FCFA"],
-        ["Solde final",          fmt(soldeFinal)            + " FCFA"],
-        ["Dette Papa",           fmt(dettePapa)             + " FCFA"],
-        ["Stock téléphones",     fmt(closingVal)            + " FCFA"],
-        ["Valeur business",      fmt(valeurBusiness)        + " FCFA"],
-      ],
-      theme        : "grid",
-      headStyles   : { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles : { 0: { fontStyle: "bold" } },
-      styles       : { fontSize: 10 }
+  /* ── 7) VALEUR STOCK TÉLÉPHONES (fin de journée) ──────── */
+  const stockPhonesP = dbFirestore.collection("stock")
+    .where("category", "==", "telephones")
+    .get()
+    .then(snap => {
+      let tot = 0;
+      snap.forEach(doc => {
+        const d = doc.data();
+        tot += (parseFloat(d.stock) || 0) * (parseFloat(d.price) || 0);
+      });
+      return tot;
     });
 
-    /* ---- Enregistrement ---- */
-    doc.save(`Rapport_${saisie}.pdf`);
-  })
-  .catch(err => alert("Erreur export PDF : " + err.message));
+  /* ── 8) DETTE PAPA ───────────────────────────────────────── */
+  const papaBalanceP = dbFirestore.collection("depensePapa")
+    .doc("balance")
+    .get()
+    .then(doc => doc.exists ? doc.data().montant || 0 : 0);
+
+  /* ── 9) STOCK SNAPSHOT – SOLDE INITIAL TÉLÉPHONES ────────── */
+  const openingStockP = dbFirestore.collection("stockSnapshots")
+    .doc(saisie)
+    .get()
+    .then(d => d.exists ? { qty: d.data().openingStock || 0, val: d.data().openingStockValue || 0 } : { qty: 0, val: 0 });
+
+  /* ── 10) ACHATS TÉLÉPHONES (jour) ────────────────────────── */
+  const achatsPhonesP = dbFirestore.collection("approvisionnement")
+    .where("timestamp", ">=", startOfDayTimestamp)
+    .where("timestamp", "<=", endOfDayTimestamp)
+    .get()
+    .then(snap => {
+      let qty = 0, val = 0;
+      snap.forEach(doc => {
+        (doc.data().items || []).forEach(it => {
+          if (it.category === "telephones") {
+            qty += +it.quantite;
+            val += +it.quantite * +it.prixAchat;
+          }
+        });
+      });
+      return { qty, val };
+    });
+
+  /* ── 11) GÉNÉRATION PDF ─────────────────────────────────── */
+  Promise.all([ventesP, depensesP, injectionP, approP, papaSupplyP, snapshotP, stockPhonesP, papaBalanceP, openingStockP, achatsPhonesP])
+    .then(([ventes, deps, injection, appro, papaApport, soldeInitial, valeurStockPhones, dettePapa, openingStock, achatsPhones]) => {
+      const totalEntrees = ventes.ca;
+      const totalInjection = injection;
+      const totalDepenses = deps.totPapa + deps.totFonc;
+      const totalAppro = appro.grandTotal;
+      const totalProfit = ventes.profit;
+      const soldeFinal = soldeInitial + totalEntrees + totalInjection - totalDepenses - totalAppro;
+      const closingQty = openingStock.qty + achatsPhones.qty + papaApport.totalQty - ventes.soldPhonesQty;
+      const closingVal = openingStock.val + achatsPhones.val + papaApport.totalAmount - ventes.soldPhonesCAMV;
+      const valeurBusiness = soldeFinal + closingVal + dettePapa;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const autoTable = doc.autoTable;
+      doc.setFontSize(16);
+      doc.text(`Rapport du ${jsDate.toLocaleDateString("fr-FR")}`, 40, 40);
+      let y = 60;
+      doc.setFontSize(14);
+      doc.text("Téléphones vendus", 40, y);
+      autoTable.call(doc, { startY: y + 10, head: [["Modèle", "Prix U.", "Qté", "Total"]], body: ventes.phoneRows.length ? ventes.phoneRows : [["—", "—", "0", "0"]], foot: [["", "", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal) + " FCFA"]], styles: { fontSize: 9 } });
+      y = doc.lastAutoTable.finalY + 30;
+      doc.setFontSize(14);
+      doc.text("Accessoires vendus", 40, y);
+      autoTable.call(doc, { startY: y + 10, head: [["Modèle", "Prix U.", "Qté", "Total"]], body: ventes.accRows.length ? ventes.accRows : [["—", "—", "0", "0"]], foot: [["", "", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal) + " FCFA"]], styles: { fontSize: 9 } });
+      y = doc.lastAutoTable.finalY + 30;
+      doc.setFontSize(14);
+      doc.text("Achats – Téléphones", 40, y);
+      doc.autoTable({ startY: y + 10, head: [["Produit", "Qté", "Prix U.", "Total"]], body: appro.phones.rows.length ? appro.phones.rows : [["—", "0", "0", "0"]], foot: [["TOTAL", appro.phones.qty.toString(), "", fmt(appro.phones.total) + " FCFA"]], showFoot: 'lastPage', headStyles: { fillColor: [0, 96, 100], textColor: 255 }, styles: { fontSize: 9 } });
+      y = doc.lastAutoTable.finalY + 25;
+      doc.setFontSize(14);
+      doc.text("Achats – Accessoires", 40, y);
+      doc.autoTable({ startY: y + 10, head: [["Produit", "Qté", "Prix U.", "Total"]], body: appro.acc.rows.length ? appro.acc.rows : [["—", "0", "0", "0"]], foot: [["TOTAL", appro.acc.qty.toString(), "", fmt(appro.acc.total) + " FCFA"]], showFoot: 'lastPage', headStyles: { fillColor: [0, 96, 100], textColor: 255 }, styles: { fontSize: 9 } });
+      y = doc.lastAutoTable.finalY + 30;
+      doc.setFontSize(14);
+      doc.text("Dépenses Papa", 40, y);
+      autoTable.call(doc, { startY: y + 10, head: [["Description", "Montant"]], body: deps.papa.length ? deps.papa : [["—", "0 FCFA"]], foot: [["Sous-total", fmt(deps.totPapa) + " FCFA"]], showFoot: 'lastPage', styles: { fontSize: 8 }, footStyles: { fontStyle: "bold" } });
+      y = doc.lastAutoTable.finalY + 20;
+      doc.setFontSize(14);
+      doc.text("Dépenses fonctionnelles", 40, y);
+      autoTable.call(doc, { startY: y + 10, head: [["Description", "Montant"]], body: deps.fonc.length ? deps.fonc : [["—", "0 FCFA"]], foot: [["Sous-total", fmt(deps.totFonc) + " FCFA"]], showFoot: 'lastPage', footStyles: { fontStyle: "bold" }, styles: { fontSize: 8 }, });
+      y = doc.lastAutoTable.finalY + 30;
+      doc.setFontSize(14);
+      doc.text("Apport de marchandises par Papa", 40, y);
+      doc.autoTable({ startY: y + 10, head: [["Produit", "Qté", "Coût U.", "Total"]], body: papaApport.rows.length ? papaApport.rows : [["—", "0", "0", "0"]], foot: [["TOTAL", papaApport.totalQty.toString(), "", fmt(papaApport.totalAmount) + " FCFA"]], showFoot: 'lastPage', styles: { fontSize: 9 } });
+      y = doc.lastAutoTable.finalY + 30;
+      doc.setFontSize(14);
+      doc.text("Variation du stock – Téléphones", 40, y);
+      autoTable.call(doc, { startY: y + 10, theme: "grid", head: [["Libellé", "Nombre", "Coût d'Achat"]], body: [["Solde initial", fmt(openingStock.qty), fmt(openingStock.val) + " FCFA"], ["Apport Papa", "+" + papaApport.totalQty, "+" + fmt(papaApport.totalAmount) + " FCFA"], ["Ventes", "-" + ventes.soldPhonesQty, "-" + fmt(ventes.soldPhonesCAMV) + " FCFA"], ["Achats", "+" + achatsPhones.qty, "+" + fmt(achatsPhones.val) + " FCFA"], ["Solde finale", fmt(closingQty), fmt(closingVal) + " FCFA"]], headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" }, columnStyles: { 0: { fontStyle: "bold" } }, styles: { fontSize: 10 } });
+      y = doc.lastAutoTable.finalY + 30;
+      doc.setFontSize(14);
+      doc.text("Variation de la Trésorerie", 40, y);
+      autoTable.call(doc, { startY: y + 10, body: [["Solde initial", fmt(soldeInitial) + " FCFA"], ["Entrées", fmt(totalEntrees) + " FCFA"], ["Injection", fmt(totalInjection) + " FCFA"], ["Dépenses", "-" + fmt(totalDepenses) + " FCFA"], ["Approvisionnement", "-" + fmt(totalAppro) + " FCFA"], ["Profit", fmt(totalProfit) + " FCFA"], ["Solde final", fmt(soldeFinal) + " FCFA"], ["Dette Papa", fmt(dettePapa) + " FCFA"], ["Stock téléphones", fmt(closingVal) + " FCFA"], ["Valeur business", fmt(valeurBusiness) + " FCFA"],], theme: "grid", headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" }, columnStyles: { 0: { fontStyle: "bold" } }, styles: { fontSize: 10 } });
+
+      doc.save(`Rapport_${saisie}.pdf`);
+    })
+    .catch(err => {
+      console.error("Erreur lors de la génération du PDF:", err);
+      alert("Erreur lors de la génération du PDF : " + err.message)
+    });
 }
 
 const isPhone = it => (it.category || "").toLowerCase() === "telephones";
