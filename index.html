@@ -2957,16 +2957,12 @@ async function chargerApprovisionnements(statusFilter = 'all') {
         let snapshot;
 
         if (statusFilter === 'credit') {
-            snapshot = await query
-                .where("paymentMethod", "==", "credit")
-                .where("remainingAmount", ">", 0)
-                .orderBy("remainingAmount", "desc") // Show highest debts first or sort by supplier name
-                .orderBy("timestamp", "asc")
-                .get();
+            snapshot = await query.orderBy("timestamp", "desc").get(); // Fetch all for client-side aggregation
 
             const debtsBySupplier = {};
             snapshot.forEach(doc => {
                 const appro = doc.data();
+                if (appro.status === 'annulé') return;
                 appro.id = doc.id;
                 const supplierName = appro.fournisseur || 'Fournisseur Inconnu';
                 const remaining = parseFloat(appro.remainingAmount || 0);
@@ -3000,11 +2996,11 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                             Aucune dette fournisseur en cours !
                         </ion-label>
                     </ion-item>`;
-                document.getElementById("totalPurchaseCost").innerText = "Total des achats : 0 FCFA";
+                document.getElementById("totalPurchaseCost").innerText = "";
                 return;
             }
 
-            const sortedSuppliers = Object.keys(debtsBySupplier).sort((a, b) => debtsBySupplier[b].totalDue - debtsBySupplier[a].totalDue); // Sort by totalDue desc
+            const sortedSuppliers = Object.keys(debtsBySupplier).sort((a, b) => debtsBySupplier[b].totalDue - debtsBySupplier[a].totalDue);
 
             sortedSuppliers.forEach(supplierName => {
                 const data = debtsBySupplier[supplierName];
@@ -3047,7 +3043,8 @@ async function chargerApprovisionnements(statusFilter = 'all') {
             const selectedDate = new Date(dateInput);
             const startOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0));
             const endOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999));
-
+            
+            //  FIX: REMOVED .where("status", "!=", "annulé") from the query
             query = query
                 .where("timestamp", ">=", startOfDayFirestoreTimestamp)
                 .where("timestamp", "<=", endOfDayFirestoreTimestamp)
@@ -3056,7 +3053,6 @@ async function chargerApprovisionnements(statusFilter = 'all') {
             if (statusFilter === 'paid') {
                 query = query.where("isPaid", "==", true);
             }
-            // No specific filter for 'all' other than date and timestamp order.
 
             snapshot = await query.get();
             container.innerHTML = ""; 
@@ -3076,31 +3072,36 @@ async function chargerApprovisionnements(statusFilter = 'all') {
 
             snapshot.forEach(doc => {
                 const appro = doc.data();
-                appro.id = doc.id; // Store ID for potential operations
+                
+                //  FIX: ADDED client-side filtering to skip cancelled items
+                if (appro.status === 'annulé') {
+                    return; 
+                }
+
+                appro.id = doc.id;
                 const jsDate = appro.timestamp instanceof firebase.firestore.Timestamp ? appro.timestamp.toDate() : new Date(appro.timestamp);
                 const dateAppro = jsDate.toLocaleString("fr-FR", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 totalPurchasesForDate += parseFloat(appro.totalCost || 0);
 
-                // Ajout du coût de transport à afficher
-                const fraisTransport = parseFloat(appro.fraisTransport || 0); // Récupère les frais de transport
+                const fraisTransport = parseFloat(appro.fraisTransport || 0);
                 let fraisTransportDisplay = '';
                 if (fraisTransport > 0) {
                     fraisTransportDisplay = `<p class="item-line">Frais transport: <strong>${fraisTransport.toLocaleString('fr-FR')} FCFA</strong></p>`;
                 }
 
-                let paymentStatusText = 'PAYÉ'; // Default for cash or fully paid credit
+                let paymentStatusText = 'PAYÉ';
                 let statusClass = 'status-paid';
-                let amountColor = '#3880ff'; // Blue for paid
+                let amountColor = '#3880ff';
                 let remainingAmountDisplay = '';
 
                 if (appro.paymentMethod === 'credit') {
                     if (parseFloat(appro.remainingAmount || 0) > 0) {
                         paymentStatusText = 'DUE';
                         statusClass = 'status-credit';
-                        amountColor = '#f04141'; // Red for due
+                        amountColor = '#f04141';
                         remainingAmountDisplay = `<div class="purchase-date" style="color: ${amountColor};">Solde: ${parseFloat(appro.remainingAmount || 0).toLocaleString('fr-FR')} FCFA</div>`;
                     } else {
-                         paymentStatusText = 'RÉGLÉ'; // Credit fully paid
+                         paymentStatusText = 'RÉGLÉ';
                     }
                 } else if (appro.paymentMethod === 'cash') {
                     paymentStatusText = 'CASH';
@@ -3124,60 +3125,57 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                     itemListHTML = '<p class="item-line" style="color: #888;">Aucun article détaillé</p>';
                 }
 
-                const ionItem = document.createElement('ion-item');
-                ionItem.classList.add(statusClass);
-                ionItem.setAttribute('button', 'true'); // Make it clickable
-                ionItem.setAttribute('lines', 'none');
-                ionItem.style.cssText = "border-bottom:1px solid #eee; margin:0; padding:0; --padding-start:0; --padding-end:0; --inner-padding-end:0;";
 
-                ionItem.innerHTML = `
-                <ion-label style="padding: 12px 16px;">
-                    <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
-                        <div class="avatar-circle" style="background-color: ${avatarBgColor};"> ${initials} </div>
-                        <div class="left-info">
-                            <div class="supplier-name">${supplierName}</div>
-                            <div class="purchase-date">${dateAppro}</div>
-                            <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
-                            ${fraisTransportDisplay} ${remainingAmountDisplay}
+                const slidingItem = document.createElement('ion-item-sliding');
+                slidingItem.innerHTML = `
+                  <ion-item class="${statusClass}" button="true" lines="none" style="border-bottom:1px solid #eee; margin:0; padding:0; --padding-start:0; --padding-end:0; --inner-padding-end:0;">
+                    <ion-label style="padding: 12px 16px;">
+                        <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
+                            <div class="avatar-circle" style="background-color: ${avatarBgColor};"> ${initials} </div>
+                            <div class="left-info">
+                                <div class="supplier-name">${supplierName}</div>
+                                <div class="purchase-date">${dateAppro}</div>
+                                <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
+                                ${fraisTransportDisplay} ${remainingAmountDisplay}
+                            </div>
+                            <div class="right-info">
+                                <div class="total-amount" style="color: ${amountColor};">XOF ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')}</div>
+                                <div class="payment-method">${paymentStatusText}</div>
+                            </div>
                         </div>
-                        <div class="right-info">
-                            <div class="total-amount" style="color: ${amountColor};">XOF ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')}</div>
-                            <div class="payment-method">${paymentStatusText}</div>
-                        </div>
-                    </div>
-                </ion-label>
-                <ion-ripple-effect></ion-ripple-effect>`;
-                
-                // Add click listener to show details IF it's a credit purchase with remaining amount
+                    </ion-label>
+                    <ion-ripple-effect></ion-ripple-effect>
+                  </ion-item>
+
+                  <ion-item-options side="end">
+                    <ion-item-option color="danger" expandable onclick="preparerAnnulationAchat('${appro.id}', event)">
+                      <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                      Annuler
+                    </ion-item-option>
+                  </ion-item-options>
+                `;
+
                 if (appro.paymentMethod === 'credit' && parseFloat(appro.remainingAmount || 0) > 0) {
-                    ionItem.addEventListener('click', () => {
-                        // We need to construct the 'supplierData' object expected by showSupplierDebtDetailsPage
-                        // This might require fetching all debts for that supplier if not already available
-                        // For simplicity, we'll pass a minimal object and let showSupplierDebtDetailsPage handle full data loading if necessary
-                        // Or, we find the supplier in the previously fetched credit list (if available from another tab load)
-                        // This part might need refinement depending on how you want navigation to work from "All" tab to supplier details.
-                        // For now, let's assume we can construct or fetch the necessary supplierData.
+                    slidingItem.addEventListener('click', () => {
                         const supplierDetailData = {
                             name: supplierName,
-                            totalDue: parseFloat(appro.remainingAmount || 0), // This is not the supplier's total due, but for this specific item.
-                                                                           // showSupplierDebtDetailsPage should ideally fetch the full supplier debt info.
-                            procurements: [appro] // Pass this specific procurement
+                            totalDue: parseFloat(appro.remainingAmount || 0),
+                            procurements: [appro]
                         };
                         showSupplierDebtDetailsPage(supplierDetailData);
                     });
                 }
-
-                container.appendChild(ionItem);
+                container.appendChild(slidingItem);
             });
             document.getElementById("totalPurchaseCost").innerText = `Total des achats : ${totalPurchasesForDate.toLocaleString('fr-FR')} FCFA`;
         }
 
-        if (container.lastElementChild && container.lastElementChild.style) { // Check if lastElementChild and style exist
-             if (container.lastElementChild.tagName === 'ION-ITEM') { // Apply only to ion-item
-                container.lastElementChild.style.borderBottom = 'none';
+        if (container.lastElementChild && container.lastElementChild.style) {
+             if (container.lastElementChild.tagName === 'ION-ITEM-SLIDING') {
+                const innerItem = container.lastElementChild.querySelector('ion-item');
+                if(innerItem) innerItem.style.borderBottom = 'none';
              }
         }
-
 
     } catch (error) {
         console.error("Erreur lors du chargement des approvisionnements :", error);
@@ -3185,6 +3183,7 @@ async function chargerApprovisionnements(statusFilter = 'all') {
         document.getElementById("totalPurchaseCost").innerText = "Erreur";
     }
 }
+
 document.addEventListener("DOMContentLoaded", () => {
     const todayISO = new Date().toISOString().split("T")[0];
     document.getElementById("filterPurchaseDate").value = todayISO;
@@ -5830,165 +5829,178 @@ function retirerApproItem(index) {
 }
 
  async function finaliserApprovisionnement() {
-  if (currentApproItems.length === 0) {
-    alert("Le panier d'approvisionnement est vide.");
-    return;
-  }
+    if (currentApproItems.length === 0) {
+        alert("Le panier d'approvisionnement est vide.");
+        return;
+    }
 
-  const fournisseur = currentApproItems[0].fournisseur; 
-  const totalCostFromSupplier = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
-  const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
-  const compteId = document.getElementById("compteSelectAppro").value; 
-  const fraisTransport = parseFloat(document.getElementById("fraisTransportAppro").value) || 0; 
+    const fournisseur = currentApproItems[0].fournisseur;
+    const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
+    const compteId = document.getElementById("compteSelectAppro").value;
+    const fraisTransport = parseFloat(document.getElementById("fraisTransportAppro").value) || 0;
 
-  if (!paymentMethod) {
-    alert("Veuillez sélectionner un mode de paiement au fournisseur.");
-    return;
-  }
-  if (paymentMethod === 'cash' && !compteId) {
-    alert("Veuillez sélectionner un compte de trésorerie pour le paiement au fournisseur.");
-    return;
-  }
+    if (!paymentMethod) {
+        alert("Veuillez sélectionner un mode de paiement au fournisseur.");
+        return;
+    }
+    if (paymentMethod === 'cash' && !compteId) {
+        alert("Veuillez sélectionner un compte de trésorerie pour le paiement au fournisseur.");
+        return;
+    }
 
-  showSaleLoader();
+    showSaleLoader();
 
-  try {
-    const batch = dbFirestore.batch(); 
-    const now = new Date();
-    const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+    try {
+        const batch = dbFirestore.batch();
+        const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+        const now = new Date();
 
-    let totalCostOfAllItemsBeforeTransport = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
-    
-    const stockUpdatePromises = currentApproItems.map(item => {
-        let adjustedPrixAchat = parseFloat(item.prixAchat);
-        if (totalCostOfAllItemsBeforeTransport > 0 && fraisTransport > 0) {
-            const itemShareOfTransport = (parseFloat(item.coutTotal) / totalCostOfAllItemsBeforeTransport) * fraisTransport;
-            adjustedPrixAchat = parseFloat(item.prixAchat) + (itemShareOfTransport / item.quantite);
+        const totalCostOfAllItemsBeforeTransport = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
+
+        // **FIX**: Prepare items with their final adjusted cost before saving
+        const finalItemsForFirestore = currentApproItems.map(item => {
+            let adjustedPrixAchat = parseFloat(item.prixAchat);
+            if (totalCostOfAllItemsBeforeTransport > 0 && fraisTransport > 0) {
+                const itemShareOfTransport = (parseFloat(item.coutTotal) / totalCostOfAllItemsBeforeTransport) * fraisTransport;
+                adjustedPrixAchat += (itemShareOfTransport / item.quantite);
+            }
+            return {
+                ...item,
+                adjustedPrixAchat: adjustedPrixAchat // <-- Important for future cancellations
+            };
+        });
+
+        // Update stock with the new adjusted prices
+        for (const item of finalItemsForFirestore) {
+            const stockQuery = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
+            let stockDocRef;
+            let newStockQty;
+
+            if (stockQuery.empty) {
+                stockDocRef = dbFirestore.collection("stock").doc();
+                newStockQty = item.quantite;
+                batch.set(stockDocRef, {
+                    name: item.produit,
+                    category: item.category,
+                    stock: newStockQty,
+                    price: item.adjustedPrixAchat, // <-- Use adjusted price
+                    icon: item.category === "accessoires" ? "🎧" : "📱",
+                    createdAt: serverTimestamp
+                });
+            } else {
+                stockDocRef = stockQuery.docs[0].ref;
+                const stockData = stockQuery.docs[0].data();
+                const oldStock = stockData.stock || 0;
+                const oldPrice = stockData.price || 0;
+                newStockQty = oldStock + item.quantite;
+
+                const newAveragePrice = newStockQty > 0 ? ((oldStock * oldPrice) + (item.quantite * item.adjustedPrixAchat)) / newStockQty : item.adjustedPrixAchat;
+
+                batch.update(stockDocRef, {
+                    stock: newStockQty,
+                    price: newAveragePrice // <-- Update with new weighted average
+                });
+            }
+
+            // Log stock history
+            const historyRef = stockDocRef.collection("history").doc();
+            batch.set(historyRef, {
+                timestamp: serverTimestamp,
+                change: +item.quantite,
+                newStock: newStockQty,
+                type: 'approvisionnement',
+                costOfChange: item.quantite * item.adjustedPrixAchat // <-- Log value of this transaction
+            });
+
+            // Add IMEI numbers if any
+            if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
+                item.imeis.forEach(imei => {
+                    const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
+                    batch.set(imeiDocRef, {
+                        status: "disponible",
+                        dateEntree: serverTimestamp
+                    });
+                });
+            }
         }
-        return dbFirestore.collection("stock").where("name", "==", item.produit).get().then(snapshot => ({
-            item,
-            snapshot,
-            adjustedPrixAchat 
-        }));
-    });
 
-    const stockDocs = await Promise.all(stockUpdatePromises);
+        // Create the main procurement document
+        const approRef = dbFirestore.collection("approvisionnement").doc();
+        const totalCostFromSupplier = finalItemsForFirestore.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
 
-    for (const { item, snapshot, adjustedPrixAchat } of stockDocs) {
-      let stockDocRef;
-      let newStock;
-      if (snapshot.empty) {
-        stockDocRef = dbFirestore.collection("stock").doc();
-        newStock = item.quantite;
-        const icon = item.category === "accessoires" ? "🎧" : "📱"; 
-        batch.set(stockDocRef, {
-          name: item.produit,
-          category: item.category,
-          stock: newStock,
-          price: adjustedPrixAchat, 
-          icon: icon,
-          createdAt: serverTimestamp
+        batch.set(approRef, {
+            fournisseur,
+            items: finalItemsForFirestore, // <-- Save items with adjusted cost
+            timestamp: serverTimestamp,
+            paymentMethod: paymentMethod,
+            isPaid: paymentMethod === 'cash',
+            remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0,
+            totalCost: totalCostFromSupplier,
+            fraisTransport: fraisTransport,
+            // **FIX**: Save the account ID used for the payment
+            compteId: paymentMethod === 'cash' ? compteId : null,
+            status: 'validé' // Initial status
         });
-      } else {
-        stockDocRef = snapshot.docs[0].ref;
-        const stockData = snapshot.docs[0].data();
-        const oldStock = stockData.stock || 0;
-        const oldPrice = stockData.price || 0; 
-        newStock = oldStock + item.quantite;
-        const newAveragePrice = newStock > 0 ? ((oldStock * oldPrice) + (item.quantite * adjustedPrixAchat)) / newStock : adjustedPrixAchat;
-        batch.update(stockDocRef, {
-          stock: newStock,
-          price: newAveragePrice 
-        });
-      }
-      const historyRef = stockDocRef.collection("history").doc();
-      batch.set(historyRef, {
-        timestamp: serverTimestamp,
-        change: +item.quantite,
-        newStock: newStock,
-        type: 'approvisionnement'
-      });
-      if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
-        item.imeis.forEach(imei => {
-          const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
-          batch.set(imeiDocRef, { status: "disponible", dateEntree: serverTimestamp });
-        });
-      }
+
+        // Record cash movements
+        if (paymentMethod === 'cash') {
+            await enregistrerMouvementTresorerie({
+                compteId: compteId,
+                type: 'paiement_fournisseur',
+                sens: 'out',
+                montant: totalCostFromSupplier,
+                description: `Achat fournisseur ${fournisseur}`,
+                refId: approRef.id
+            });
+        }
+
+        if (fraisTransport > 0) {
+            // Transport fees are a separate functional expense, usually from 'caisse'
+            const transportExpenseCompteId = 'caisse';
+            const transportDepenseRef = dbFirestore.collection("depenses").doc();
+
+            batch.set(transportDepenseRef, {
+                montant: fraisTransport,
+                description: `Frais transport achat ${fournisseur}`,
+                type: "depense fonctionnelle",
+                timestamp: now.getTime(),
+                date: now.toISOString(),
+                compteId: transportExpenseCompteId,
+                refId: approRef.id // Link expense to procurement
+            });
+
+            await enregistrerMouvementTresorerie({
+                compteId: transportExpenseCompteId,
+                type: 'frais_transport_appro',
+                sens: 'out',
+                montant: fraisTransport,
+                description: `Frais transport achat ${fournisseur}`,
+                refId: approRef.id
+            });
+        }
+
+        await batch.commit();
+
+        alert(`Approvisionnement enregistré avec succès !`);
+
+    } catch (error) {
+        console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
+        alert("Une erreur est survenue : " + error.message);
+    } finally {
+        // Reset UI
+        currentApproItems = [];
+        updatePanierApprovisionnement();
+        document.getElementById("fournisseurAppro").value = "";
+        document.getElementById("paymentMethodApproBasket").value = "";
+        document.getElementById("compteSelectAppro").value = "";
+        document.getElementById("fraisTransportAppro").value = "";
+        togglePaymentAccount();
+        chargerApprovisionnements();
+        updateStockSummary();
+        updateBalanceDisplay();
+        hideSaleLoader();
     }
-
-    const approRef = dbFirestore.collection("approvisionnement").doc();
-    batch.set(approRef, {
-      fournisseur,
-      items: currentApproItems, 
-      timestamp: serverTimestamp,
-      paymentMethod: paymentMethod,
-      isPaid: paymentMethod === 'cash', // THIS IS KEY
-      remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0, // THIS IS KEY
-      totalCost: totalCostFromSupplier ,
-      fraisTransport: fraisTransport // <-- AJOUTE CETTE LIGNE
-    });
-
-    if (paymentMethod === 'cash') {
-      // No need to create a separate "depenses" doc for supplier payment if using enregistrerMouvementTresorerie
-      // enregistrerMouvementTresorerie handles the cash outflow.
-      await enregistrerMouvementTresorerie({
-        compteId: compteId,
-        type: 'paiement_fournisseur', 
-        sens: 'out',
-        montant: totalCostFromSupplier,
-        description: `Paiement approvisionnement ${fournisseur} (Cash direct)`,
-        refId: approRef.id // Link to the procurement document
-      });
-    }
-
-    if (fraisTransport > 0) {
-        // Frais de transport are always an expense from 'caisse'
-        await enregistrerMouvementTresorerie({
-            compteId: 'caisse', 
-            type: 'frais_transport_appro', 
-            sens: 'out',
-            montant: fraisTransport,
-            description: `Frais transport achat ${fournisseur}`,
-            refId: approRef.id
-        });
-        // Log for depenses history if needed (enregistrerMouvementTresorerie might handle this already depending on its internal logic)
-         const depenseTransportRef = dbFirestore.collection("depenses").doc();
-         batch.set(depenseTransportRef, { // Add to batch or call directly if not part of main transaction logic
-             montant: fraisTransport,
-             description: `Frais transport achat ${fournisseur}`,
-             type: "depense fonctionnelle", 
-             timestamp: now.getTime(), // Use consistent JS Date timestamp for depenses if needed
-             date: now.toISOString(),
-             dateString: now.toLocaleDateString("fr-FR"),
-             compteId: 'caisse', // Record which account paid
-             refId: approRef.id
-         });
-    }
-
-    await batch.commit();
-
-    alert(`Approvisionnement enregistré avec succès !
-           Montant fournisseur: ${totalCostFromSupplier.toLocaleString('fr-FR')} FCFA.
-           Frais de transport: ${fraisTransport.toLocaleString('fr-FR')} FCFA.`);
-
-  } catch (error) {
-    console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
-    alert("Une erreur est survenue : " + error.message);
-  } finally {
-    currentApproItems = [];
-    updatePanierApprovisionnement(); 
-    document.getElementById("fournisseurAppro").value = "";
-    document.getElementById("paymentMethodApproBasket").value = ""; // Reset dropdown
-    document.getElementById("compteSelectAppro").value = ""; // Reset account selection
-    document.getElementById("fraisTransportAppro").value = ""; 
-    togglePaymentAccount(); 
-    chargerApprovisionnements(); 
-    updateStockSummary(); 
-    updateBalanceDisplay(); 
-    hideSaleLoader(); 
-  }
 }
-
 
 // Function to record a payment for a credit purchase (Placeholder)
 async function recordCreditPayment(approId, outstandingAmount) {
@@ -10044,7 +10056,181 @@ function chargerHistoriqueStock(stockId) {
     });
 }
 
+/**
+ * Prépare et demande la confirmation pour l'annulation d'un achat.
+ * @param {string} approId - L'ID du document d'approvisionnement à annuler.
+ * @param {Event} event - L'objet d'événement du clic.
+ */
+async function preparerAnnulationAchat(approId, event) {
+    // Empêche le clic de se propager et ferme l'item-sliding
+    event.stopPropagation();
+    const slidingItem = event.target.closest('ion-item-sliding');
+    if (slidingItem) {
+        await slidingItem.close();
+    }
 
+    const confirmation = confirm("Êtes-vous certain de vouloir annuler cet achat ?\n\nCette action va retirer les articles du stock et annuler l'impact sur la trésorerie. Elle est irréversible.");
+    
+    if (!confirmation) {
+        showToast("Opération abandonnée.");
+        return;
+    }
+
+    showSaleLoader(); // Affiche le spinner de chargement
+
+    try {
+        const approRef = dbFirestore.collection("approvisionnement").doc(approId);
+        const approDoc = await approRef.get();
+
+        if (!approDoc.exists) throw new Error("Cet achat n'existe pas.");
+        
+        const approData = approDoc.data();
+        if (approData.status === 'annulé') throw new Error("Cet achat est déjà annulé.");
+
+        await annulerAchatTransaction(approId, approData);
+        
+        showToast("Achat annulé avec succès !");
+        
+        chargerApprovisionnements(document.getElementById('purchase-tabs').value);
+        updateBalanceDisplay();
+        updateStockSummary();
+
+    } catch (error) {
+        console.error("Erreur lors de l'annulation de l'achat :", error);
+        alert("Erreur : " + error.message);
+    } finally {
+        hideSaleLoader(); // Masque le spinner
+    }
+}
+
+
+/**
+ * Executes the cancellation of a purchase within a secure Firestore transaction.
+ * @param {string} approId - The ID of the purchase.
+ * @param {object} approData - The data of the purchase to cancel.
+ */
+function annulerAchatTransaction(approId, approData) {
+    return dbFirestore.runTransaction(async (transaction) => {
+        const approRef = dbFirestore.collection("approvisionnement").doc(approId);
+
+        // 1. Mark the purchase as cancelled
+        transaction.update(approRef, {
+            status: 'annulé',
+            cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 2. Reverse stock impact for each item AND recalculate average cost
+        for (const item of approData.items) {
+            const stockQuerySnapshot = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
+
+            if (!stockQuerySnapshot.empty) {
+                const stockDocRef = stockQuerySnapshot.docs[0].ref;
+                const stockData = stockQuerySnapshot.docs[0].data();
+
+                const currentStock = stockData.stock || 0;
+                const currentAvgPrice = stockData.price || 0;
+                const cancelledQty = item.quantite;
+                const cancelledItemCost = item.adjustedPrixAchat || item.prixAchat;
+
+                const newStock = currentStock - cancelledQty;
+                const newAvgPrice = (newStock > 0) ?
+                    ((currentStock * currentAvgPrice) - (cancelledQty * cancelledItemCost)) / newStock :
+                    0;
+
+                transaction.update(stockDocRef, {
+                    stock: newStock,
+                    price: newAvgPrice
+                });
+
+                const historyRef = stockDocRef.collection("history").doc();
+                transaction.set(historyRef, {
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    change: -cancelledQty,
+                    type: 'annulation_achat',
+                    refId: approId,
+                    newStock: newStock
+                });
+
+                if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
+                    for (const imei of item.imeis) {
+                        const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
+                        transaction.delete(imeiDocRef);
+                    }
+                }
+            }
+        }
+
+        // 3. Reverse ALL payments (initial cash AND subsequent credit payments)
+        const paymentsSnapshot = await approRef.collection("payments").get();
+        if (!paymentsSnapshot.empty) {
+            for (const paymentDoc of paymentsSnapshot.docs) {
+                const paymentData = paymentDoc.data();
+                const compteId = paymentData.account;
+                const amount = paymentData.amount;
+
+                const compteRef = dbFirestore.collection('tresorerie').doc('balance').collection('comptesTresorerie').doc(compteId);
+                transaction.update(compteRef, { solde: firebase.firestore.FieldValue.increment(amount) });
+
+                const mouvementRef = compteRef.collection('mouvements').doc();
+                transaction.set(mouvementRef, {
+                    timestamp: Date.now(),
+                    type: 'annulation_paiement_achat',
+                    sens: 'in',
+                    montant: amount,
+                    description: `Annulation Paiement Achat #${approId.substring(0,5)}`,
+                    refId: approId
+                });
+
+                transaction.update(paymentDoc.ref, { status: 'annulé' });
+            }
+        } else if (approData.paymentMethod === 'cash') {
+            const compteId = approData.compteId;
+            if (compteId) {
+                const totalCost = parseFloat(approData.totalCost) || 0;
+                const compteRef = dbFirestore.collection('tresorerie').doc('balance').collection('comptesTresorerie').doc(compteId);
+                transaction.update(compteRef, { solde: firebase.firestore.FieldValue.increment(totalCost) });
+
+                const mouvementRef = compteRef.collection('mouvements').doc();
+                transaction.set(mouvementRef, {
+                    timestamp: Date.now(),
+                    type: 'annulation_achat',
+                    sens: 'in',
+                    montant: totalCost,
+                    description: `Annulation Achat #${approId.substring(0, 5)}`,
+                    refId: approId
+                });
+            }
+        }
+
+
+        // 4. Reverse and DELETE the transport fee expense
+        if (approData.fraisTransport && approData.fraisTransport > 0) {
+            const transportExpenseQuery = await dbFirestore.collection("depenses").where("refId", "==", approId).where("type", "==", "depense fonctionnelle").limit(1).get();
+            if (!transportExpenseQuery.empty) {
+                const expenseDocRef = transportExpenseQuery.docs[0].ref;
+                const expenseData = transportExpenseQuery.docs[0].data();
+                const transportCompteId = expenseData.compteId || 'caisse';
+
+                // **CHANGE**: Delete the expense document instead of updating it.
+                transaction.delete(expenseDocRef);
+
+                // Reverse the cash movement for the transport fee
+                const compteRef = dbFirestore.collection('tresorerie').doc('balance').collection('comptesTresorerie').doc(transportCompteId);
+                transaction.update(compteRef, { solde: firebase.firestore.FieldValue.increment(approData.fraisTransport) });
+
+                const mouvementRef = compteRef.collection('mouvements').doc();
+                transaction.set(mouvementRef, {
+                    timestamp: Date.now(),
+                    type: 'annulation_frais_transport',
+                    sens: 'in',
+                    montant: approData.fraisTransport,
+                    description: `Annulation Frais Transport Achat #${approId.substring(0,5)}`,
+                    refId: approId
+                });
+            }
+        }
+    });
+}
 </script>
 
 </body>
