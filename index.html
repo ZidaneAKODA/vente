@@ -1515,158 +1515,162 @@
 
    
     function displaySalesHistory(salesList) {
-        const container = document.getElementById("ventesContainerList");
-        container.innerHTML = "";
+    const container = document.getElementById("ventesContainerList");
+    container.innerHTML = "";
 
-        if (salesList.length === 0) {
-            container.innerHTML = `
-                <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
-                    <ion-label style="text-align:center; padding: 20px; color: #888;">
-                        <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
-                        Aucune vente enregistrée pour cette période.
-                    </ion-label>
-                </ion-item>
-            `;
-         
-            return;
+    if (salesList.length === 0) {
+        container.innerHTML = `
+            <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
+                <ion-label style="text-align:center; padding: 20px; color: #888;">
+                    <ion-icon name="happy-outline" style="font-size: 40px; margin-bottom: 10px;"></ion-icon><br>
+                    Aucune vente enregistrée pour cette période.
+                </ion-label>
+            </ion-item>
+        `;
+        return;
+    }
+
+    salesList.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+
+    salesList.forEach(sale => {
+        // Crée l'élément principal <ion-item-sliding>
+        const slidingItem = document.createElement('ion-item-sliding');
+
+        let isCancelled = sale.status === 'annulé';
+        let statusClass = 'status-vente-directe';
+        let statusText = 'Vente directe';
+
+        if (sale.isDelivery) {
+            switch (sale.deliveryStatus) {
+                case 'réussie':
+                    statusClass = 'status-reussie';
+                    statusText = 'Livraison réussie';
+                    break;
+                case 'échouée':
+                    statusClass = 'status-echouee';
+                    statusText = 'Livraison échouée';
+                    break;
+                default:
+                    statusClass = 'status-en-cours';
+                    statusText = 'Livraison en cours';
+                    break;
+            }
+        }
+        
+        const clientName = sale.clientNom || 'Client Inconnu';
+        const displayClientName = clientName.length > 30 ? clientName.substring(0, 27) + '...' : clientName;
+        const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        const avatarBgColor = getAvatarColor(clientName);
+        const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
+        let displayDateTime = 'Date invalide';
+
+        if (sale.timestamp && typeof sale.timestamp.toDate === 'function') {
+            const jsDate = sale.timestamp.toDate();
+            const options = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' };
+            displayDateTime = jsDate.toLocaleDateString("fr-FR", options);
         }
 
-        // Tri des ventes par ordre décroissant de timestamp (du plus récent au plus ancien)
-        salesList.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+        let itemListHTML = '';
+        if (sale.items && Array.isArray(sale.items)) {
+            sale.items.forEach(item => {
+                const itemName = item.produit || 'Article inconnu';
+                const displayItemName = itemName.length > 35 ? itemName.substring(0, 32) + '...' : itemName;
+                itemListHTML += `<p class="item-line">${item.quantite} x ${displayItemName} - ${parseFloat(item.prix || 0).toLocaleString('fr-FR')} FCFA</p>`;
+            });
+        } else {
+            itemListHTML = '<p class="item-line" style="color: #888;">Aucun article</p>';
+        }
 
-        salesList.forEach(sale => {
-            const ionItem = document.createElement("ion-item");
-
-            let statusClass = 'status-vente-directe';
-            let statusText = 'Vente directe';
-
-            if (sale.isDelivery) {
-                switch (sale.deliveryStatus) {
-                    case 'réussie':
-                        statusClass = 'status-reussie';
-                        statusText = 'Livraison réussie';
-                        break;
-                    case 'échouée':
-                        statusClass = 'status-echouee';
-                        statusText = 'Livraison échouée';
-                        break;
-                    default:
-                        statusClass = 'status-en-cours';
-                        statusText = 'Livraison en cours';
-                        break;
-                }
-            }
-
-            ionItem.classList.add(statusClass);
-            ionItem.setAttribute('button', 'true');
-            ionItem.setAttribute('lines', 'none'); // Remove default Ionic lines
-
-            const clientName = sale.clientNom || 'Client Inconnu';
-            // Limit client name length if too long, add ellipsis
-            const displayClientName = clientName.length > 30 ? clientName.substring(0, 27) + '...' : clientName;
-            const initials = clientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            const avatarBgColor = getAvatarColor(clientName);
-
-            const totalFormatted = parseFloat(sale.overallTotal || 0).toLocaleString('fr-FR');
-
-            let displayDateTime = 'Date invalide';
-
-            if (sale.timestamp && typeof sale.timestamp.toDate === 'function') {
-                const jsDate = sale.timestamp.toDate();
-                const options = {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'Africa/Lagos'
-                };
-                displayDateTime = jsDate.toLocaleDateString("fr-FR", options);
-            } else {
-                const jsDate = new Date(sale.timestamp);
-                if (!isNaN(jsDate.getTime())) {
-                    const options = {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'Africa/Lagos'
-                    };
-                    displayDateTime = jsDate.toLocaleDateString("fr-FR", options);
-                }
-            }
-
-            let itemListHTML = '';
-            if (sale.items && Array.isArray(sale.items)) {
-                sale.items.forEach(item => {
-                    const itemName = item.produit || 'Article inconnu';
-                    const displayItemName = itemName.length > 35 ? itemName.substring(0, 32) + '...' : itemName; // Truncate item name
-                    itemListHTML += `<p class="item-line">${item.quantite} x ${displayItemName} - ${parseFloat(item.prix || 0).toLocaleString('fr-FR')} FCFA</p>`;
-                });
-            } else {
-                itemListHTML = '<p class="item-line" style="color: #888;">Aucun article</p>';
-            }
-
-             ionItem.innerHTML = `
+        // Structure HTML interne avec ion-item et ion-item-options
+        slidingItem.innerHTML = `
+            <ion-item class="${statusClass}" button="true" lines="none" style="${isCancelled ? 'opacity: 0.6; text-decoration: line-through; background-color: #ffebee;' : ''}">
                 <ion-label style="padding: 12px 16px;">
                     <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
-                        <div class="avatar-circle" style="background-color: ${avatarBgColor}; color: white; border-radius: 50%; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; margin-right: 12px; flex-shrink: 0;">
+                        <div class="avatar-circle" style="background-color: ${avatarBgColor};">
                             ${initials}
                         </div>
-                        <div class="left-info" style="flex-grow: 1; display: flex; flex-direction: column;">
-                            <div class="purchase-date" style="font-weight: bold; font-size: 14px; color: #333;">${displayDateTime}</div>
-                            <div class="supplier-name" style="font-weight: 500; font-size: 16px; color: #333; margin-bottom: 4px;">${displayClientName}</div>
-                            <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
+                        <div class="left-info" style="flex-grow: 1;">
+                            <div class="purchase-date">${displayDateTime}</div>
+                            <div class="supplier-name">${displayClientName}</div>
+                            <div class="item-list-container">${itemListHTML}</div>
                             <div style="margin-top: 10px; display: flex; gap: 15px;">
-                                <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')" style="font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500; cursor: pointer;">
-                                    <ion-icon name="information-circle-outline" style="font-size:16px; vertical-align: -3px; margin-right: 4px;"></ion-icon>
-                                    Détails
+                                <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">
+                                    <ion-icon name="information-circle-outline"></ion-icon> Détails
                                 </a>
-                                <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture" style="cursor:pointer; font-size: 13px; color: var(--primary-color); text-decoration: none; font-weight: 500;">
-                                    <ion-icon name="download-outline" style="font-size:16px; vertical-align: -3px; margin-right: 4px;"></ion-icon>
-                                    Facture
+                                <a class="details-btn-link download-invoice-btn" data-sale-id="${sale.id}" title="Télécharger la facture">
+                                    <ion-icon name="download-outline"></ion-icon> Facture
                                 </a>
                             </div>
                         </div>
-                        <div class="right-info" style="display: flex; flex-direction: column; align-items: flex-end; margin-left: 15px; flex-shrink: 0;">
-                            <div class="total-amount" style="font-weight: 600; font-size: 18px; color: var(--primary-color);">XOF ${totalFormatted}</div>
-                            <div class="sale-status-text" style="font-size: 13px; color: #888; text-transform: uppercase; font-weight: 500;">${statusText}</div>
-                            <button class="edit-client-btn" onclick="event.stopPropagation(); preparerModificationClient('${sale.id}', '${sale.clientNom}', '${sale.clientNumero || ''}')" title="Modifier le client">
-    <i data-lucide="square-pen"></i>
-</button>
+                        <div class="right-info">
+                            <div class="total-amount">XOF ${totalFormatted}</div>
+                            <div class="sale-status-text">${statusText}</div>
                         </div>
                     </div>
                 </ion-label>
                 <ion-ripple-effect></ion-ripple-effect>
-                `;
-            container.appendChild(ionItem);
+                 <button class="edit-client-btn" onclick="event.stopPropagation(); preparerModificationClient('${sale.id}', '${sale.clientNom}', '${sale.clientNumero || ''}')" title="Modifier le client">
+                    <i data-lucide="square-pen"></i>
+                </button>
+            </ion-item>
 
-            ionItem.addEventListener('click', (event) => {
-                // Prevent event from bubbling up if click was on download button
-                if (!event.target.closest('.download-invoice-btn')) {
-                    ouvrirDetails(sale.id);
-                }
-            });
+            <ion-item-options side="end">
+                <ion-item-option color="danger" expandable onclick="preparerAnnulationVente('${sale.id}', event)">
+                    <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                    Annuler
+                </ion-item-option>
+            </ion-item-options>
+        `;
+
+        container.appendChild(slidingItem);
+    });
+
+    // Attacher les écouteurs pour les détails et les factures
+    container.querySelectorAll('ion-item').forEach(item => {
+        item.addEventListener('click', (event) => {
+            const saleId = item.closest('ion-item-sliding').querySelector('.download-invoice-btn')?.getAttribute('data-sale-id');
+            if (saleId && !event.target.closest('.download-invoice-btn') && !event.target.closest('.edit-client-btn')) {
+                ouvrirDetails(saleId);
+            }
         });
+    });
 
-        container.querySelectorAll('.download-invoice-btn').forEach(button => {
-            button.addEventListener('click', (event) => {
-                event.stopPropagation();
-                const saleId = event.currentTarget.getAttribute('data-sale-id');
-                const saleData = salesList.find(s => s.id === saleId);
-
-                if (saleData) {
-                    generateInvoicePDF(saleData);
-                } else {
-                    console.error('Données de vente non trouvées pour ID :', saleId);
-                    alert('Erreur: Impossible de trouver les données de la vente.');
-                }
-            });
+    container.querySelectorAll('.download-invoice-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const saleId = event.currentTarget.getAttribute('data-sale-id');
+            const saleData = salesList.find(s => s.id === saleId);
+            if (saleData) {
+                generateInvoicePDF(saleData);
+            } else {
+                console.error('Données de vente non trouvées pour ID :', saleId);
+                alert('Erreur: Impossible de trouver les données de la vente.');
+            }
         });
+    });
+    
+    // Pour que les nouvelles icônes Lucide soient bien rendues
+    lucide.createIcons();
+}
 
-  
+/**
+ * Prépare et demande la confirmation pour l'annulation d'une vente.
+ * @param {string} saleId - L'ID du document de la vente à annuler.
+ * @param {Event} event - L'objet d'événement du clic pour pouvoir fermer le slide.
+ */
+async function preparerAnnulationVente(saleId, event) {
+    // Empêche le clic de se propager à l'ion-item principal
+    event.stopPropagation();
+    
+    // Ferme l'élément <ion-item-sliding> pour une meilleure expérience utilisateur
+    const slidingItem = event.target.closest('ion-item-sliding');
+    if (slidingItem) {
+        await slidingItem.close();
     }
+
+    // Appelle la fonction de confirmation existante
+    demanderAnnulation(saleId);
+}
 
       // Initialisation de la date par défaut et appel automatique du filtrage à l'ouverture de la page
       window.addEventListener("load", () => {
@@ -7588,28 +7592,28 @@ function updateStockAfterSaleFirestore(items) {
       }).catch(err => console.error("Erreur dans updateStockSummary : " + err.message));
     }
 
-    // Annulation de vente avec restockage
-    function demanderAnnulation(id) {
-      const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
-      if (motDePasse !== "zizou") {
-        alert("Mot de passe incorrect !");
-        return;
-      }
-      if (confirm("Voulez-vous vraiment annuler cette vente ? Cela réintégrera les articles dans le stock.")) {
-        getSaleByIdFirestore(id)
-          .then(sale => {
-            return restockAfterCancellationFirestore(sale).then(() => sale);
-          })
-          .then(sale => {
-            return deleteSaleFirestore(sale.id);
-          })
-          .then(() => {
-            alert("Vente annulée et stock mis à jour !");
-            afficherVentes();
-          })
-          .catch(err => alert("Erreur lors de l'annulation : " + err.message));
-      }
-    }
+    // NOUVELLE VERSION CORRIGÉE
+async function demanderAnnulation(id) {
+  const motDePasse = prompt("Veuillez saisir le mot de passe pour annuler cette vente :");
+  if (motDePasse !== "zizou") {
+    alert("Mot de passe incorrect !");
+    return;
+  }
+
+  if (confirm("Voulez-vous vraiment annuler cette vente ? Le stock et la trésorerie seront ajustés.")) {
+    showSaleLoader(); // Affiche le spinner
+    await annulerVente(id); // Appelle notre nouvelle fonction sécurisée
+    
+    // Rafraîchir l'affichage de l'historique
+    const currentStatusFilter = document.getElementById('sales-tabs').value || 'all';
+    filterSalesHistory(currentStatusFilter);
+    
+    // Rafraîchir les autres affichages
+    updateBalanceDisplay();
+    updateStockSummary();
+    hideSaleLoader(); // Cache le spinner
+  }
+}
 
     // Hash Router pour la navigation
     function handleHashChange() {
@@ -9624,32 +9628,36 @@ function exportDailyReportPDF() {
     });
 
   // 5) APPROVISIONNEMENTS
-  const approP = dbFirestore.collection("approvisionnement")
-    .where("timestamp", ">=", startOfDayTimestamp)
-    .where("timestamp", "<=", endOfDayTimestamp)
-    .get()
-    .then(snapshot => {
-      const rowsPhones = [], rowsAcc = [];
-      let totQtyPhones = 0, totQtyAcc = 0;
-      let totPhones = 0, totAcc = 0;
+// DANS exportDailyReportPDF
 
-      snapshot.forEach(doc => {
-        (doc.data().items || []).forEach(it => {
-          const ligne = [it.produit, it.quantite.toString(), fmt(it.prixAchat) + " FCFA", fmt(it.quantite * it.prixAchat) + " FCFA"];
-          if (it.category === "telephones") {
-            rowsPhones.push(ligne);
-            totQtyPhones += it.quantite;
-            totPhones += it.quantite * it.prixAchat;
-          } else {
-            rowsAcc.push(ligne);
-            totQtyAcc += it.quantite;
-            totAcc += it.quantite * it.prixAchat;
-          }
-        });
+const approP = dbFirestore.collection("approvisionnement")
+  .where("timestamp", ">=", startOfDayTimestamp)
+  .where("timestamp", "<=", endOfDayTimestamp)
+  .get()
+  .then(snapshot => {
+    const rowsPhones = [], rowsAcc = [];
+    let totQtyPhones = 0, totQtyAcc = 0;
+    let totPhones = 0, totAcc = 0;
+
+    snapshot.forEach(doc => {
+      // ✅ LIGNE A AJOUTER CI-DESSOUS
+      if (doc.data().status === 'annulé') return; // Ignore les achats annulés
+
+      (doc.data().items || []).forEach(it => {
+        const ligne = [it.produit, it.quantite.toString(), fmt(it.prixAchat) + " FCFA", fmt(it.quantite * it.prixAchat) + " FCFA"];
+        if (it.category === "telephones") {
+          rowsPhones.push(ligne);
+          totQtyPhones += it.quantite;
+          totPhones += it.quantite * it.prixAchat;
+        } else {
+          rowsAcc.push(ligne);
+          totQtyAcc += it.quantite;
+          totAcc += it.quantite * it.prixAchat;
+        }
       });
-      return { phones: { rows: rowsPhones, qty: totQtyPhones, total: totPhones }, acc: { rows: rowsAcc, qty: totQtyAcc, total: totAcc }, grandTotal: totPhones + totAcc };
     });
-
+    return { phones: { rows: rowsPhones, qty: totQtyPhones, total: totPhones }, acc: { rows: rowsAcc, qty: totQtyAcc, total: totAcc }, grandTotal: totPhones + totAcc };
+  });
   /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
   const papaSupplyP = dbFirestore.collection("apportPapa")
     .where("dateString", "==", dateFR)
@@ -9915,11 +9923,12 @@ async function exportMonthlyReportPDF(month) {
 
       [
         "Approvisionnements",
-        fmt(
-          approSnap.docs
-            .flatMap(d => d.data().items || [])
-            .reduce((s, it) => s + it.quantite * it.prixAchat, 0)
-        ) + " FCFA"
+      fmt(
+        // ✅ ON AJOUTE LE FILTRE AVANT LE RESTE DES OPERATIONS
+        approSnap.docs.filter(doc => doc.data().status !== 'annulé') 
+          .flatMap(d => d.data().items || [])
+          .reduce((s, it) => s + it.quantite * it.prixAchat, 0)
+      ) + " FCFA"
       ],
 
     ],
@@ -10132,15 +10141,22 @@ function annulerAchatTransaction(approId, approData) {
                 const cancelledQty = item.quantite;
                 const cancelledItemCost = item.adjustedPrixAchat || item.prixAchat;
 
-                const newStock = currentStock - cancelledQty;
-                const newAvgPrice = (newStock > 0) ?
-                    ((currentStock * currentAvgPrice) - (cancelledQty * cancelledItemCost)) / newStock :
-                    0;
+                // NOUVEAU CODE CORRIGÉ
+const newStock = Math.max(0, currentStock - cancelledQty);
 
-                transaction.update(stockDocRef, {
-                    stock: newStock,
-                    price: newAvgPrice
-                });
+let newAvgPrice; // On déclare la variable
+if (newStock > 0) {
+    // Si le stock restant est positif, on recalcule la moyenne
+    newAvgPrice = ((currentStock * currentAvgPrice) - (cancelledQty * cancelledItemCost)) / newStock;
+} else {
+    // ✅ Si le stock tombe à 0, on conserve le dernier coût moyen connu
+    newAvgPrice = currentAvgPrice;
+}
+
+transaction.update(stockDocRef, {
+    stock: newStock,
+    price: newAvgPrice // On utilise ici la nouvelle logique
+});
 
                 const historyRef = stockDocRef.collection("history").doc();
                 transaction.set(historyRef, {
@@ -10230,6 +10246,72 @@ function annulerAchatTransaction(approId, approData) {
             }
         }
     });
+}
+
+
+/**
+ * Gère l'annulation d'une vente dans une transaction sécurisée.
+ * @param {string} saleId - L'ID de la vente à annuler.
+ */
+async function annulerVente(saleId) {
+    const saleRef = dbFirestore.collection("ventes").doc(saleId);
+
+    try {
+        await dbFirestore.runTransaction(async (transaction) => {
+            const saleDoc = await transaction.get(saleRef);
+            if (!saleDoc.exists) {
+                throw new Error("La vente n'existe pas !");
+            }
+
+            const saleData = saleDoc.data();
+
+            // Si la vente est déjà annulée, on arrête
+            if (saleData.status === 'annulé') {
+                throw new Error("Cette vente est déjà annulée.");
+            }
+
+            // --- 1. On marque la vente comme "annulée" ---
+            transaction.update(saleRef, {
+                status: 'annulé',
+                cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // --- 2. On remet les articles dans le stock ---
+            for (const item of saleData.items) {
+                const stockQuery = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
+                
+                // Note : On ne peut pas utiliser transaction.get() après une écriture dans la même transaction.
+                // C'est pourquoi on fait cette requête en dehors. La logique reste sécurisée.
+                if (!stockQuery.empty) {
+                    const stockDocRef = stockQuery.docs[0].ref;
+                    transaction.update(stockDocRef, {
+                        stock: firebase.firestore.FieldValue.increment(item.quantite)
+                    });
+                }
+            }
+
+            // --- 3. On inverse l'opération de trésorerie ---
+            const montantVente = parseFloat(saleData.overallTotal) || 0;
+            const compteId = saleData.compteId || 'caisse'; // 'caisse' par défaut si non spécifié
+
+            // On retire l'argent du compte où il avait été ajouté
+            await enregistrerMouvementTresorerie({
+                compteId: compteId,
+                type: 'annulation_vente',
+                sens: 'out', // C'est une sortie d'argent pour annuler l'entrée
+                montant: montantVente,
+                description: `Annulation de la vente pour ${saleData.clientNom}`,
+                refId: saleId
+            });
+        });
+
+        // Si tout s'est bien passé
+        showToast("Vente annulée avec succès !");
+
+    } catch (error) {
+        console.error("Erreur lors de l'annulation de la vente : ", error);
+        alert("Erreur : " + error.message);
+    }
 }
 </script>
 
