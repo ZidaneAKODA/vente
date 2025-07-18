@@ -1680,9 +1680,7 @@ async function preparerAnnulationVente(saleId, event) {
       });
 
       
-// Function to filter sales history based on selected date and status
-      // Function to filter sales history based on selected date and status
-      async function filterSalesHistory(statusFilter = 'all') {
+async function filterSalesHistory(statusFilter = 'all') {
         const dateInput = document.getElementById("filterHistoryDate").value;
         if (!dateInput) {
           console.warn("Aucune date sélectionnée");
@@ -1698,22 +1696,19 @@ async function preparerAnnulationVente(saleId, event) {
                 </ion-label>
             </ion-item>
         `;
- 
-        // Convert the input date to start and end of day JavaScript Date objects
+
         const selectedDate = new Date(dateInput);
         const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0);
         const endOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999);
 
-        // **** CRUCIAL CHANGE HERE: Convert JS Date objects to Firestore Timestamp objects ****
         const startOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(startOfDay);
         const endOfDayFirestoreTimestamp = firebase.firestore.Timestamp.fromDate(endOfDay);
-        // **********************************************************************************
 
         try {
             let query = dbFirestore.collection("ventes")
-                .where("timestamp", ">=", startOfDayFirestoreTimestamp) // Use Firestore Timestamp object
-                .where("timestamp", "<=", endOfDayFirestoreTimestamp)   // Use Firestore Timestamp object
-                .orderBy("timestamp", "desc"); // Order by timestamp for consistent display
+                .where("timestamp", ">=", startOfDayFirestoreTimestamp)
+                .where("timestamp", "<=", endOfDayFirestoreTimestamp)
+                .orderBy("timestamp", "desc");
 
             if (statusFilter === 'successful') {
                 query = query.where("deliveryStatus", "==", "réussie");
@@ -1729,22 +1724,20 @@ async function preparerAnnulationVente(saleId, event) {
 
             querySnapshot.forEach(doc => {
                 const sale = doc.data();
-                sale.id = doc.id;
                 
-                // **** IMPORTANT: Convert Firestore Timestamp back to JS Date for display ****
-                // The `timestamp` field in `sale` object will be a Firestore Timestamp object.
-                // You need to call `.toDate()` on it to get a JavaScript Date object.
-                // This is already handled in your `displaySalesHistory` function:
-                // `new Date(sale.timestamp.toDate()).toLocaleDateString(...)`
-                // So, no changes are needed here, just a reminder that `sale.timestamp` is now a Firestore Timestamp object.
-                // ***************************************************************************
+                // ================== MODIFICATION PRINCIPALE ==================
+                // Si la vente a le statut 'annulé', on l'ignore complètement.
+                // Le `return` ici agit comme un `continue` dans une boucle forEach.
+                if (sale.status === 'annulé') {
+                    return;
+                }
+                // ===========================================================
 
+                sale.id = doc.id;
                 salesList.push(sale);
 
-                // Calculate total phones sold.
                 if (sale.items && Array.isArray(sale.items)) {
                     sale.items.forEach(item => {
-                        // Assuming "telephones" category is the one for phones
                         if (item.category && item.category.toLowerCase() === "telephones") {
                             totalPhones += parseInt(item.quantite) || 0;
                         }
@@ -1752,11 +1745,7 @@ async function preparerAnnulationVente(saleId, event) {
                 }
             });
 
-            // Update the display for total phones sold
-            document.getElementById("totalPhonesSold").innerText =
-                "Total Téléphones vendus : " + totalPhones;
-
-            // Display sales history using the new Ionic card design
+            document.getElementById("totalPhonesSold").innerText = "Total Téléphones vendus : " + totalPhones;
             displaySalesHistory(salesList);
 
         } catch (err) {
@@ -1768,10 +1757,8 @@ async function preparerAnnulationVente(saleId, event) {
                     </ion-label>
                 </ion-item>
             `;
-          
         }
       }
-
       // Handle tab changes for sales history
       document.addEventListener('DOMContentLoaded', () => {
           const salesTabs = document.getElementById('sales-tabs');
@@ -2622,7 +2609,8 @@ function generateInvoicePDF(sale) {
         container.innerHTML = '<h3>Historique des Mouvements de Stock</h3>';
         snapshot.forEach(doc => {
           const d = doc.data();
-          const date = new Date(d.timestamp).toLocaleString("fr-FR");
+          // Ligne corrigée
+const date = d.timestamp.toDate().toLocaleString("fr-FR");
           const change = d.change || 0;
           const signe = change > 0 ? "+" : "";
           const color = change > 0 ? "green" : "red";
@@ -4155,6 +4143,10 @@ async function generateSupplierCreditPDF() {
                     <i data-lucide="dollar-sign"></i>
                     <span>Avance de Paiement</span>
                 </li>
+                 <li class="menu-list-item" onclick="window.location.hash='depots-fournisseurs'">
+                    <i data-lucide="archive-restore"></i>
+                    <span>Gestion des Dépôts</span>
+                </li>
             </ul>
         </div>
 
@@ -4317,33 +4309,43 @@ async function generateSupplierCreditPDF() {
 
     </div>
 
-    <div id="accounts-balances"
-    class="accounts-container"
-    style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
-</div>
+    
 
-
-
-    <!-- Total des entrées d'aujourd'hui -->
-    <div class="section-title">Entrées d'aujourd'hui</div>
-    <div class="history-list" id="entrees-list">
-      <div class="history-item">
-        <div class="info">Total Entrées</div>
-        <div class="amount in" id="entrees-today">+XOF 0</div>
-        <button class="btn" onclick="window.location.hash='historique'">Voir plus</button>
-      </div>
-    </div>
-
-    <!-- Total des dépenses d'aujourd'hui -->
-    <div class="section-title">Dépenses d'aujourd'hui</div>
-    <div class="history-list" id="depenses-list">
-      <div class="history-item">
-        <div class="info">Total Dépenses</div>
-        <div class="amount out" id="depenses-today">-XOF 0</div>
-        <button class="btn" onclick="window.location.hash='depenses'">Voir plus</button>
-      </div>
-    </div>
-  </div>
+    <div class="section-title">Résumé des flux du jour</div>
+    <div class="history-list">
+        <div class="history-item">
+            <div class="info">Solde initial</div>
+            <div class="amount" id="treso-opening-balance">XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Ventes (Entrées)</div>
+            <div class="amount in" id="treso-total-ventes">+XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Remboursements (Injection)</div>
+            <div class="amount in" id="treso-total-remboursements">+XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Dépenses Fonctionnelles</div>
+            <div class="amount out" id="treso-total-depenses-fonctionnelles">-XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Dépenses Papa</div>
+            <div class="amount out" id="treso-total-depenses-papa">-XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Frais de transport</div>
+            <div class="amount out" id="treso-total-frais-transport">-XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Approvisionnements (Achats de stock)</div>
+            <div class="amount out" id="treso-total-appro">-XOF 0</div>
+        </div>
+        <div class="history-item">
+            <div class="info">Profit net du jour</div>
+            <div class="amount" id="treso-daily-profit">XOF 0</div>
+        </div>
+        </div>
 
   <script>
     // Appel initial pour mettre à jour l'affichage des totaux et du solde
@@ -5347,6 +5349,7 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
 
 </script>
 
+
 <!-- Section Approvisionnement -->
 <section id="screen-approvisionnement" class="screen">
     <header>
@@ -5359,6 +5362,14 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
     <div class="form-section">
         <h2>Détails de l'article</h2>
         <form class="vente-form" onsubmit="event.preventDefault(); ajouterApprovisionnementItem();">
+
+            <label for="typeAchatAppro">Type d'achat <span style="color: #d9534f;">*</span></label>
+            <select id="typeAchatAppro" required style="margin-bottom: 16px;">
+                <option value="normal" selected>Achat Normal</option>
+                <option value="depot">Dépôt Fournisseur</option>
+            </select>
+
+            
 
             <label for="fournisseurAppro">Fournisseur <span style="color: #d9534f;">*</span></label>
             <div> <input type="text" id="fournisseurAppro" placeholder="Rechercher ou saisir un fournisseur" autocomplete="off" required />
@@ -5413,16 +5424,18 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
                oninput="updatePanierApprovisionnement()">
                </div>
     
-    <label for="paymentMethodApproBasket">Mode de Paiement <span style="color: #d9534f;">*</span></label>
-    <select id="paymentMethodApproBasket" required onchange="togglePaymentAccount()">
-        <option value="" disabled selected>-- Choisir le mode --</option>
-        <option value="cash">Cash</option>
-        <option value="credit">Crédit</option>
-    </select>
+    <div id="paymentOptionsContainer">
+        <label for="paymentMethodApproBasket">Mode de Paiement <span style="color: #d9534f;">*</span></label>
+        <select id="paymentMethodApproBasket" required onchange="togglePaymentAccount()">
+            <option value="" disabled selected>-- Choisir le mode --</option>
+            <option value="cash">Cash</option>
+            <option value="credit">Crédit</option>
+        </select>
 
-    <div id="accountSelectionContainer">
-        <label for="compteSelectAppro">Payer depuis le compte <span style="color: #d9534f;">*</span></label>
-        <select id="compteSelectAppro" required></select>
+        <div id="accountSelectionContainer">
+            <label for="compteSelectAppro">Payer depuis le compte <span style="color: #d9534f;">*</span></label>
+            <select id="compteSelectAppro" required></select>
+        </div>
     </div>
 
     <button class="btn-modern" onclick="finaliserApprovisionnement()" style="margin-top: 20px;">Enregistrer l'Achat</button>
@@ -5603,7 +5616,36 @@ function logDepenseRemboursement({ collection, montant, description, type = "", 
     const total = quantite * prix;
     document.getElementById("coutTotalAppro").value = total.toFixed(2);
   }
+// Cette fonction sera appelée à chaque changement du type d'achat
+function handlePurchaseTypeChange() {
+    const purchaseType = document.getElementById("typeAchatAppro").value;
+    const paymentContainer = document.getElementById("paymentOptionsContainer");
 
+    if (purchaseType === 'depot') {
+        // Si c'est un dépôt, on cache les options de paiement
+        paymentContainer.style.display = 'none';
+        // On rend les champs non-obligatoires pour que le formulaire puisse être validé
+        document.getElementById("paymentMethodApproBasket").required = false;
+        document.getElementById("compteSelectAppro").required = false;
+    } else {
+        // Sinon (achat normal), on affiche les options
+        paymentContainer.style.display = 'block';
+        // Et on les rend à nouveau obligatoires
+        document.getElementById("paymentMethodApproBasket").required = true;
+        // On appelle aussi la fonction qui gère l'affichage du compte
+        togglePaymentAccount(); 
+    }
+}
+
+// On attache l'événement au champ de sélection du type d'achat
+document.getElementById("typeAchatAppro").addEventListener('change', handlePurchaseTypeChange);
+
+// Assurez-vous que l'état initial est correct lorsque vous arrivez sur la page
+window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#approvisionnement') {
+        handlePurchaseTypeChange();
+    }
+});
   // Incrémenter/Décrémenter la quantité
   function decrementQuantityAppro() {
     const input = document.getElementById("quantiteAppro");
@@ -5838,18 +5880,24 @@ function retirerApproItem(index) {
         return;
     }
 
+    // On récupère le type d'achat choisi
+    const typeAchat = document.getElementById("typeAchatAppro").value;
     const fournisseur = currentApproItems[0].fournisseur;
-    const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
-    const compteId = document.getElementById("compteSelectAppro").value;
     const fraisTransport = parseFloat(document.getElementById("fraisTransportAppro").value) || 0;
 
-    if (!paymentMethod) {
-        alert("Veuillez sélectionner un mode de paiement au fournisseur.");
-        return;
-    }
-    if (paymentMethod === 'cash' && !compteId) {
-        alert("Veuillez sélectionner un compte de trésorerie pour le paiement au fournisseur.");
-        return;
+    // Validation spécifique pour l'achat normal
+    if (typeAchat === 'normal') {
+        const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
+        const compteId = document.getElementById("compteSelectAppro").value;
+
+        if (!paymentMethod) {
+            alert("Veuillez sélectionner un mode de paiement pour un achat normal.");
+            return;
+        }
+        if (paymentMethod === 'cash' && !compteId) {
+            alert("Veuillez sélectionner un compte de trésorerie pour le paiement cash.");
+            return;
+        }
     }
 
     showSaleLoader();
@@ -5861,7 +5909,6 @@ function retirerApproItem(index) {
 
         const totalCostOfAllItemsBeforeTransport = currentApproItems.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
 
-        // **FIX**: Prepare items with their final adjusted cost before saving
         const finalItemsForFirestore = currentApproItems.map(item => {
             let adjustedPrixAchat = parseFloat(item.prixAchat);
             if (totalCostOfAllItemsBeforeTransport > 0 && fraisTransport > 0) {
@@ -5870,11 +5917,11 @@ function retirerApproItem(index) {
             }
             return {
                 ...item,
-                adjustedPrixAchat: adjustedPrixAchat // <-- Important for future cancellations
+                adjustedPrixAchat: adjustedPrixAchat
             };
         });
 
-        // Update stock with the new adjusted prices
+        // La mise à jour du stock reste la même dans les deux cas
         for (const item of finalItemsForFirestore) {
             const stockQuery = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
             let stockDocRef;
@@ -5887,7 +5934,7 @@ function retirerApproItem(index) {
                     name: item.produit,
                     category: item.category,
                     stock: newStockQty,
-                    price: item.adjustedPrixAchat, // <-- Use adjusted price
+                    price: item.adjustedPrixAchat,
                     icon: item.category === "accessoires" ? "🎧" : "📱",
                     createdAt: serverTimestamp
                 });
@@ -5902,21 +5949,19 @@ function retirerApproItem(index) {
 
                 batch.update(stockDocRef, {
                     stock: newStockQty,
-                    price: newAveragePrice // <-- Update with new weighted average
+                    price: newAveragePrice
                 });
             }
 
-            // Log stock history
             const historyRef = stockDocRef.collection("history").doc();
             batch.set(historyRef, {
                 timestamp: serverTimestamp,
                 change: +item.quantite,
                 newStock: newStockQty,
                 type: 'approvisionnement',
-                costOfChange: item.quantite * item.adjustedPrixAchat // <-- Log value of this transaction
+                costOfChange: item.quantite * item.adjustedPrixAchat
             });
 
-            // Add IMEI numbers if any
             if (item.category === 'telephones' && item.imeis && item.imeis.length > 0) {
                 item.imeis.forEach(imei => {
                     const imeiDocRef = stockDocRef.collection("imeis").doc(imei);
@@ -5928,38 +5973,53 @@ function retirerApproItem(index) {
             }
         }
 
-        // Create the main procurement document
         const approRef = dbFirestore.collection("approvisionnement").doc();
         const totalCostFromSupplier = finalItemsForFirestore.reduce((acc, item) => acc + parseFloat(item.coutTotal), 0);
-
-        batch.set(approRef, {
+        
+        // Construction de l'objet d'achat
+        const approData = {
             fournisseur,
-            items: finalItemsForFirestore, // <-- Save items with adjusted cost
+            items: finalItemsForFirestore,
             timestamp: serverTimestamp,
-            paymentMethod: paymentMethod,
-            isPaid: paymentMethod === 'cash',
-            remainingAmount: paymentMethod === 'credit' ? totalCostFromSupplier : 0,
-            totalCost: totalCostFromSupplier,
             fraisTransport: fraisTransport,
-            // **FIX**: Save the account ID used for the payment
-            compteId: paymentMethod === 'cash' ? compteId : null,
-            status: 'validé' // Initial status
-        });
+            status: 'validé',
+            typeAchat: typeAchat,// On ajoute le type d'achat ici
+            productNames: finalItemsForFirestore.map(it => it.produit) // Ajoute la liste des noms de produits
+        };
 
-        // Record cash movements
-        if (paymentMethod === 'cash') {
-            await enregistrerMouvementTresorerie({
-                compteId: compteId,
-                type: 'paiement_fournisseur',
-                sens: 'out',
-                montant: totalCostFromSupplier,
-                description: `Achat fournisseur ${fournisseur}`,
-                refId: approRef.id
-            });
+        if (typeAchat === 'normal') {
+            const paymentMethod = document.getElementById("paymentMethodApproBasket").value;
+            const compteId = document.getElementById("compteSelectAppro").value;
+
+            approData.paymentMethod = paymentMethod;
+            approData.isPaid = paymentMethod === 'cash';
+            approData.remainingAmount = paymentMethod === 'credit' ? totalCostFromSupplier : 0;
+            approData.totalCost = totalCostFromSupplier;
+            approData.compteId = paymentMethod === 'cash' ? compteId : null;
+            
+            // Enregistrement du mouvement de caisse pour l'achat normal
+            if (paymentMethod === 'cash') {
+                await enregistrerMouvementTresorerie({
+                    compteId: compteId,
+                    type: 'paiement_fournisseur',
+                    sens: 'out',
+                    montant: totalCostFromSupplier,
+                    description: `Achat fournisseur ${fournisseur}`,
+                    refId: approRef.id
+                });
+            }
+        } else { // Cas d'un dépôt
+            approData.paymentMethod = 'depot';
+            approData.isPaid = false; // Il n'est pas payé initialement
+            approData.remainingAmount = 0; // Pas de dette initiale
+            approData.totalCost = totalCostFromSupplier;
+            approData.compteId = null;
         }
 
+        batch.set(approRef, approData);
+
+        // La gestion des frais de transport reste la même, car c'est une dépense réelle
         if (fraisTransport > 0) {
-            // Transport fees are a separate functional expense, usually from 'caisse'
             const transportExpenseCompteId = 'caisse';
             const transportDepenseRef = dbFirestore.collection("depenses").doc();
 
@@ -5970,7 +6030,7 @@ function retirerApproItem(index) {
                 timestamp: now.getTime(),
                 date: now.toISOString(),
                 compteId: transportExpenseCompteId,
-                refId: approRef.id // Link expense to procurement
+                refId: approRef.id
             });
 
             await enregistrerMouvementTresorerie({
@@ -5985,20 +6045,18 @@ function retirerApproItem(index) {
 
         await batch.commit();
 
-        alert(`Approvisionnement enregistré avec succès !`);
+        alert(`Approvisionnement de type "${typeAchat === 'depot' ? 'Dépôt Fournisseur' : 'Achat Normal'}" enregistré avec succès !`);
 
     } catch (error) {
         console.error("Erreur lors de la finalisation de l'approvisionnement : ", error);
         alert("Une erreur est survenue : " + error.message);
     } finally {
-        // Reset UI
         currentApproItems = [];
         updatePanierApprovisionnement();
         document.getElementById("fournisseurAppro").value = "";
-        document.getElementById("paymentMethodApproBasket").value = "";
-        document.getElementById("compteSelectAppro").value = "";
         document.getElementById("fraisTransportAppro").value = "";
-        togglePaymentAccount();
+        document.getElementById("typeAchatAppro").value = "normal"; // Reset to default
+        handlePurchaseTypeChange(); // Update UI
         chargerApprovisionnements();
         updateStockSummary();
         updateBalanceDisplay();
@@ -6117,7 +6175,359 @@ async function recordCreditPayment(approId, outstandingAmount) {
   </div>
 </section>
 
+<section id="screen-depots-fournisseurs" class="screen">
+  <ion-app>
+    <div id="fournisseurs-hub-list">
+      <ion-header class="ion-no-border">
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button onclick="window.location.hash='menu'">
+              <ion-icon name="arrow-back-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+          <ion-title>Hub Fournisseurs</ion-title>
+          <ion-buttons slot="end">
+            <ion-button>
+              <ion-icon name="search-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
 
+      <ion-content fullscreen>
+        <ion-list id="fournisseursHubListContainer" lines="full">
+          <ion-item>
+            <ion-label style="text-align:center; padding: 20px; color: #888;">
+              <ion-spinner name="crescent"></ion-spinner><br>
+              Analyse des données fournisseurs...
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </div>
+
+    <div id="fournisseur-detail-view" style="display: none;">
+      <ion-header class="ion-no-border">
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button id="backToHubListBtn">
+              <ion-icon name="arrow-back-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+          <ion-title id="supplierDetailNameHeader">Détails</ion-title>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content fullscreen>
+        <ion-segment value="resume" id="supplier-detail-tabs">
+          <ion-segment-button value="resume">
+            <ion-label>Résumé</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="stock">
+            <ion-label>Stock Fourni</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="history">
+            <ion-label>Historique</ion-label>
+          </ion-segment-button>
+        </ion-segment>
+
+        <div id="supplier-detail-content" class="ion-padding">
+          </div>
+      </ion-content>
+    </div>
+  </ion-app>
+
+  <style>
+    /* Add this or adjust your existing ion-content style for this screen */
+    #screen-depots-fournisseurs ion-content {
+      /* Ensure this specific screen's content has enough bottom padding */
+      /* The bottom-nav-pro is ~60px tall, add a bit more for safe measure */
+      --padding-bottom: 80px; /* Adjust as needed */
+      /* Also ensure fullscreen is handled, Ionic usually does this well */
+      padding-bottom: calc(var(--ion-safe-area-bottom) + 80px) !important; /* Combines with safe area */
+    }
+
+    /* Other styles specific to screen-depots-fournisseurs can remain here */
+  </style>
+
+  <script>
+ // Variable globale pour stocker les données du fournisseur actuellement consulté
+let currentSupplierDetailData = null;
+
+/**
+ * Gère l'affichage principal du Hub Dépôts.
+ */
+function setupSupplierHub() {
+    const listContainer = document.getElementById('fournisseurs-hub-list');
+    const detailContainer = document.getElementById('fournisseur-detail-view');
+
+    if (!listContainer || !detailContainer) return;
+
+    // Affiche la liste et cache les détails par défaut
+    listContainer.style.display = 'block';
+    detailContainer.style.display = 'none';
+
+    chargerHubDepots(); // La fonction est renommée pour plus de clarté
+
+    // Logique du bouton retour et des onglets
+    document.getElementById('backToHubListBtn').addEventListener('click', () => {
+        listContainer.style.display = 'block';
+        detailContainer.style.display = 'none';
+    });
+
+    const tabs = document.getElementById('supplier-detail-tabs');
+    tabs.addEventListener('ionChange', (event) => {
+        if (currentSupplierDetailData) {
+            renderSupplierDetailContent(event.detail.value, currentSupplierDetailData);
+        }
+    });
+}
+
+/**
+ * Récupère et agrège les données des fournisseurs ayant des dépôts actifs.
+ */
+async function chargerHubDepots() {
+    const listContainer = document.getElementById("fournisseursHubListContainer");
+    listContainer.innerHTML = `<ion-item><ion-label style="text-align:center;"><ion-spinner name="crescent"></ion-spinner></ion-label></ion-item>`;
+
+    try {
+        const suppliersWithDeposits = {};
+
+        // 1. Récupérer UNIQUEMENT les approvisionnements de type 'dépôt'
+        const approSnapshot = await dbFirestore.collection("approvisionnement")
+            .where('typeAchat', '==', 'depot')
+            .where('status', '!=', 'annulé')
+            .get();
+
+        approSnapshot.forEach(doc => {
+            const appro = { id: doc.id, ...doc.data() };
+            const name = appro.fournisseur || 'Inconnu';
+
+            if (!suppliersWithDeposits[name]) {
+                suppliersWithDeposits[name] = { name: name, initialValue: 0, soldValue: 0, procurements: [] };
+            }
+            suppliersWithDeposits[name].initialValue += parseFloat(appro.totalCost || 0);
+            suppliersWithDeposits[name].procurements.push(appro);
+        });
+
+        // 2. Récupérer les dettes de consignation pour calculer la valeur vendue
+        const dettesSnapshot = await dbFirestore.collection("dettesConsignation").get();
+        dettesSnapshot.forEach(doc => {
+            const dette = doc.data();
+            const name = dette.fournisseur;
+            if (suppliersWithDeposits[name]) {
+                // On somme la valeur de tous les articles vendus (payés ou non)
+                suppliersWithDeposits[name].soldValue += parseFloat(dette.montantDu || 0);
+            }
+        });
+
+        // Vider la liste
+        listContainer.innerHTML = "";
+        
+        // Filtrer pour ne garder que les fournisseurs avec un stock de dépôt restant
+        const activeDepositSuppliers = Object.values(suppliersWithDeposits)
+            .filter(s => (s.initialValue - s.soldValue) > 1); // Garde une marge pour les erreurs de calcul
+
+        if (activeDepositSuppliers.length === 0) {
+            listContainer.innerHTML = `<ion-item><ion-label style="text-align:center; color: #888;">Aucun dépôt fournisseur actif trouvé.</ion-label></ion-item>`;
+            return;
+        }
+
+        // 3. Afficher chaque fournisseur
+        for (const data of activeDepositSuppliers) {
+            const remainingValue = data.initialValue - data.soldValue;
+            const initials = data.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const avatarBgColor = getAvatarColor(data.name);
+
+            const ionItem = document.createElement('ion-item');
+            ionItem.button = true;
+            ionItem.innerHTML = `
+                <div class="avatar-circle" slot="start" style="background-color: ${avatarBgColor};">${initials}</div>
+                <ion-label>
+                    <h2>${data.name}</h2>
+                    <p>Dépôt initial: ${data.initialValue.toLocaleString('fr-FR')} FCFA</p>
+                </ion-label>
+                <div class="right-info" slot="end">
+                    <div class="total-amount" style="color: #28a745;">
+                        ${remainingValue.toLocaleString('fr-FR')} FCFA
+                    </div>
+                    <div class="payment-method">STOCK RESTANT</div>
+                </div>
+            `;
+            ionItem.addEventListener('click', () => afficherVueDetailleeFournisseur(data));
+            listContainer.appendChild(ionItem);
+        }
+
+    } catch (error) {
+        console.error("Erreur chargement Hub Dépôts:", error);
+        listContainer.innerHTML = `<ion-item><ion-label style="color:red; text-align:center;">Erreur de chargement.</ion-label></ion-item>`;
+    }
+}
+
+/**
+ * Affiche la vue détaillée pour un fournisseur spécifique.
+ */
+function afficherVueDetailleeFournisseur(supplierData) {
+    currentSupplierDetailData = supplierData;
+    document.getElementById('fournisseurs-hub-list').style.display = 'none';
+    document.getElementById('fournisseur-detail-view').style.display = 'block';
+    document.getElementById('supplierDetailNameHeader').textContent = `Dépôt - ${supplierData.name}`;
+
+    document.getElementById('supplier-detail-tabs').value = 'resume';
+    renderSupplierDetailContent('resume', supplierData);
+}
+
+/**
+ * Génère le contenu HTML pour l'onglet sélectionné dans la vue de détail.
+ */
+/**
+ * Génère le contenu HTML pour l'onglet sélectionné dans la vue de détail.
+ * VERSION MISE À JOUR pour inclure les ventes dans l'historique.
+ */
+/**
+ * Génère le contenu HTML pour l'onglet sélectionné dans la vue de détail.
+ * VERSION AVEC DÉBOGAGE pour vérifier pourquoi les ventes ne s'affichent pas.
+ */
+async function renderSupplierDetailContent(tabName, supplierData) {
+    const contentEl = document.getElementById('supplier-detail-content');
+    contentEl.innerHTML = `<div class="ion-text-center ion-padding"><ion-spinner name="crescent"></ion-spinner></div>`;
+
+    let html = '';
+    switch (tabName) {
+        // ... les cas 'resume' et 'stock' restent inchangés ...
+        case 'resume':
+            const initialValue = supplierData.initialValue || 0;
+            const soldValue = supplierData.soldValue || 0;
+            const remainingValue = initialValue - soldValue;
+
+            html = `
+                <ion-card>
+                    <ion-card-header><ion-card-title>Résumé du Dépôt</ion-card-title></ion-card-header>
+                    <ion-card-content>
+                        <ion-list lines="none">
+                            <ion-item>
+                                <ion-label>Valeur initiale totale déposée:</ion-label>
+                                <ion-note slot="end">${initialValue.toLocaleString('fr-FR')} FCFA</ion-note>
+                            </ion-item>
+                            <ion-item>
+                                <ion-label>Valeur des articles vendus (dette):</ion-label>
+                                <ion-note slot="end" color="danger">${soldValue.toLocaleString('fr-FR')} FCFA</ion-note>
+                            </ion-item>
+                            <ion-item>
+                                <ion-label><h2>Valeur du stock restant:</h2></ion-label>
+                                <ion-note slot="end" color="primary"><h2>${remainingValue.toLocaleString('fr-FR')} FCFA</h2></ion-note>
+                            </ion-item>
+                        </ion-list>
+                    </ion-card-content>
+                </ion-card>
+            `;
+            contentEl.innerHTML = html;
+            break;
+
+        case 'stock':
+             html = `<ion-card>
+                        <ion-card-header><ion-card-title>Articles en Dépôt (Liste Initiale)</ion-card-title></ion-card-header>
+                        <ion-card-content><ion-list lines="full">`;
+            supplierData.procurements.forEach(appro => {
+                 (appro.items || []).forEach(item => {
+                    html += `<ion-item><ion-label>${item.produit}</ion-label><ion-note slot="end">Qté initial: ${item.quantite}</ion-note></ion-item>`;
+                });
+            });
+            html += `</ion-list></ion-card-content></ion-card>`;
+            contentEl.innerHTML = html;
+            break;
+
+        case 'history':
+            try {
+                // --- DÉBUT DU DÉBOGAGE ---
+                console.log("Chargement de l'historique pour le fournisseur :", supplierData.name);
+                // --- FIN DU DÉBOGAGE ---
+
+                let historyEvents = [];
+
+                supplierData.procurements.forEach(appro => {
+                    historyEvents.push({
+                        type: 'depot',
+                        timestamp: appro.timestamp.toDate(),
+                        data: appro
+                    });
+                });
+
+                const dettesSnapshot = await dbFirestore.collection("dettesConsignation")
+                    .where("fournisseur", "==", supplierData.name)
+                    .get();
+                
+                // --- DÉBUT DU DÉBOGAGE ---
+                console.log(`Résultat de la requête 'dettesConsignation': ${dettesSnapshot.size} document(s) trouvé(s).`);
+                if (dettesSnapshot.size > 0) {
+                    dettesSnapshot.forEach(doc => {
+                        console.log("  -> Vente trouvée :", doc.data());
+                    });
+                }
+                // --- FIN DU DÉBOGAGE ---
+
+                dettesSnapshot.forEach(doc => {
+                    const dette = doc.data();
+                    historyEvents.push({
+                        type: 'vente',
+                        timestamp: dette.dateVente.toDate(),
+                        data: dette
+                    });
+                });
+
+                historyEvents.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                
+                // --- DÉBUT DU DÉBOGAGE ---
+                console.log("Historique complet avant affichage :", historyEvents);
+                // --- FIN DU DÉBOGAGE ---
+
+                html = `<ion-card>
+                            <ion-card-header><ion-card-title>Historique des Mouvements</ion-card-title></ion-card-header>
+                            <ion-card-content><ion-list>`;
+
+                if (historyEvents.length === 0) {
+                    html += `<ion-item><ion-label class="ion-text-center">Aucun mouvement pour ce fournisseur.</ion-label></ion-item>`;
+                } else {
+                    historyEvents.forEach(event => {
+                        const eventDate = event.timestamp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+                        if (event.type === 'depot') {
+                            html += `
+                                <ion-item>
+                                    <ion-icon name="arrow-down-circle-outline" slot="start" color="primary"></ion-icon>
+                                    <ion-label>
+                                        <h2>Dépôt du ${eventDate}</h2>
+                                        <p>Total: ${parseFloat(event.data.totalCost || 0).toLocaleString('fr-FR')} FCFA</p>
+                                        <p>${(event.data.items || []).map(i => i.quantite + 'x ' + i.produit).join(', ')}</p>
+                                    </ion-label>
+                                </ion-item>
+                            `;
+                        } else {
+                            html += `
+                                <ion-item>
+                                    <ion-icon name="arrow-up-circle-outline" slot="start" color="danger"></ion-icon>
+                                    <ion-label>
+                                        <h2>Vente du ${eventDate}</h2>
+                                        <p>Article: ${event.data.quantite}x ${event.data.produit}</p>
+                                        <p>Dette créée: <strong>${parseFloat(event.data.montantDu || 0).toLocaleString('fr-FR')} FCFA</strong></p>
+                                    </ion-label>
+                                </ion-item>
+                            `;
+                        }
+                    });
+                }
+                
+                html += `</ion-list></ion-card-content></ion-card>`;
+                contentEl.innerHTML = html;
+
+            } catch (error) {
+                console.error("Erreur lors de la construction de l'historique :", error);
+                contentEl.innerHTML = `<ion-card><ion-card-content class="ion-text-center" color="danger">Erreur de chargement de l'historique.</ion-card-content></ion-card>`;
+            }
+            break;
+    }
+}
+  </script>
+</section>
 <script>
 /* ====================================================================
    LOGIQUE DE SCAN - VERSION FINALE, FIDÈLE AU HELLO WORLD
@@ -6763,10 +7173,9 @@ function annulerScan() {
         <i data-lucide="package"></i>
         <span>Stock</span>
       </div>
-      <div class="nav-item" id="nav-livraisons" onclick="window.location.hash='livraisons'">
-        <i data-lucide="truck"></i>
-        <span>Livraisons</span>
-      </div>
+      <div class="nav-item" id="nav-tresorerie" onclick="window.location.hash='tresorerie'">
+  <i data-lucide="dollar-sign"></i> <span>Trésorerie</span>
+</div>
       <div class="nav-item" id="nav-historique" onclick="window.location.hash='historique'">
         <i data-lucide="clock"></i>
         <span>Historique</span>
@@ -7388,27 +7797,139 @@ function updateDepensePapaBalance() {
     });
 }
 
+// Remplacez la fonction updateBalanceDisplay existante par celle-ci
+
+// Remplacez la fonction updateBalanceDisplay existante par celle-ci
+
 function updateBalanceDisplay() {
-  Promise.all([
-    calculateEntreesToday(),
-    calculateDepensesToday()
-    // on retire getRunningBalance()
-  ])
-  .then(([totalEntreesToday, totalDepensesToday]) => {
-    // 1) Affiche entrées et dépenses du jour
-    document.getElementById("entrees-today").textContent  = "+XOF " + totalEntreesToday.toLocaleString();
-    document.getElementById("depenses-today").textContent = "-XOF " + totalDepensesToday.toLocaleString();
+    const today = new Date();
+    const todayString = today.toISOString().slice(0, 10); // Format AAAA-MM-JJ
 
-    // 2) Calcule le solde global = somme des solde de chaque compte (caisse, momo, banque)
-    const soldeGlobal = comptesCache
-      .reduce((sum, compte) => sum + (compte.solde || 0), 0);
+    // Bornes temporelles pour les requêtes de la journée
+    const startOfDayMillis = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
+    const endOfDayMillis = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
 
-    // 3) Affiche le solde global
-    document.getElementById("balance-sold").textContent   = "XOF " + soldeGlobal.toLocaleString();
-  })
-  .catch(error => console.error("Erreur updateBalanceDisplay:", error));
+    const startOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(startOfDayMillis);
+    const endOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(endOfDayMillis);
+
+    Promise.all([
+        // 1. Solde initial global de la trésorerie pour aujourd'hui
+        dbFirestore.collection("tresorerieSnapshots").doc(todayString).get().then(doc => {
+            return doc.exists ? doc.data().openingBalanceGlobal || 0 : 0;
+        }),
+
+        // 2. Total des ventes du jour (Entrées) ET Total Profit
+        dbFirestore.collection("ventes")
+            .where("timestamp", ">=", startOfDayTimestamp)
+            .where("timestamp", "<=", endOfDayTimestamp)
+            .get()
+            .then(snapshot => {
+                let totalVentes = 0;
+                let totalProfit = 0;
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status !== 'annulé') {
+                        totalVentes += parseFloat(data.overallTotal) || 0;
+                        totalProfit += parseFloat(data.totalProfit) || 0;
+                    }
+                });
+                return { totalVentes, totalProfit };
+            }),
+
+        // 3. Total des approvisionnements du jour (Coût des articles seulement)
+        dbFirestore.collection("approvisionnement")
+            .where("timestamp", ">=", startOfDayTimestamp)
+            .where("timestamp", "<=", endOfDayTimestamp)
+            .get()
+            .then(snapshot => {
+                let totalAppro = 0;
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status !== 'annulé') {
+                        totalAppro += parseFloat(data.totalCost) || 0;
+                    }
+                });
+                return totalAppro;
+            }),
+
+        // 4. Total des dépenses du jour (séparées par type)
+        dbFirestore.collection("depenses")
+            .where("timestamp", ">=", startOfDayMillis)
+            .where("timestamp", "<=", endOfDayMillis)
+            .get()
+            .then(snapshot => {
+                let totalDepensesFonctionnelles = 0;
+                let totalDepensesPapa = 0;
+                let totalFraisTransport = 0; // On va aussi récupérer les frais de transport ici
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const montant = parseFloat(data.montant) || 0;
+                    if (data.type === "depense fonctionnelle") {
+                        if (data.description && data.description.toLowerCase().includes('frais transport achat')) {
+                            totalFraisTransport += montant;
+                        } else {
+                            totalDepensesFonctionnelles += montant;
+                        }
+                    } else if (data.type === "papa") {
+                        totalDepensesPapa += montant;
+                    }
+                    // 'depense' seul peut être un ancien type de dépense fonctionnelle, à vous de voir si vous voulez l'inclure
+                    // si (data.type === "depense") { totalDepensesFonctionnelles += montant; }
+                });
+                return { totalDepensesFonctionnelles, totalDepensesPapa, totalFraisTransport };
+            }),
+
+        // 5. Total des remboursements du jour (Injection)
+        dbFirestore.collection("remboursements")
+            .where("timestamp", ">=", startOfDayMillis)
+            .where("timestamp", "<=", endOfDayMillis)
+            .get()
+            .then(snapshot => {
+                let totalRemboursements = 0;
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    totalRemboursements += parseFloat(data.montant) || 0;
+                });
+                return totalRemboursements;
+            })
+
+    ])
+    .then(([
+        openingBalanceGlobal,
+        { totalVentes, totalProfit },
+        totalAppro,
+        { totalDepensesFonctionnelles, totalDepensesPapa, totalFraisTransport }, // Destructuration modifiée
+        totalRemboursements
+    ]) => {
+        // Mise à jour des éléments individuels de calcul
+        document.getElementById("treso-opening-balance").textContent = "XOF " + openingBalanceGlobal.toLocaleString('fr-FR');
+        document.getElementById("treso-total-ventes").textContent = "+XOF " + totalVentes.toLocaleString('fr-FR');
+        document.getElementById("treso-total-remboursements").textContent = "+XOF " + totalRemboursements.toLocaleString('fr-FR');
+        
+        document.getElementById("treso-total-depenses-fonctionnelles").textContent = "-XOF " + totalDepensesFonctionnelles.toLocaleString('fr-FR');
+        document.getElementById("treso-total-depenses-papa").textContent = "-XOF " + totalDepensesPapa.toLocaleString('fr-FR');
+        
+        document.getElementById("treso-total-frais-transport").textContent = "-XOF " + totalFraisTransport.toLocaleString('fr-FR');
+        document.getElementById("treso-total-appro").textContent = "-XOF " + totalAppro.toLocaleString('fr-FR');
+        document.getElementById("treso-daily-profit").textContent = "XOF " + totalProfit.toLocaleString('fr-FR');
+
+        // Calcul du Solde Final Global
+        const soldeFinalGlobal =
+            openingBalanceGlobal +
+            totalVentes +
+            totalRemboursements -
+            totalDepensesFonctionnelles -
+            totalDepensesPapa -
+            totalFraisTransport -
+            totalAppro;
+
+        document.getElementById("balance-sold").textContent = "XOF " + soldeFinalGlobal.toLocaleString('fr-FR');
+
+        // Mettre à jour l'affichage des comptes individuels (caisse, momo, banque)
+        majCartesTresorerie();
+    })
+    .catch(error => console.error("Erreur updateBalanceDisplay:", error));
 }
-
         /**
      * Récupère le solde cumulatif depuis le document "tresorerie/balance".
      * Retourne 0 si le doc n'existe pas ou en cas d'erreur.
@@ -7720,6 +8241,10 @@ case 'article-detail':
       updateRapports();
       break;
 
+     case 'depots-fournisseurs':
+    setupSupplierHub(); // On appelle la nouvelle fonction
+    break;
+
     case 'approvisionnement':
         chargerApprovisionnements();
         togglePaymentAccount(); // Ensure payment method UI is correct on entry
@@ -7768,17 +8293,7 @@ case 'article-detail':
 }
 
 
-    window.addEventListener('load', () => {
-      if (!window.location.hash) {
-        window.location.hash = 'vendre';
-      }
-      handleHashChange();
-      window.addEventListener('hashchange', handleHashChange);
-      lucide.createIcons();
-
-      updateDepensePapaBalance();
-    });
-
+   
     // Récupération de l’overlay
 const offlineOverlay = document.getElementById('offlineOverlay');
 
@@ -8034,106 +8549,97 @@ function continuerDepuisPanier() {
         finaliserVente(clientNom, clientNumero, vendeur, null, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison);
       }
     }
- function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
-  showSaleLoader();
-  const now = new Date();
-  const dateVente = now.toLocaleDateString("fr-FR");
-  const heureVente = now.toLocaleTimeString("fr-FR");
-  
-  // Calcul de l'overallTotal et calcul du profit par article
-  let overallTotal = 0;
-  let totalProfit = 0;
-  
-  // Pour chaque article vendu, on calcule le profit en récupérant le coût d'achat moyen
-  const profitCalculations = currentItems.map(item => {
-    overallTotal += parseFloat(item.total);
-    return dbFirestore.collection("stock")
-      .where("name", "==", item.produit)
-      .get()
-      .then(querySnapshot => {
-        if (!querySnapshot.empty) {
-          const stockData = querySnapshot.docs[0].data();
-          // Profit unitaire = Prix de vente saisi - coût moyen (stock.price)
-          const profitUnitaire = item.prix - (stockData.price || 0);
-          const profitTotal = profitUnitaire * item.quantite;
-          totalProfit += profitTotal;
-          // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
-          item.profitUnitaire = profitUnitaire;
-          item.profitTotal = profitTotal;
-          item.coutAchat     = stockData.price || 0;
-        }
-      });
-  });
-  
-  // Attendre que tous les calculs de profit soient faits
-  Promise.all(profitCalculations).then(() => {
-    const vente = { 
-      dateVente, 
-      heureVente, 
-      clientNom, 
-      clientNumero, 
-      vendeur,
-      items: currentItems, 
-      overallTotal: overallTotal.toFixed(2),
-      totalProfit: totalProfit.toFixed(2), // Stocker le profit total de la vente
-      photoFacture: photoData, 
-      observationsVendeur,
-      isDelivery,
-      deliveryStatus: isDelivery ? "en cours" : null,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    const compteId = document.getElementById("compteSelectVente").value;
+ async function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
+    showSaleLoader();
+    const now = new Date();
+    const dateVente = now.toLocaleDateString("fr-FR");
+    const heureVente = now.toLocaleTimeString("fr-FR");
 
-    addSaleFirestore({ ...vente, compteId })
-  .then((newSaleId) => {
-    // 1️⃣ on met d’abord à jour le stock
-    return updateStockAfterSaleFirestore(currentItems)
-      // 2️⃣ puis on crée le mouvement en passant bien l’ID de la vente (newSaleId)
-      .then(() => enregistrerMouvementTresorerie({
-        compteId,
-        type: 'vente',
-        sens: 'in',
-        montant: +overallTotal,
-        description: `Vente ${clientNom}`,
-        refId: newSaleId
-      }));
-  })
-  .then(() => updateBalanceDisplay())
-  .then(() => {
-    hideSaleLoader();
-    alert(isDelivery ? "Livraison validée !" : "Vente validée !");
-    
-    // START: Code to add for reset and redirection
-    // Reset the form fields
-    document.getElementById("produit").value = "";
-    document.getElementById("prix").value = "";
-    document.getElementById("quantite").value = "1";
-    document.getElementById("totalArticle").value = "";
-    document.getElementById("clientNom").value = "";
-    document.getElementById("clientNumero").value = "";
-    document.getElementById("photoFacture").value = "";
-    document.getElementById("observationsVendeur").value = "";
-    document.getElementById("isDelivery").checked = false;
-    document.getElementById("livreurNom").value = "";
-    document.getElementById("livreurNumero").value = "";
-    document.getElementById("lieuLivraison").value = "";
-    document.getElementById("saleRecap").innerHTML = "";
-    
-    // Reset the cart
-    currentItems = [];
-    
-    // Redirect to the sales history page
-    window.location.hash = 'historique';
-    // END: Code to add for reset and redirection
+    // Calcul de l'overallTotal et calcul du profit par article
+    let overallTotal = 0;
+    let totalProfit = 0;
 
-  })
-  .catch(error => {
-    hideSaleLoader();
-    alert("Erreur lors de l'ajout de la vente : " + error.message);
-    });
-  });
+    // Pour chaque article vendu, on calcule le profit en récupérant le coût d'achat moyen
+    const profitCalculations = currentItems.map(item => {
+        overallTotal += parseFloat(item.total);
+        return dbFirestore.collection("stock")
+            .where("name", "==", item.produit)
+            .get()
+            .then(querySnapshot => {
+                if (!querySnapshot.empty) {
+                    const stockData = querySnapshot.docs[0].data();
+                    // Profit unitaire = Prix de vente saisi - coût moyen (stock.price)
+                    const profitUnitaire = item.prix - (stockData.price || 0);
+                    const profitTotal = profitUnitaire * item.quantite;
+                    totalProfit += profitTotal;
+                    // Vous pouvez aussi ajouter ce profit à l'article pour le report détaillé
+                    item.profitUnitaire = profitUnitaire;
+                    item.profitTotal = profitTotal;
+                    item.coutAchat = stockData.price || 0; // TRÈS IMPORTANT: On stocke le coût pour la dette
+                }
+            });
+    });
+    
+    // On attend que tous les calculs de profit soient terminés
+    await Promise.all(profitCalculations);
+
+    const vente = {
+        dateVente,
+        heureVente,
+        clientNom,
+        clientNumero,
+        vendeur,
+        items: currentItems,
+        overallTotal: overallTotal.toFixed(2),
+        totalProfit: totalProfit.toFixed(2),
+        photoFacture: photoData,
+        observationsVendeur,
+        isDelivery,
+        deliveryStatus: isDelivery ? "en cours" : null,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    const compteId = document.getElementById("compteSelectVente").value;
+
+    try {
+        // Étape 1 : Enregistrer la vente et récupérer son nouvel ID
+        const newSaleId = await addSaleFirestore({ ...vente, compteId });
+
+        // Étape 2 : Mettre à jour le stock
+        await updateStockAfterSaleFirestore(currentItems);
+
+        // Étape 3 : Enregistrer le mouvement de trésorerie pour la vente
+        await enregistrerMouvementTresorerie({
+            compteId: compteId,
+            type: 'vente',
+            sens: 'in',
+            montant: +overallTotal,
+            description: `Vente ${clientNom}`,
+            refId: newSaleId
+        });
+
+        // --- ÉTAPE LA PLUS IMPORTANTE ---
+        // Étape 4 : On lance la création des dettes de dépôt pour cette vente
+        await creerDettesDeVente(newSaleId, { ...vente, timestamp: firebase.firestore.Timestamp.now() });
+
+        // Étape 5 : Mettre à jour l'affichage des soldes
+        await updateBalanceDisplay();
+
+        // Si tout s'est bien passé
+        hideSaleLoader();
+        alert(isDelivery ? "Livraison validée !" : "Vente validée !");
+
+        // Réinitialisation du formulaire et redirection
+        currentItems = [];
+        window.location.hash = 'historique';
+        
+    } catch (error) {
+        hideSaleLoader();
+        alert("Erreur lors de la finalisation de la vente : " + error.message);
+        console.error(error);
+    }
 }
+
 
 
     // Compression de l'image via canvas
@@ -9070,35 +9576,51 @@ function majCartesTresorerie() {
 }
 
 
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        loadComptes();
-        user.getIdTokenResult().then(idTokenResult => {
-          // Récupère le rôle depuis les Custom Claims (par défaut "employe")
-          window.userRole = idTokenResult.claims.role || "employe";
-          console.log("Rôle de l'utilisateur :", window.userRole);
-          ajusterInterfaceSelonRole(window.userRole);
-          // Affiche l'application une fois que le rôle est connu
-          document.getElementById("app").style.display = "block";
-          
-          // Pour le rôle "patron", rediriger immédiatement si la page actuelle n'est pas autorisée.
-          if (window.userRole === "patron") {
-            // Liste des écrans autorisés pour le patron
-            const allowedHashes = ['#stock', '#historique', '#menu'];
-            // Si le hash actuel n'est pas dans la liste, rediriger vers "#stock"
-            if (!allowedHashes.includes(window.location.hash)) {
-              window.location.hash = 'stock';
-            }
-          }
-        }).catch(error => {
-          console.error("Erreur lors de la récupération des Custom Claims :", error);
-          window.location.href = 'login.html';
-        });
-      } else {
-        window.location.href = 'login.html';
-      }
-    });
+   firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    // Firebase is ready and user is authenticated
+    loadComptes();
 
+    user.getIdTokenResult().then(idTokenResult => {
+      window.userRole = idTokenResult.claims.role || "employe";
+      console.log("Rôle de l'utilisateur :", window.userRole);
+      ajusterInterfaceSelonRole(window.userRole);
+      
+      // =================== FIX STARTS HERE ===================
+      // Initialize the app's router and main logic safely inside the auth listener.
+      
+      // 1. Set the initial route if none exists
+      if (!window.location.hash) {
+        window.location.hash = 'vendre';
+      }
+      
+      // 2. Handle the initial screen display and attach the router listener
+      handleHashChange(); 
+      window.addEventListener('hashchange', handleHashChange);
+
+      // 3. Perform initial UI updates
+      updateDepensePapaBalance();
+      lucide.createIcons();
+      // =================== FIX ENDS HERE =====================
+
+      // Display the app now that everything is ready
+      document.getElementById("app").style.display = "block";
+
+      if (window.userRole === "patron") {
+        const allowedHashes = ['#stock', '#historique', '#menu'];
+        if (!allowedHashes.includes(window.location.hash)) {
+          window.location.hash = 'stock';
+        }
+      }
+    }).catch(error => {
+      console.error("Erreur lors de la récupération des Custom Claims :", error);
+      window.location.href = 'login.html';
+    });
+  } else {
+    // No user, redirect to login
+    window.location.href = 'login.html';
+  }
+});
 
 
     function ajusterInterfaceSelonRole(role) {
@@ -10047,7 +10569,18 @@ function chargerHistoriqueStock(stockId) {
       }
       snapshot.forEach(doc => {
         const d    = doc.data();
-        const date = new Date(d.timestamp).toLocaleString("fr-FR");
+        // Ligne corrigée
+let jsDate;
+// Check if d.timestamp is a Firestore Timestamp object
+if (d.timestamp && typeof d.timestamp.toDate === 'function') {
+  jsDate = d.timestamp.toDate();
+} else {
+  // Otherwise, assume it's milliseconds (a number)
+  jsDate = new Date(d.timestamp);
+}
+
+// Now, format the date safely
+const date = !isNaN(jsDate) ? jsDate.toLocaleString("fr-FR") : "Date invalide";
         const signe = d.change > 0 ? "+" : "";
         const row  = document.createElement("div");
         row.className = "history-item";
@@ -10141,21 +10674,21 @@ function annulerAchatTransaction(approId, approData) {
                 const cancelledQty = item.quantite;
                 const cancelledItemCost = item.adjustedPrixAchat || item.prixAchat;
 
-                // NOUVEAU CODE CORRIGÉ
+                
 const newStock = Math.max(0, currentStock - cancelledQty);
 
 let newAvgPrice; // On déclare la variable
 if (newStock > 0) {
-    // Si le stock restant est positif, on recalcule la moyenne
+    
     newAvgPrice = ((currentStock * currentAvgPrice) - (cancelledQty * cancelledItemCost)) / newStock;
 } else {
-    // ✅ Si le stock tombe à 0, on conserve le dernier coût moyen connu
+    
     newAvgPrice = currentAvgPrice;
 }
 
 transaction.update(stockDocRef, {
     stock: newStock,
-    price: newAvgPrice // On utilise ici la nouvelle logique
+    price: newAvgPrice 
 });
 
                 const historyRef = stockDocRef.collection("history").doc();
@@ -10312,6 +10845,316 @@ async function annulerVente(saleId) {
         console.error("Erreur lors de l'annulation de la vente : ", error);
         alert("Erreur : " + error.message);
     }
+}
+
+async function creerDettesDeVente(saleId, saleData) {
+    console.log("Vérification des dettes de consignation pour la vente :", saleId);
+
+    const batch = dbFirestore.batch();
+
+    for (const item of saleData.items) {
+        // Pour chaque article vendu, on cherche le dernier approvisionnement de type "dépôt" le contenant.
+        // Cette méthode (Dernier entré, premier sorti) est la plus simple à implémenter.
+        const approQuery = dbFirestore.collection('approvisionnement')
+            .where('typeAchat', '==', 'depot')
+            .where('productNames', 'array-contains', item.produit)
+            .orderBy('timestamp', 'desc')
+            .limit(1);
+
+        const approSnapshot = await approQuery.get();
+
+        // Si on trouve un approvisionnement en dépôt correspondant...
+        if (!approSnapshot.empty) {
+            const approDoc = approSnapshot.docs[0];
+            const approInfo = approDoc.data();
+
+            console.log(`L'article ${item.produit} provient d'un dépôt du fournisseur ${approInfo.fournisseur}. Création de la dette.`);
+
+            // On récupère le coût d'achat au moment de la vente (calculé sur le prix moyen)
+            const coutAchatReel = item.coutAchat || 0;
+
+            // On crée une nouvelle "fiche de dette" dans une nouvelle collection "dettesConsignation"
+            const detteRef = dbFirestore.collection("dettesConsignation").doc();
+            batch.set(detteRef, {
+                fournisseur: approInfo.fournisseur,
+                produit: item.produit,
+                quantite: item.quantite,
+                coutAchat: coutAchatReel,
+                montantDu: coutAchatReel * item.quantite, // Montant dû pour cet article
+                venteId: saleId,
+                dateVente: saleData.timestamp,
+                approvisionnementId: approDoc.id,
+                status: 'a_payer' // Le statut initial est "à payer"
+            });
+        }
+    }
+
+    // On exécute toutes les créations de dettes en une seule fois
+    await batch.commit();
+    console.log("Traitement des dettes de consignation terminé.");
+}
+
+
+
+/**
+ * Gère l'affichage principal du Hub Dépôts.
+ */
+function setupSupplierHub() {
+    const listContainer = document.getElementById('fournisseurs-hub-list');
+    const detailContainer = document.getElementById('fournisseur-detail-view');
+
+    if (!listContainer || !detailContainer) return;
+
+    // Affiche la liste et cache les détails par défaut
+    listContainer.style.display = 'block';
+    detailContainer.style.display = 'none';
+
+    chargerHubDepots(); // La fonction est renommée pour plus de clarté
+
+    // Logique du bouton retour et des onglets
+    document.getElementById('backToHubListBtn').addEventListener('click', () => {
+        listContainer.style.display = 'block';
+        detailContainer.style.display = 'none';
+    });
+
+    const tabs = document.getElementById('supplier-detail-tabs');
+    tabs.addEventListener('ionChange', (event) => {
+        if (currentSupplierDetailData) {
+            renderSupplierDetailContent(event.detail.value, currentSupplierDetailData);
+        }
+    });
+}
+
+/**
+ * Récupère et agrège les données des fournisseurs ayant des dépôts actifs.
+ */
+async function chargerHubDepots() {
+    const listContainer = document.getElementById("fournisseursHubListContainer");
+    listContainer.innerHTML = `<ion-item><ion-label style="text-align:center;"><ion-spinner name="crescent"></ion-spinner></ion-label></ion-item>`;
+
+    try {
+        const suppliersWithDeposits = {};
+
+        // 1. Récupérer UNIQUEMENT les approvisionnements de type 'dépôt'
+        const approSnapshot = await dbFirestore.collection("approvisionnement")
+            .where('typeAchat', '==', 'depot')
+            .where('status', '!=', 'annulé')
+            .get();
+
+        approSnapshot.forEach(doc => {
+            const appro = { id: doc.id, ...doc.data() };
+            const name = appro.fournisseur || 'Inconnu';
+
+            if (!suppliersWithDeposits[name]) {
+                suppliersWithDeposits[name] = { name: name, initialValue: 0, soldValue: 0, procurements: [] };
+            }
+            suppliersWithDeposits[name].initialValue += parseFloat(appro.totalCost || 0);
+            suppliersWithDeposits[name].procurements.push(appro);
+        });
+
+        // 2. Récupérer les dettes de consignation pour calculer la valeur vendue
+        const dettesSnapshot = await dbFirestore.collection("dettesConsignation").get();
+        dettesSnapshot.forEach(doc => {
+            const dette = doc.data();
+            const name = dette.fournisseur;
+            if (suppliersWithDeposits[name]) {
+                // On somme la valeur de tous les articles vendus (payés ou non)
+                suppliersWithDeposits[name].soldValue += parseFloat(dette.montantDu || 0);
+            }
+        });
+
+        // Vider la liste
+        listContainer.innerHTML = "";
+        
+        // Filtrer pour ne garder que les fournisseurs avec un stock de dépôt restant
+        const activeDepositSuppliers = Object.values(suppliersWithDeposits)
+            .filter(s => (s.initialValue - s.soldValue) > 1); // Garde une marge pour les erreurs de calcul
+
+        if (activeDepositSuppliers.length === 0) {
+            listContainer.innerHTML = `<ion-item><ion-label style="text-align:center; color: #888;">Aucun dépôt fournisseur actif trouvé.</ion-label></ion-item>`;
+            return;
+        }
+
+        // 3. Afficher chaque fournisseur
+        for (const data of activeDepositSuppliers) {
+            const remainingValue = data.initialValue - data.soldValue;
+            const initials = data.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const avatarBgColor = getAvatarColor(data.name);
+
+            const ionItem = document.createElement('ion-item');
+            ionItem.button = true;
+            ionItem.innerHTML = `
+                <div class="avatar-circle" slot="start" style="background-color: ${avatarBgColor};">${initials}</div>
+                <ion-label>
+                    <h2>${data.name}</h2>
+                    <p>Dépôt initial: ${data.initialValue.toLocaleString('fr-FR')} FCFA</p>
+                </ion-label>
+                <div class="right-info" slot="end">
+                    <div class="total-amount" style="color: #28a745;">
+                        ${remainingValue.toLocaleString('fr-FR')} FCFA
+                    </div>
+                    <div class="payment-method">STOCK RESTANT</div>
+                </div>
+            `;
+            ionItem.addEventListener('click', () => afficherVueDetailleeFournisseur(data));
+            listContainer.appendChild(ionItem);
+        }
+
+    } catch (error) {
+        console.error("Erreur chargement Hub Dépôts:", error);
+        listContainer.innerHTML = `<ion-item><ion-label style="color:red; text-align:center;">Erreur de chargement.</ion-label></ion-item>`;
+    }
+}
+
+/**
+ * Affiche la vue détaillée pour un fournisseur spécifique.
+ */
+function afficherVueDetailleeFournisseur(supplierData) {
+    currentSupplierDetailData = supplierData;
+    document.getElementById('fournisseurs-hub-list').style.display = 'none';
+    document.getElementById('fournisseur-detail-view').style.display = 'block';
+    document.getElementById('supplierDetailNameHeader').textContent = `Dépôt - ${supplierData.name}`;
+
+    document.getElementById('supplier-detail-tabs').value = 'resume';
+    renderSupplierDetailContent('resume', supplierData);
+}
+
+/**
+ * Génère le contenu HTML pour l'onglet sélectionné dans la vue de détail.
+ */
+async function renderSupplierDetailContent(tabName, supplierData) {
+    const contentEl = document.getElementById('supplier-detail-content');
+    contentEl.innerHTML = `<div class="ion-text-center ion-padding"><ion-spinner name="crescent"></ion-spinner></div>`;
+
+    let html = '';
+    switch (tabName) {
+        case 'resume':
+            const initialValue = supplierData.initialValue || 0;
+            const soldValue = supplierData.soldValue || 0;
+            const remainingValue = initialValue - soldValue;
+
+            html = `
+                <ion-card>
+                    <ion-card-header><ion-card-title>Résumé du Dépôt</ion-card-title></ion-card-header>
+                    <ion-card-content>
+                        <ion-list lines="none">
+                            <ion-item>
+                                <ion-label>Valeur initiale totale déposée:</ion-label>
+                                <ion-note slot="end">${initialValue.toLocaleString('fr-FR')} FCFA</ion-note>
+                            </ion-item>
+                            <ion-item>
+                                <ion-label>Valeur des articles vendus (dette):</ion-label>
+                                <ion-note slot="end" color="danger">${soldValue.toLocaleString('fr-FR')} FCFA</ion-note>
+                            </ion-item>
+                            <ion-item>
+                                <ion-label><h2>Valeur du stock restant:</h2></ion-label>
+                                <ion-note slot="end" color="primary"><h2>${remainingValue.toLocaleString('fr-FR')} FCFA</h2></ion-note>
+                            </ion-item>
+                        </ion-list>
+                    </ion-card-content>
+                </ion-card>
+            `;
+            break;
+
+        case 'stock':
+             html = `<ion-card>
+                        <ion-card-header><ion-card-title>Articles en Dépôt (Liste Initiale)</ion-card-title></ion-card-header>
+                        <ion-card-content><ion-list lines="full">`;
+            supplierData.procurements.forEach(appro => {
+                 (appro.items || []).forEach(item => {
+                    html += `<ion-item><ion-label>${item.produit}</ion-label><ion-note slot="end">Qté initial: ${item.quantite}</ion-note></ion-item>`;
+                });
+            });
+            html += `</ion-list></ion-card-content></ion-card>`;
+            break;
+
+        case 'history':
+            html = `<ion-card>
+                        <ion-card-header><ion-card-title>Historique des Dépôts</ion-card-title></ion-card-header>
+                        <ion-card-content><ion-list>`;
+            supplierData.procurements
+                .sort((a,b) => b.timestamp.toMillis() - a.timestamp.toMillis())
+                .forEach(appro => {
+                    const approDate = appro.timestamp.toDate().toLocaleDateString('fr-FR');
+                    html += `
+                        <ion-item>
+                            <ion-label>
+                                <h2>Dépôt du ${approDate}</h2>
+                                <p>Total: ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')} FCFA</p>
+                                <p>${(appro.items || []).map(i => i.quantite + 'x ' + i.produit).join(', ')}</p>
+                            </ion-label>
+                        </ion-item>
+                    `;
+                });
+            html += `</ion-list></ion-card-content></ion-card>`;
+            break;
+    }
+    contentEl.innerHTML = html;
+}
+
+// Mettre à jour le gestionnaire de hash pour appeler la nouvelle fonction
+window.addEventListener('hashchange', function() {
+    if (window.location.hash === '#depots-fournisseurs') {
+        setupSupplierHub();
+    }
+});
+// Appel initial si la page est chargée directement avec le hash
+if (window.location.hash === '#depots-fournisseurs') {
+    setupSupplierHub();
+}
+
+/**
+ * Après une vente, cette fonction vérifie chaque article vendu.
+ * Si un article provient d'un approvisionnement en dépôt, elle crée
+ * une "dette de consignation" envers le fournisseur concerné.
+ * @param {string} saleId - L'ID de la vente qui vient d'être enregistrée.
+ * @param {object} saleData - Les données complètes de la vente.
+ */
+async function creerDettesDeVente(saleId, saleData) {
+    console.log("Vérification des dettes de consignation pour la vente :", saleId);
+
+    const batch = dbFirestore.batch();
+
+    for (const item of saleData.items) {
+        // Pour chaque article vendu, on cherche le dernier approvisionnement de type "dépôt" le contenant.
+        // Cette méthode (Dernier entré, premier sorti) est la plus simple à implémenter.
+        const approQuery = dbFirestore.collection('approvisionnement')
+            .where('typeAchat', '==', 'depot')
+            .where('productNames', 'array-contains', item.produit)
+            .orderBy('timestamp', 'desc')
+            .limit(1);
+
+        const approSnapshot = await approQuery.get();
+
+        // Si on trouve un approvisionnement en dépôt correspondant...
+        if (!approSnapshot.empty) {
+            const approDoc = approSnapshot.docs[0];
+            const approInfo = approDoc.data();
+
+            console.log(`L'article ${item.produit} provient d'un dépôt du fournisseur ${approInfo.fournisseur}. Création de la dette.`);
+
+            // On récupère le coût d'achat au moment de la vente (calculé sur le prix moyen)
+            const coutAchatReel = item.coutAchat || 0;
+
+            // On crée une nouvelle "fiche de dette" dans une nouvelle collection "dettesConsignation"
+            const detteRef = dbFirestore.collection("dettesConsignation").doc();
+            batch.set(detteRef, {
+                fournisseur: approInfo.fournisseur,
+                produit: item.produit,
+                quantite: item.quantite,
+                coutAchat: coutAchatReel,
+                montantDu: coutAchatReel * item.quantite, // Montant dû pour cet article
+                venteId: saleId,
+                dateVente: saleData.timestamp,
+                approvisionnementId: approDoc.id,
+                status: 'a_payer' // Le statut initial est "à payer"
+            });
+        }
+    }
+
+    // On exécute toutes les créations de dettes en une seule fois
+    await batch.commit();
+    console.log("Traitement des dettes de consignation terminé.");
 }
 </script>
 
