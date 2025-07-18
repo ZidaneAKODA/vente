@@ -4302,11 +4302,13 @@ async function generateSupplierCreditPDF() {
   </style>
 
   <div class="container">
-    <!-- Carte de solde -->
+    <div style="margin-bottom: 15px; background: var(--card-bg); padding: 10px; border-radius: var(--border-radius); box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+        <label for="treso-date-filter" style="font-weight: bold; margin-right: 8px;">Afficher le rapport du :</label>
+        <input type="date" id="treso-date-filter" onchange="updateBalanceDisplay()" style="width: calc(100% - 170px); padding: 8px; border: 1px solid #EEE; border-radius: 8px;">
+    </div>
     <div class="balance-card">
       <h1 id="balance-sold">XOF 0</h1>
       <p>Solde global</p>
-
     </div>
 
     
@@ -7802,12 +7804,25 @@ function updateDepensePapaBalance() {
 // Remplacez la fonction updateBalanceDisplay existante par celle-ci
 
 function updateBalanceDisplay() {
-    const today = new Date();
-    const todayString = today.toISOString().slice(0, 10); // Format AAAA-MM-JJ
+// On lit la date depuis notre nouvel input
+    const selectedDateValue = document.getElementById('treso-date-filter').value;
+    
+    // Si une date est sélectionnée, on l'utilise. Sinon, on prend la date du jour.
+    // L'ajout de 'T00:00:00' évite les problèmes de fuseau horaire.
+    const selectedDate = selectedDateValue 
+                         ? new Date(selectedDateValue + 'T00:00:00') 
+                         : new Date();
+    
+    const dateString = selectedDate.toISOString().slice(0, 10); // Format AAAA-MM-JJ
 
-    // Bornes temporelles pour les requêtes de la journée
-    const startOfDayMillis = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
-    const endOfDayMillis = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+    // On recalcule les bornes de la journée en fonction de la date choisie
+    const startOfDayMillis = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0).getTime();
+    const endOfDayMillis = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999).getTime();
+
+    // On doit aussi mettre à jour la variable `todayString` utilisée pour le snapshot
+    const todayString = dateString;
+
+    
 
     const startOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(startOfDayMillis);
     const endOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(endOfDayMillis);
@@ -8233,8 +8248,15 @@ case 'article-detail':
   loadArticleDetail(); 
   break;
 
+    // Fichier : index.html (MODIFIÉ)
     case 'tresorerie':
-      updateBalanceDisplay();
+      // On s'assure que le filtre de date est bien réglé sur aujourd'hui
+      const dateFilter = document.getElementById('treso-date-filter');
+      // On ne le remplit que s'il est vide, pour ne pas écraser la sélection de l'utilisateur
+      if (!dateFilter.value) {
+          dateFilter.value = new Date().toISOString().split('T')[0];
+      }
+      updateBalanceDisplay(); // Puis on met à jour l'affichage
       break;
     case 'rapports':
       // Appeler la fonction qui met à jour la section "Rapports & Statistiques"
