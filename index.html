@@ -9922,45 +9922,82 @@ function initEcranDepenses() {
 </script>
 
 <script>
-  document.getElementById('exportStockBtn')
+document.getElementById('exportStockBtn')
     .addEventListener('click', () => {
-      // 1. Récupérer tout le stock depuis Firestore
       getAllStockFirestore()
         .then(stocks => {
-          // 2. Ne garder que les mobiles
-          const phones = stocks.filter(s => s.category === 'telephones');
+          const phones = stocks.filter(s => s.category === 'telephones' && s.stock >= 1);
 
-          // 3. Calculer les totaux pour les mobiles
-          const totalPhones = phones
-            .reduce((sum, s) => sum + parseInt(s.stock || 0), 0);
-          const valeurPhones = phones
-            .reduce((sum, s) => sum + (parseFloat(s.stock) * parseFloat(s.price)), 0);
+          if (phones.length === 0) {
+            alert("Aucun téléphone en stock à exporter.");
+            return;
+          }
 
-          // 4. Préparer les données Excel
-          const data = phones.map(s => ({
-            Produit           : s.name,
-            Stock             : s.stock,
-            'Prix unitaire'   : s.price,
-            'Valeur du stock' : (s.stock * s.price).toFixed(2)
-          }));
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
 
-          // 5. Ajouter la ligne de synthèse
-          data.push({});
-          data.push({
-            Produit           : 'Total Téléphones',
-            Stock             : totalPhones,
-            'Valeur du stock' : valeurPhones.toFixed(2)
+          const tableColumn = ["Produit", "Stock", "Prix d'Achat Unitaire", "Valeur du Stock"];
+          const tableRows = [];
+
+          let totalStock = 0;
+          let totalValue = 0;
+
+          phones.forEach(phone => {
+            const phoneValue = phone.stock * phone.price;
+            const phoneData = [
+              phone.name,
+              phone.stock,
+              `${fmt(phone.price)} FCFA`,
+              `${fmt(phoneValue)} FCFA`
+            ];
+            tableRows.push(phoneData);
+            totalStock += phone.stock;
+            totalValue += phoneValue;
           });
+          
+          doc.setFontSize(18);
+          doc.text("Rapport du Stock de Téléphones", 14, 22);
+          doc.setFontSize(11);
+          doc.setTextColor(100);
+          doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 14, 30);
 
-          // 6. Générer et télécharger le fichier XLSX
-          const ws = XLSX.utils.json_to_sheet(data);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, 'Portables');
-          XLSX.writeFile(wb, 'stock_portables.xlsx');
+          doc.autoTable({
+            startY: 35,
+            head: [tableColumn],
+            body: tableRows,
+            foot: [
+              [
+                'TOTAL',
+                totalStock,
+                '',
+                `${fmt(totalValue)} FCFA`
+              ]
+            ],
+            // LA LIGNE SUIVANTE A ÉTÉ AJOUTÉE
+            showFoot: 'lastPage',
+            theme: 'grid',
+            headStyles: {
+              fillColor: [0, 96, 100]
+            },
+            footStyles: {
+              fontStyle: 'bold',
+              fillColor: [240, 240, 240],
+              textColor: [0, 0, 0]
+            },
+            columnStyles: {
+              1: { halign: 'center' },
+              2: { halign: 'right' },
+              3: { halign: 'right' }
+            }
+          });
+          
+          doc.save('stock_telephones.pdf');
+          showToast("Exportation PDF du stock terminée.");
+
         })
         .catch(err => {
-          console.error('Erreur export stock mobiles :', err);
-          alert('Impossible d\'exporter le stock de portables : ' + err.message);
+          console.error('Erreur lors de l\'exportation PDF du stock :', err);
+          alert('Impossible d\'exporter le stock en PDF : ' + err.message);
         });
     });
 /* ============================================================
@@ -10114,6 +10151,7 @@ function exportDailyReportPDF() {
 
       snap.forEach(doc => {
         const v = doc.data();
+        if (v.status === 'annulé') return; // ✅ LIGNE À AJOUTER ICI
         profit += parseFloat(v.totalProfit) || 0;
         v.items.forEach(item => {
           const total = parseFloat(item.total) || 0;
@@ -10137,6 +10175,7 @@ function exportDailyReportPDF() {
     });
 
   /* ── 3) DÉPENSES (utilise les millisecondes) ────────────────────────── */
+  /* ── 3) DÉPENSES (utilise les millisecondes) ────────────────────────── */
   const depensesP = dbFirestore.collection("depenses")
     .where("timestamp", ">=", startOfDayMillis)
     .where("timestamp", "<=", endOfDayMillis)
@@ -10148,11 +10187,17 @@ function exportDailyReportPDF() {
         const d = doc.data();
         const desc = d.description || "";
         const isAppro = desc.toLowerCase().startsWith("approvisionnement");
+        
+        // On ajoute une vérification spécifique pour les frais de transport
+        const isFraisTransport = desc.toLowerCase().includes("frais transport achat");
+
         const ligne = [desc, fmt(d.montant)];
         if ((d.type || "").toLowerCase() === "papa") {
           papa.push(ligne);
           totPapa += +d.montant;
-        } else if (!isAppro) {
+        } 
+        // On n'ajoute à la liste des dépenses fonctionnelles QUE si ce n'est PAS des frais de transport
+        else if (!isAppro && !isFraisTransport) { 
           fonc.push(ligne);
           totFonc += +d.montant;
         }
@@ -10174,6 +10219,7 @@ function exportDailyReportPDF() {
   // 5) APPROVISIONNEMENTS
 // DANS exportDailyReportPDF
 
+/* ── 5) APPROVISIONNEMENTS ───────────────────────────────────── */
 const approP = dbFirestore.collection("approvisionnement")
   .where("timestamp", ">=", startOfDayTimestamp)
   .where("timestamp", "<=", endOfDayTimestamp)
@@ -10184,19 +10230,23 @@ const approP = dbFirestore.collection("approvisionnement")
     let totPhones = 0, totAcc = 0;
 
     snapshot.forEach(doc => {
-      // ✅ LIGNE A AJOUTER CI-DESSOUS
-      if (doc.data().status === 'annulé') return; // Ignore les achats annulés
+      if (doc.data().status === 'annulé') return; 
 
       (doc.data().items || []).forEach(it => {
-        const ligne = [it.produit, it.quantite.toString(), fmt(it.prixAchat) + " FCFA", fmt(it.quantite * it.prixAchat) + " FCFA"];
+        // On utilise le prix ajusté s'il existe, sinon l'ancien prix d'achat
+        const prixUnitaire = it.adjustedPrixAchat || it.prixAchat;
+        const totalLigne = it.quantite * prixUnitaire;
+        
+        const ligne = [it.produit, it.quantite.toString(), fmt(prixUnitaire) + " FCFA", fmt(totalLigne) + " FCFA"];
+        
         if (it.category === "telephones") {
           rowsPhones.push(ligne);
           totQtyPhones += it.quantite;
-          totPhones += it.quantite * it.prixAchat;
+          totPhones += totalLigne; // Utilise le total de la ligne calculé avec le bon prix
         } else {
           rowsAcc.push(ligne);
           totQtyAcc += it.quantite;
-          totAcc += it.quantite * it.prixAchat;
+          totAcc += totalLigne; // Utilise le total de la ligne calculé avec le bon prix
         }
       });
     });
@@ -10251,6 +10301,7 @@ const approP = dbFirestore.collection("approvisionnement")
     .get()
     .then(d => d.exists ? { qty: d.data().openingStock || 0, val: d.data().openingStockValue || 0 } : { qty: 0, val: 0 });
 
+ 
   /* ── 10) ACHATS TÉLÉPHONES (jour) ────────────────────────── */
   const achatsPhonesP = dbFirestore.collection("approvisionnement")
     .where("timestamp", ">=", startOfDayTimestamp)
@@ -10259,10 +10310,15 @@ const approP = dbFirestore.collection("approvisionnement")
     .then(snap => {
       let qty = 0, val = 0;
       snap.forEach(doc => {
+        // On ajoute le filtre pour ignorer les achats annulés
+        if (doc.data().status === 'annulé') return;
+
         (doc.data().items || []).forEach(it => {
           if (it.category === "telephones") {
             qty += +it.quantite;
-            val += +it.quantite * +it.prixAchat;
+            // On utilise le prix ajusté (coût réel) au lieu du simple prix d'achat
+            const prixUnitaireReel = it.adjustedPrixAchat || it.prixAchat;
+            val += +it.quantite * +prixUnitaireReel;
           }
         });
       });
@@ -10417,6 +10473,7 @@ async function exportMonthlyReportPDF(month) {
 
   ventesSnap.forEach(doc => {
     const v = doc.data();
+    if (v.status === 'annulé') return;
     const dayIdx = new Date(v.timestamp).getDate() - 1;
     caParJour[dayIdx] += +v.overallTotal;
     ca += +v.overallTotal;
@@ -10673,15 +10730,18 @@ async function preparerAnnulationAchat(approId, event) {
  * @param {string} approId - The ID of the purchase.
  * @param {object} approData - The data of the purchase to cancel.
  */
+/**
+ * Executes the cancellation of a purchase within a secure Firestore transaction.
+ * MODIFIED: Deletes the purchase record instead of marking it as cancelled.
+ * @param {string} approId - The ID of the purchase.
+ * @param {object} approData - The data of the purchase to cancel.
+ */
 function annulerAchatTransaction(approId, approData) {
     return dbFirestore.runTransaction(async (transaction) => {
         const approRef = dbFirestore.collection("approvisionnement").doc(approId);
 
-        // 1. Mark the purchase as cancelled
-        transaction.update(approRef, {
-            status: 'annulé',
-            cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // --- 1. Supprimer le document d'achat au lieu de le mettre à jour ---
+        transaction.delete(approRef); // ✅ LIGNE MODIFIÉE
 
         // 2. Reverse stock impact for each item AND recalculate average cost
         for (const item of approData.items) {
@@ -10695,23 +10755,20 @@ function annulerAchatTransaction(approId, approData) {
                 const currentAvgPrice = stockData.price || 0;
                 const cancelledQty = item.quantite;
                 const cancelledItemCost = item.adjustedPrixAchat || item.prixAchat;
-
                 
-const newStock = Math.max(0, currentStock - cancelledQty);
+                const newStock = Math.max(0, currentStock - cancelledQty);
 
-let newAvgPrice; // On déclare la variable
-if (newStock > 0) {
-    
-    newAvgPrice = ((currentStock * currentAvgPrice) - (cancelledQty * cancelledItemCost)) / newStock;
-} else {
-    
-    newAvgPrice = currentAvgPrice;
-}
+                let newAvgPrice;
+                if (newStock > 0) {
+                    newAvgPrice = ((currentStock * currentAvgPrice) - (cancelledQty * cancelledItemCost)) / newStock;
+                } else {
+                    newAvgPrice = currentAvgPrice; // Garde l'ancien prix si le stock tombe à 0
+                }
 
-transaction.update(stockDocRef, {
-    stock: newStock,
-    price: newAvgPrice 
-});
+                transaction.update(stockDocRef, {
+                    stock: newStock,
+                    price: newAvgPrice 
+                });
 
                 const historyRef = stockDocRef.collection("history").doc();
                 transaction.set(historyRef, {
@@ -10773,7 +10830,6 @@ transaction.update(stockDocRef, {
             }
         }
 
-
         // 4. Reverse and DELETE the transport fee expense
         if (approData.fraisTransport && approData.fraisTransport > 0) {
             const transportExpenseQuery = await dbFirestore.collection("depenses").where("refId", "==", approId).where("type", "==", "depense fonctionnelle").limit(1).get();
@@ -10781,11 +10837,9 @@ transaction.update(stockDocRef, {
                 const expenseDocRef = transportExpenseQuery.docs[0].ref;
                 const expenseData = transportExpenseQuery.docs[0].data();
                 const transportCompteId = expenseData.compteId || 'caisse';
-
-                // **CHANGE**: Delete the expense document instead of updating it.
+                
                 transaction.delete(expenseDocRef);
 
-                // Reverse the cash movement for the transport fee
                 const compteRef = dbFirestore.collection('tresorerie').doc('balance').collection('comptesTresorerie').doc(transportCompteId);
                 transaction.update(compteRef, { solde: firebase.firestore.FieldValue.increment(approData.fraisTransport) });
 
@@ -10808,6 +10862,11 @@ transaction.update(stockDocRef, {
  * Gère l'annulation d'une vente dans une transaction sécurisée.
  * @param {string} saleId - L'ID de la vente à annuler.
  */
+/**
+ * Gère l'annulation d'une vente dans une transaction sécurisée.
+ * MODIFIÉ : Supprime la vente au lieu de la marquer comme annulée.
+ * @param {string} saleId - L'ID de la vente à annuler.
+ */
 async function annulerVente(saleId) {
     const saleRef = dbFirestore.collection("ventes").doc(saleId);
 
@@ -10820,23 +10879,18 @@ async function annulerVente(saleId) {
 
             const saleData = saleDoc.data();
 
-            // Si la vente est déjà annulée, on arrête
+            // Si la vente a déjà le statut "annulé" (ancienne méthode), on la supprime aussi
             if (saleData.status === 'annulé') {
-                throw new Error("Cette vente est déjà annulée.");
+                 console.log("Cette vente était déjà marquée comme annulée, suppression en cours...");
             }
 
-            // --- 1. On marque la vente comme "annulée" ---
-            transaction.update(saleRef, {
-                status: 'annulé',
-                cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            // --- 1. On supprime la vente de la base de données ---
+            transaction.delete(saleRef); // ✅ LIGNE MODIFIÉE
 
             // --- 2. On remet les articles dans le stock ---
             for (const item of saleData.items) {
                 const stockQuery = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
                 
-                // Note : On ne peut pas utiliser transaction.get() après une écriture dans la même transaction.
-                // C'est pourquoi on fait cette requête en dehors. La logique reste sécurisée.
                 if (!stockQuery.empty) {
                     const stockDocRef = stockQuery.docs[0].ref;
                     transaction.update(stockDocRef, {
@@ -10847,7 +10901,7 @@ async function annulerVente(saleId) {
 
             // --- 3. On inverse l'opération de trésorerie ---
             const montantVente = parseFloat(saleData.overallTotal) || 0;
-            const compteId = saleData.compteId || 'caisse'; // 'caisse' par défaut si non spécifié
+            const compteId = saleData.compteId || 'caisse';
 
             // On retire l'argent du compte où il avait été ajouté
             await enregistrerMouvementTresorerie({
@@ -10855,20 +10909,19 @@ async function annulerVente(saleId) {
                 type: 'annulation_vente',
                 sens: 'out', // C'est une sortie d'argent pour annuler l'entrée
                 montant: montantVente,
-                description: `Annulation de la vente pour ${saleData.clientNom}`,
+                description: `Annulation Vente ${saleData.clientNom}`,
                 refId: saleId
             });
         });
 
         // Si tout s'est bien passé
-        showToast("Vente annulée avec succès !");
+        showToast("Vente supprimée avec succès !");
 
     } catch (error) {
-        console.error("Erreur lors de l'annulation de la vente : ", error);
+        console.error("Erreur lors de la suppression de la vente : ", error);
         alert("Erreur : " + error.message);
     }
 }
-
 async function creerDettesDeVente(saleId, saleData) {
     console.log("Vérification des dettes de consignation pour la vente :", saleId);
 
