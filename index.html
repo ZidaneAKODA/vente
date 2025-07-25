@@ -8924,7 +8924,7 @@ document.getElementById('exportInventoryBtn')
         }
 
         // --- Tri personnalisé (inchangé) ---
-        const brandOrder = { 'infinix': 1, 'tecno': 2, 'itel': 3, 'redmi': 4, 'samsung': 5 };
+        const brandOrder = { 'tecno': 1, 'infinix': 2, 'itel': 3, 'redmi': 4, 'samsung': 5 };
         const getBrand = (name) => (name ? name.split(' ')[0].toLowerCase() : '');
         inventoryItems.sort((a, b) => {
             const brandA = getBrand(a.name), brandB = getBrand(b.name);
