@@ -10230,29 +10230,26 @@ function fmt(x){
 
 function exportDailyReportPDF() {
 
-  /* ── 1) Choix de la date ─────────────────────────────────── */
+  /* ── 1) Choix de la date et de l'option de profit ─────────────────── */
   const saisie = prompt(
     "Date du rapport (AAAA-MM-JJ) :",
     new Date().toISOString().slice(0, 10)
   );
   if (!saisie) return;
 
-  // On s'assure que la date est bien interprétée en ajoutant l'heure
+  // ✅ NOUVEAU : On demande à l'utilisateur s'il veut voir les profits
+  const inclureProfitDetail = confirm("Voulez-vous inclure le détail des profits par article dans le rapport ?");
+
   const jsDate = new Date(saisie + 'T00:00:00');
   if (isNaN(jsDate.getTime())) {
     alert("Date invalide !");
     return;
   }
 
-  // --- Définition des bornes temporelles pour les requêtes ---
   const startOfDayMillis = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 0, 0, 0, 0).getTime();
   const endOfDayMillis = new Date(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 23, 59, 59, 999).getTime();
-  
-  // Objets Timestamp pour les collections qui utilisent le format Firestore (ventes, approvisionnement)
   const startOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(startOfDayMillis);
   const endOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(endOfDayMillis);
-
-  // Variable pour le format de date DD/MM/YYYY utilisé dans certains anciens documents
   const dateFR = jsDate.toLocaleDateString("fr-FR");
 
   /* ── 2) VENTES : CA + Profit + Téléphones vendus ─────────── */
@@ -10262,8 +10259,8 @@ function exportDailyReportPDF() {
     .get()
     .then(snap => {
       let qty = 0, ca = 0, profit = 0;
-      let soldPhonesQty = 0, soldPhonesVal = 0;
-      let soldAccQty = 0, soldAccVal = 0;
+      let soldPhonesQty = 0, soldPhonesVal = 0, soldPhonesProfit = 0;
+      let soldAccQty = 0, soldAccVal = 0, soldAccProfit = 0;
       let soldPhonesCAMV = 0;
 
       const phoneRows = [];
@@ -10271,183 +10268,180 @@ function exportDailyReportPDF() {
 
       snap.forEach(doc => {
         const v = doc.data();
-        if (v.status === 'annulé') return; // ✅ LIGNE À AJOUTER ICI
+        if (v.status === 'annulé') return;
         profit += parseFloat(v.totalProfit) || 0;
         v.items.forEach(item => {
           const total = parseFloat(item.total) || 0;
+          const itemProfit = parseFloat(item.profitTotal) || 0;
           qty += item.quantite;
           ca += total;
 
+          // ✅ NOUVEAU : On construit la ligne de données avec ou without la colonne profit
+          let rowData;
+          if (inclureProfitDetail) {
+              rowData = [item.produit, fmt(item.prix), item.quantite.toString(), fmt(total) + " FCFA", fmt(itemProfit) + " FCFA"];
+          } else {
+              rowData = [item.produit, fmt(item.prix), item.quantite.toString(), fmt(total) + " FCFA"];
+          }
+
           if (isPhone(item)) {
-            phoneRows.push([item.produit, fmt(item.prix), item.quantite.toString(), fmt(total) + " FCFA"]);
+            phoneRows.push(rowData);
             soldPhonesQty += item.quantite;
             soldPhonesVal += total;
+            soldPhonesProfit += itemProfit; // On cumule le profit des téléphones
             soldPhonesCAMV += item.quantite * (item.coutAchat || 0);
           } else {
-            accRows.push([item.produit, fmt(item.prix), item.quantite.toString(), fmt(total) + " FCFA"]);
+            accRows.push(rowData);
             soldAccQty += item.quantite;
             soldAccVal += total;
+            soldAccProfit += itemProfit; // On cumule le profit des accessoires
           }
         });
       });
 
-      return { phoneRows, accRows, qty, ca, profit, soldPhonesQty, soldPhonesVal, soldAccQty, soldAccVal, soldPhonesCAMV };
+      // On retourne toutes les données nécessaires, y compris les profits par catégorie
+      return { phoneRows, accRows, qty, ca, profit, soldPhonesQty, soldPhonesVal, soldPhonesProfit, soldAccQty, soldAccVal, soldAccProfit, soldPhonesCAMV };
     });
 
-  /* ── 3) DÉPENSES (utilise les millisecondes) ────────────────────────── */
-  /* ── 3) DÉPENSES (utilise les millisecondes) ────────────────────────── */
-  const depensesP = dbFirestore.collection("depenses")
-    .where("timestamp", ">=", startOfDayMillis)
-    .where("timestamp", "<=", endOfDayMillis)
-    .get()
-    .then(snap => {
-      const papa = [], fonc = [];
-      let totPapa = 0, totFonc = 0;
-      snap.forEach(doc => {
-        const d = doc.data();
-        const desc = d.description || "";
-        const isAppro = desc.toLowerCase().startsWith("approvisionnement");
-        
-        // On ajoute une vérification spécifique pour les frais de transport
-        const isFraisTransport = desc.toLowerCase().includes("frais transport achat");
-
-        const ligne = [desc, fmt(d.montant)];
-        if ((d.type || "").toLowerCase() === "papa") {
-          papa.push(ligne);
-          totPapa += +d.montant;
-        } 
-        // On n'ajoute à la liste des dépenses fonctionnelles QUE si ce n'est PAS des frais de transport
-        else if (!isAppro && !isFraisTransport) { 
-          fonc.push(ligne);
-          totFonc += +d.montant;
-        }
-      });
-      return { papa, fonc, totPapa, totFonc };
-    });
-
-  /* ── 4) INJECTION (remboursements, utilise les millisecondes) ────────── */
-  const injectionP = dbFirestore.collection("remboursements")
-    .where("timestamp", ">=", startOfDayMillis)
-    .where("timestamp", "<=", endOfDayMillis)
-    .get()
-    .then(snap => {
-      let total = 0;
-      snap.forEach(d => total += +d.data().montant);
-      return total;
-    });
-
-  // 5) APPROVISIONNEMENTS
-// DANS exportDailyReportPDF
-
-/* ── 5) APPROVISIONNEMENTS ───────────────────────────────────── */
-const approP = dbFirestore.collection("approvisionnement")
-  .where("timestamp", ">=", startOfDayTimestamp)
-  .where("timestamp", "<=", endOfDayTimestamp)
-  .get()
-  .then(snapshot => {
-    const rowsPhones = [], rowsAcc = [];
-    let totQtyPhones = 0, totQtyAcc = 0;
-    let totPhones = 0, totAcc = 0;
-
-    snapshot.forEach(doc => {
-      if (doc.data().status === 'annulé') return; 
-
-      (doc.data().items || []).forEach(it => {
-        // On utilise le prix ajusté s'il existe, sinon l'ancien prix d'achat
-        const prixUnitaire = it.adjustedPrixAchat || it.prixAchat;
-        const totalLigne = it.quantite * prixUnitaire;
-        
-        const ligne = [it.produit, it.quantite.toString(), fmt(prixUnitaire) + " FCFA", fmt(totalLigne) + " FCFA"];
-        
-        if (it.category === "telephones") {
-          rowsPhones.push(ligne);
-          totQtyPhones += it.quantite;
-          totPhones += totalLigne; // Utilise le total de la ligne calculé avec le bon prix
-        } else {
-          rowsAcc.push(ligne);
-          totQtyAcc += it.quantite;
-          totAcc += totalLigne; // Utilise le total de la ligne calculé avec le bon prix
-        }
-      });
-    });
-    return { phones: { rows: rowsPhones, qty: totQtyPhones, total: totPhones }, acc: { rows: rowsAcc, qty: totQtyAcc, total: totAcc }, grandTotal: totPhones + totAcc };
-  });
-  /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
-  const papaSupplyP = dbFirestore.collection("apportPapa")
-    .where("dateString", "==", dateFR)
-    .get()
-    .then(snap => {
-      const rows = [];
-      let totalQty = 0, totalAmount = 0;
-      snap.forEach(doc => {
-        (doc.data().items || []).forEach(it => {
-          const lineTotal = it.quantite * it.coutUnitaire;
-          rows.push([it.produit, it.quantite.toString(), fmt(it.coutUnitaire) + " FCFA", fmt(lineTotal) + " FCFA"]);
-          totalQty += it.quantite;
-          totalAmount += lineTotal;
+  // ... (Les autres promesses : depensesP, injectionP, etc. restent inchangées) ...
+    /* ── 3) DÉPENSES (utilise les millisecondes) ────────────────────────── */
+    const depensesP = dbFirestore.collection("depenses")
+        .where("timestamp", ">=", startOfDayMillis)
+        .where("timestamp", "<=", endOfDayMillis)
+        .get()
+        .then(snap => {
+            const papa = [], fonc = [];
+            let totPapa = 0, totFonc = 0;
+            snap.forEach(doc => {
+                const d = doc.data();
+                const desc = d.description || "";
+                const isAppro = desc.toLowerCase().startsWith("approvisionnement");
+                const isFraisTransport = desc.toLowerCase().includes("frais transport achat");
+                const ligne = [desc, fmt(d.montant)];
+                if ((d.type || "").toLowerCase() === "papa") {
+                    papa.push(ligne);
+                    totPapa += +d.montant;
+                } else if (!isAppro && !isFraisTransport) {
+                    fonc.push(ligne);
+                    totFonc += +d.montant;
+                }
+            });
+            return { papa, fonc, totPapa, totFonc };
         });
-      });
-      return { rows, totalQty, totalAmount };
-    });
 
-  /* ── 6) SOLDE INITIAL (trésorerie) ───────────────────────── */
-  const snapshotP = dbFirestore.collection("tresorerieSnapshots")
-    .doc(saisie)
-    .get()
-    .then(snap => snap.exists ? snap.data().openingBalanceGlobal || 0 : 0);
-
-  /* ── 7) VALEUR STOCK TÉLÉPHONES (fin de journée) ──────── */
-  const stockPhonesP = dbFirestore.collection("stock")
-    .where("category", "==", "telephones")
-    .get()
-    .then(snap => {
-      let tot = 0;
-      snap.forEach(doc => {
-        const d = doc.data();
-        tot += (parseFloat(d.stock) || 0) * (parseFloat(d.price) || 0);
-      });
-      return tot;
-    });
-
-  /* ── 8) DETTE PAPA ───────────────────────────────────────── */
-  const papaBalanceP = dbFirestore.collection("depensePapa")
-    .doc("balance")
-    .get()
-    .then(doc => doc.exists ? doc.data().montant || 0 : 0);
-
-  /* ── 9) STOCK SNAPSHOT – SOLDE INITIAL TÉLÉPHONES ────────── */
-  const openingStockP = dbFirestore.collection("stockSnapshots")
-    .doc(saisie)
-    .get()
-    .then(d => d.exists ? { qty: d.data().openingStock || 0, val: d.data().openingStockValue || 0 } : { qty: 0, val: 0 });
-
- 
-  /* ── 10) ACHATS TÉLÉPHONES (jour) ────────────────────────── */
-  const achatsPhonesP = dbFirestore.collection("approvisionnement")
-    .where("timestamp", ">=", startOfDayTimestamp)
-    .where("timestamp", "<=", endOfDayTimestamp)
-    .get()
-    .then(snap => {
-      let qty = 0, val = 0;
-      snap.forEach(doc => {
-        // On ajoute le filtre pour ignorer les achats annulés
-        if (doc.data().status === 'annulé') return;
-
-        (doc.data().items || []).forEach(it => {
-          if (it.category === "telephones") {
-            qty += +it.quantite;
-            // On utilise le prix ajusté (coût réel) au lieu du simple prix d'achat
-            const prixUnitaireReel = it.adjustedPrixAchat || it.prixAchat;
-            val += +it.quantite * +prixUnitaireReel;
-          }
+    /* ── 4) INJECTION (remboursements, utilise les millisecondes) ────────── */
+    const injectionP = dbFirestore.collection("remboursements")
+        .where("timestamp", ">=", startOfDayMillis)
+        .where("timestamp", "<=", endOfDayMillis)
+        .get()
+        .then(snap => {
+            let total = 0;
+            snap.forEach(d => total += +d.data().montant);
+            return total;
         });
-      });
-      return { qty, val };
-    });
+
+    /* ── 5) APPROVISIONNEMENTS ───────────────────────────────────── */
+    const approP = dbFirestore.collection("approvisionnement")
+        .where("timestamp", ">=", startOfDayTimestamp)
+        .where("timestamp", "<=", endOfDayTimestamp)
+        .get()
+        .then(snapshot => {
+            const rowsPhones = [], rowsAcc = [];
+            let totQtyPhones = 0, totQtyAcc = 0;
+            let totPhones = 0, totAcc = 0;
+            snapshot.forEach(doc => {
+                if (doc.data().status === 'annulé') return;
+                (doc.data().items || []).forEach(it => {
+                    const prixUnitaire = it.adjustedPrixAchat || it.prixAchat;
+                    const totalLigne = it.quantite * prixUnitaire;
+                    const ligne = [it.produit, it.quantite.toString(), fmt(prixUnitaire) + " FCFA", fmt(totalLigne) + " FCFA"];
+                    if (it.category === "telephones") {
+                        rowsPhones.push(ligne);
+                        totQtyPhones += it.quantite;
+                        totPhones += totalLigne;
+                    } else {
+                        rowsAcc.push(ligne);
+                        totQtyAcc += it.quantite;
+                        totAcc += totalLigne;
+                    }
+                });
+            });
+            return { phones: { rows: rowsPhones, qty: totQtyPhones, total: totPhones }, acc: { rows: rowsAcc, qty: totQtyAcc, total: totAcc }, grandTotal: totPhones + totAcc };
+        });
+
+    /* ── 5bis) APPORT PAPA ───────────────────────────────────── */
+    const papaSupplyP = dbFirestore.collection("apportPapa")
+        .where("dateString", "==", dateFR)
+        .get()
+        .then(snap => {
+            const rows = [];
+            let totalQty = 0, totalAmount = 0;
+            snap.forEach(doc => {
+                (doc.data().items || []).forEach(it => {
+                    const lineTotal = it.quantite * it.coutUnitaire;
+                    rows.push([it.produit, it.quantite.toString(), fmt(it.coutUnitaire) + " FCFA", fmt(lineTotal) + " FCFA"]);
+                    totalQty += it.quantite;
+                    totalAmount += lineTotal;
+                });
+            });
+            return { rows, totalQty, totalAmount };
+        });
+
+    /* ── 6) SOLDE INITIAL (trésorerie) ───────────────────────── */
+    const snapshotP = dbFirestore.collection("tresorerieSnapshots")
+        .doc(saisie)
+        .get()
+        .then(snap => snap.exists ? snap.data().openingBalanceGlobal || 0 : 0);
+
+    /* ── 7) VALEUR STOCK TÉLÉPHONES (fin de journée) ──────── */
+    const stockPhonesP = dbFirestore.collection("stock")
+        .where("category", "==", "telephones")
+        .get()
+        .then(snap => {
+            let tot = 0;
+            snap.forEach(doc => {
+                const d = doc.data();
+                tot += (parseFloat(d.stock) || 0) * (parseFloat(d.price) || 0);
+            });
+            return tot;
+        });
+
+    /* ── 8) DETTE PAPA ───────────────────────────────────────── */
+    const papaBalanceP = dbFirestore.collection("depensePapa")
+        .doc("balance")
+        .get()
+        .then(doc => doc.exists ? doc.data().montant || 0 : 0);
+
+    /* ── 9) STOCK SNAPSHOT – SOLDE INITIAL TÉLÉPHONES ────────── */
+    const openingStockP = dbFirestore.collection("stockSnapshots")
+        .doc(saisie)
+        .get()
+        .then(d => d.exists ? { qty: d.data().openingStock || 0, val: d.data().openingStockValue || 0 } : { qty: 0, val: 0 });
+
+    /* ── 10) ACHATS TÉLÉPHONES (jour) ────────────────────────── */
+    const achatsPhonesP = dbFirestore.collection("approvisionnement")
+        .where("timestamp", ">=", startOfDayTimestamp)
+        .where("timestamp", "<=", endOfDayTimestamp)
+        .get()
+        .then(snap => {
+            let qty = 0, val = 0;
+            snap.forEach(doc => {
+                if (doc.data().status === 'annulé') return;
+                (doc.data().items || []).forEach(it => {
+                    if (it.category === "telephones") {
+                        qty += +it.quantite;
+                        const prixUnitaireReel = it.adjustedPrixAchat || it.prixAchat;
+                        val += +it.quantite * +prixUnitaireReel;
+                    }
+                });
+            });
+            return { qty, val };
+        });
 
   /* ── 11) GÉNÉRATION PDF ─────────────────────────────────── */
   Promise.all([ventesP, depensesP, injectionP, approP, papaSupplyP, snapshotP, stockPhonesP, papaBalanceP, openingStockP, achatsPhonesP])
     .then(([ventes, deps, injection, appro, papaApport, soldeInitial, valeurStockPhones, dettePapa, openingStock, achatsPhones]) => {
+      // ... (calcul des totaux, inchangé)
       const totalEntrees = ventes.ca;
       const totalInjection = injection;
       const totalDepenses = deps.totPapa + deps.totFonc;
@@ -10466,11 +10460,41 @@ const approP = dbFirestore.collection("approvisionnement")
       let y = 60;
       doc.setFontSize(14);
       doc.text("Téléphones vendus", 40, y);
-      autoTable.call(doc, { startY: y + 10, head: [["Modèle", "Prix U.", "Qté", "Total"]], body: ventes.phoneRows.length ? ventes.phoneRows : [["—", "—", "0", "0"]], foot: [["", "", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal) + " FCFA"]], styles: { fontSize: 9 } });
+      
+      // ✅ NOUVEAU : Définition conditionnelle des en-têtes et pieds de page
+      let phoneHead, phoneFoot, accHead, accFoot;
+      if(inclureProfitDetail) {
+          phoneHead = [["Modèle", "Prix U.", "Qté", "Total", "Profit"]];
+          phoneFoot = [["", "", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal) + " FCFA", fmt(ventes.soldPhonesProfit) + " FCFA"]];
+          accHead = [["Modèle", "Prix U.", "Qté", "Total", "Profit"]];
+          accFoot = [["", "", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal) + " FCFA", fmt(ventes.soldAccProfit) + " FCFA"]];
+      } else {
+          phoneHead = [["Modèle", "Prix U.", "Qté", "Total"]];
+          phoneFoot = [["", "", ventes.soldPhonesQty.toString(), fmt(ventes.soldPhonesVal) + " FCFA"]];
+          accHead = [["Modèle", "Prix U.", "Qté", "Total"]];
+          accFoot = [["", "", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal) + " FCFA"]];
+      }
+
+      // ✅ MODIFIÉ : Utilisation des variables pour les tableaux
+      autoTable.call(doc, { 
+          startY: y + 10, 
+          head: phoneHead, 
+          body: ventes.phoneRows.length ? ventes.phoneRows : [["—", "—", "0", "0"]], 
+          foot: phoneFoot, 
+          styles: { fontSize: 9 } 
+      });
       y = doc.lastAutoTable.finalY + 30;
       doc.setFontSize(14);
       doc.text("Accessoires vendus", 40, y);
-      autoTable.call(doc, { startY: y + 10, head: [["Modèle", "Prix U.", "Qté", "Total"]], body: ventes.accRows.length ? ventes.accRows : [["—", "—", "0", "0"]], foot: [["", "", ventes.soldAccQty.toString(), fmt(ventes.soldAccVal) + " FCFA"]], styles: { fontSize: 9 } });
+      autoTable.call(doc, { 
+          startY: y + 10, 
+          head: accHead, 
+          body: ventes.accRows.length ? ventes.accRows : [["—", "—", "0", "0"]], 
+          foot: accFoot, 
+          styles: { fontSize: 9 } 
+      });
+      
+      // ... (Le reste de la génération du PDF est inchangé) ...
       y = doc.lastAutoTable.finalY + 30;
       doc.setFontSize(14);
       doc.text("Achats – Téléphones", 40, y);
@@ -10500,6 +10524,7 @@ const approP = dbFirestore.collection("approvisionnement")
       doc.text("Variation de la Trésorerie", 40, y);
       autoTable.call(doc, { startY: y + 10, body: [["Solde initial", fmt(soldeInitial) + " FCFA"], ["Entrées", fmt(totalEntrees) + " FCFA"], ["Injection", fmt(totalInjection) + " FCFA"], ["Dépenses", "-" + fmt(totalDepenses) + " FCFA"], ["Approvisionnement", "-" + fmt(totalAppro) + " FCFA"], ["Profit", fmt(totalProfit) + " FCFA"], ["Solde final", fmt(soldeFinal) + " FCFA"], ["Dette Papa", fmt(dettePapa) + " FCFA"], ["Stock téléphones", fmt(closingVal) + " FCFA"], ["Valeur business", fmt(valeurBusiness) + " FCFA"],], theme: "grid", headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" }, columnStyles: { 0: { fontStyle: "bold" } }, styles: { fontSize: 10 } });
 
+
       doc.save(`Rapport_${saisie}.pdf`);
     })
     .catch(err => {
@@ -10507,6 +10532,7 @@ const approP = dbFirestore.collection("approvisionnement")
       alert("Erreur lors de la génération du PDF : " + err.message)
     });
 }
+
 
 const isPhone = it => (it.category || "").toLowerCase() === "telephones";
 
