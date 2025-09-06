@@ -1264,6 +1264,7 @@
       <option value="all" selected>Tous les utilisateurs</option>
     </select>
         <div id="totalPhonesSold" style="margin-top:5px; font-weight:bold; color: var(--primary-color);"></div>
+        <div id="totalSalesAmount" style="margin-top: 5px; font-weight: bold; color: #28a745; font-size: 1.1em;"></div>
       </div>
       <ion-list lines="full" id="ventesContainerList">
         <ion-item>
@@ -1653,6 +1654,8 @@ async function populateUserFilters() {
                             ${initials}
                         </div>
                         <div class="left-info" style="flex-grow: 1;">
+                          
+                            <div class="supplier-name">${displayClientName}</div>
                             <div class="purchase-date">${displayDateTime}</div>
                             <div class="item-list-container">${itemListHTML}</div>
                             <div style="margin-top: 10px; display: flex; gap: 15px;">
@@ -1791,10 +1794,12 @@ if (selectedUser && selectedUser !== 'all') {
 
             const querySnapshot = await query.get();
             let totalPhones = 0;
+            let totalSalesValue = 0;
             const salesList = [];
 
             querySnapshot.forEach(doc => {
                 const sale = doc.data();
+                totalSalesValue += parseFloat(sale.overallTotal) || 0;
                 
                 // ================== MODIFICATION PRINCIPALE ==================
                 // Si la vente a le statut 'annulé', on l'ignore complètement.
@@ -1817,6 +1822,7 @@ if (selectedUser && selectedUser !== 'all') {
             });
 
             document.getElementById("totalPhonesSold").innerText = "Total Téléphones vendus : " + totalPhones;
+            document.getElementById("totalSalesAmount").innerText = `Montant Total : ${totalSalesValue.toLocaleString('fr-FR')} FCFA`;
             displaySalesHistory(salesList);
 
         } catch (err) {
@@ -8186,7 +8192,8 @@ function updateStockAfterSaleFirestore(items) {
                 .add({
                   timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                   change: -item.quantite,
-                  newStock: newStock
+                  newStock: newStock,
+                  type: 'vente'
                 });
             });
         }
@@ -10813,30 +10820,57 @@ function chargerHistoriqueStock(stockId) {
         container.innerHTML = "<p>Aucune variation de stock.</p>";
         return;
       }
-      snapshot.forEach(doc => {
-        const d    = doc.data();
-        // Ligne corrigée
-let jsDate;
-// Check if d.timestamp is a Firestore Timestamp object
-if (d.timestamp && typeof d.timestamp.toDate === 'function') {
-  jsDate = d.timestamp.toDate();
-} else {
-  // Otherwise, assume it's milliseconds (a number)
-  jsDate = new Date(d.timestamp);
+      // NOUVEAU BLOC À COLLER À LA PLACE DE L'ANCIEN
+snapshot.forEach(doc => {
+    const d = doc.data();
+    const date = d.timestamp?.toDate ? d.timestamp.toDate().toLocaleString("fr-FR") : "Date invalide";
+    const change = d.change || 0;
+    const signe = change > 0 ? "+" : "";
+
+    // Logique pour déterminer le libellé et l'icône
+    let typeDisplay = 'Mouvement';
+    let iconHtml = '<i data-lucide="help-circle"></i>';
+
+    // NOUVEAU BLOC À COLLER À LA PLACE DE L'ANCIEN
+switch(d.type) {
+    case 'approvisionnement':
+        typeDisplay = 'Achat';
+        iconHtml = '<i data-lucide="arrow-up" style="color: green;"></i>'; // Flèche haute
+        break;
+    case 'vente':
+        typeDisplay = 'Vente';
+        iconHtml = '<i data-lucide="arrow-down" style="color: red;"></i>'; // Flèche basse
+        break;
+    case 'annulation_achat':
+        typeDisplay = 'Annulation Achat';
+        iconHtml = '<i data-lucide="arrow-down" style="color: orange;"></i>'; // Flèche basse (stock diminue)
+        break;
+    case 'annulation_vente':
+        typeDisplay = 'Annulation Vente (Retour)';
+        iconHtml = '<i data-lucide="arrow-up" style="color: #3880ff;"></i>'; // Flèche haute (stock augmente)
+        break;
 }
 
-// Now, format the date safely
-const date = !isNaN(jsDate) ? jsDate.toLocaleString("fr-FR") : "Date invalide";
-        const signe = d.change > 0 ? "+" : "";
-        const row  = document.createElement("div");
-        row.className = "history-item";
-        row.innerHTML = `
-          <p>
-            <strong>${date}</strong><br>
-            ∆ ${signe}${d.change} unités → stock : ${d.newStock}
-          </p>`;
-        container.appendChild(row);
-      });
+    const row = document.createElement("div");
+    row.className = "history-item"; // On utilise un style simple
+    row.style.cssText = "display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee;";
+
+    row.innerHTML = `
+        <div style="margin-right: 12px; font-size: 24px; line-height: 1;">${iconHtml}</div>
+        <div style="flex-grow: 1;">
+            <strong style="font-size: 1em;">${typeDisplay}</strong><br>
+            <small style="color: #666;">${date}</small>
+        </div>
+        <div style="text-align: right;">
+            <strong style="color: ${change > 0 ? 'green' : 'red'}; font-size: 1.1em;">${signe}${change}</strong><br>
+            <small>Stock final: ${d.newStock}</small>
+        </div>
+    `;
+    container.appendChild(row);
+});
+
+// On s'assure que les nouvelles icônes sont bien affichées
+lucide.createIcons();
     })
     .catch(err => {
       console.error("Erreur historique :", err);
@@ -11055,16 +11089,34 @@ async function annulerVente(saleId) {
             transaction.delete(saleRef); // ✅ LIGNE MODIFIÉE
 
             // --- 2. On remet les articles dans le stock ---
-            for (const item of saleData.items) {
-                const stockQuery = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
-                
-                if (!stockQuery.empty) {
-                    const stockDocRef = stockQuery.docs[0].ref;
-                    transaction.update(stockDocRef, {
-                        stock: firebase.firestore.FieldValue.increment(item.quantite)
-                    });
-                }
-            }
+            // NOUVEAU BLOC À COLLER À LA PLACE DE L'ANCIEN
+for (const item of saleData.items) {
+    const stockQuery = await dbFirestore.collection("stock").where("name", "==", item.produit).limit(1).get();
+
+    if (!stockQuery.empty) {
+        const stockDocRef = stockQuery.docs[0].ref;
+        const stockData = stockQuery.docs[0].data();
+        const oldStock = stockData.stock || 0;
+        const newStockAfterCancellation = oldStock + item.quantite;
+
+        // 1. On met à jour le stock (on remet les articles)
+        transaction.update(stockDocRef, {
+            stock: newStockAfterCancellation
+        });
+
+        // --- C'EST LA PARTIE QUI EST AJOUTÉE ---
+        // 2. On enregistre ce retour en stock dans l'historique de l'article
+        const historyRef = stockDocRef.collection("history").doc();
+        transaction.set(historyRef, {
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            change: +item.quantite, // Mouvement positif car on remet en stock
+            newStock: newStockAfterCancellation,
+            type: 'annulation_vente', // L'étiquette pour l'affichage
+            refId: saleId
+        });
+        // --- FIN DE LA PARTIE AJOUTÉE ---
+    }
+}
 
             // --- 3. On inverse l'opération de trésorerie ---
             const montantVente = parseFloat(saleData.overallTotal) || 0;
