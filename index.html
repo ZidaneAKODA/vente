@@ -1260,6 +1260,9 @@
     <ion-content fullscreen>
       <div id="history-filters" style="padding:10px; text-align:center; background: #f5f7fa; border-bottom: 1px solid #eee;">
         <input type="date" id="filterHistoryDate" onchange="filterSalesHistory()" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"/>
+         <select id="filterSalesByUser" onchange="filterSalesHistory(document.getElementById('sales-tabs').value)" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+      <option value="all" selected>Tous les utilisateurs</option>
+    </select>
         <div id="totalPhonesSold" style="margin-top:5px; font-weight:bold; color: var(--primary-color);"></div>
       </div>
       <ion-list lines="full" id="ventesContainerList">
@@ -1490,6 +1493,20 @@
         vertical-align: -3px; /* Ajuste l'alignement de l'icône */
         margin-right: 4px; /* Espace entre l'icône et le texte */
     }
+    /* Style pour l'affichage du nom de l'opérateur de saisie */
+.recorded-by-tag {
+    margin-top: 12px; /* Espace au-dessus */
+    padding-top: 8px; /* Espace au-dessus de la ligne */
+    border-top: 1px solid #f0f0f0; /* Ligne de séparation discrète */
+    text-align: right; /* Aligner à droite */
+    font-size: 14px;   /* Police plus grande */
+    color: #555;       /* Couleur de base du texte */
+}
+
+.recorded-by-tag strong {
+    color: #000;       /* Nom en noir pour plus de visibilité */
+    font-weight: 600;  /* Un peu plus gras */
+}
       </style>
 
       <script>
@@ -1513,7 +1530,53 @@
         return filteredColors[index];
     }
 
-   
+    /**
+ * Récupère la liste des utilisateurs depuis la collection 'users'
+ * et peuple les menus déroulants des filtres de ventes et d'achats.
+ * C'est beaucoup plus rapide que de scanner toutes les ventes/achats.
+ */
+async function populateUserFilters() {
+    const salesSelect = document.getElementById("filterSalesByUser");
+    const purchaseSelect = document.getElementById("filterPurchasesByUser");
+
+    // Si les menus sont déjà remplis, on ne fait rien.
+    if (salesSelect.options.length > 1 && purchaseSelect.options.length > 1) {
+        return;
+    }
+
+    try {
+        // On lit la petite collection 'users' (très rapide)
+        const usersSnapshot = await dbFirestore.collection("users").orderBy("name").get();
+        const userNames = [];
+        usersSnapshot.forEach(doc => {
+            const user = doc.data();
+            if (user.name) {
+                userNames.push(user.name);
+            }
+        });
+
+        // Fonction pour ajouter les noms à un menu déroulant
+        const addOptions = (selectElement) => {
+            // On s'assure que l'élément select existe avant de le manipuler
+            if (selectElement && selectElement.options.length <= 1) { // On ne remplit que si c'est vide
+               userNames.forEach(name => {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = name;
+                    selectElement.appendChild(option);
+                });
+            }
+        };
+
+        // On peuple les deux menus
+        addOptions(salesSelect);
+        addOptions(purchaseSelect);
+
+    } catch (error) {
+        console.error("Erreur lors de la récupération des utilisateurs pour les filtres :", error);
+    }
+}
+
     function displaySalesHistory(salesList) {
     const container = document.getElementById("ventesContainerList");
     container.innerHTML = "";
@@ -1591,7 +1654,6 @@
                         </div>
                         <div class="left-info" style="flex-grow: 1;">
                             <div class="purchase-date">${displayDateTime}</div>
-                            <div class="supplier-name">${displayClientName}</div>
                             <div class="item-list-container">${itemListHTML}</div>
                             <div style="margin-top: 10px; display: flex; gap: 15px;">
                                 <a class="details-btn-link" onclick="ouvrirDetails('${sale.id}')">
@@ -1601,7 +1663,10 @@
                                     <ion-icon name="download-outline"></ion-icon> Facture
                                 </a>
                             </div>
-                        </div>
+                            <div class="recorded-by-tag">
+                            Saisi par : <strong>${sale.enregistreParNom || 'N/A'}</strong>
+                         </div>
+                            </div>
                         <div class="right-info">
                             <div class="total-amount">XOF ${totalFormatted}</div>
                             <div class="sale-status-text">${statusText}</div>
@@ -1681,6 +1746,7 @@ async function preparerAnnulationVente(saleId, event) {
 
       
 async function filterSalesHistory(statusFilter = 'all') {
+        const selectedUser = document.getElementById("filterSalesByUser").value;
         const dateInput = document.getElementById("filterHistoryDate").value;
         if (!dateInput) {
           console.warn("Aucune date sélectionnée");
@@ -1709,6 +1775,11 @@ async function filterSalesHistory(statusFilter = 'all') {
                 .where("timestamp", ">=", startOfDayFirestoreTimestamp)
                 .where("timestamp", "<=", endOfDayFirestoreTimestamp)
                 .orderBy("timestamp", "desc");
+
+            // Appliquer le filtre par utilisateur s'il est différent de "Tous"
+if (selectedUser && selectedUser !== 'all') {
+    query = query.where("enregistreParNom", "==", selectedUser);
+}
 
             if (statusFilter === 'successful') {
                 query = query.where("deliveryStatus", "==", "réussie");
@@ -2679,6 +2750,9 @@ const date = d.timestamp.toDate().toLocaleString("fr-FR");
         <ion-content fullscreen>
             <div id="purchase-history-filters" style="padding:10px; text-align:center; background: #f5f7fa; border-bottom: 1px solid #eee;">
                 <input type="date" id="filterPurchaseDate" onchange="chargerApprovisionnements()" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"/>
+                <select id="filterPurchasesByUser" onchange="chargerApprovisionnements(document.getElementById('purchase-tabs').value)" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+      <option value="all" selected>Tous les utilisateurs</option>
+    </select>
                 <div id="totalPurchaseCost" style="margin-top:5px; font-weight:bold; color: var(--primary-color);"></div>
             </div>
             <ion-list lines="full" id="approvisionnementHistoryList">
@@ -2912,6 +2986,20 @@ ion-fab-button {
     --background-activated: #000;
     --box-shadow: none !important; /* Supprime toute ombre résiduelle */
 }
+.recorded-by-tag {
+    margin-top: 12px; /* Espace au-dessus */
+    padding-top: 8px; /* Espace au-dessus de la ligne */
+    border-top: 1px solid #f0f0f0; /* Ligne de séparation discrète */
+    text-align: right; /* Aligner à droite */
+    font-size: 14px;   /* Police plus grande */
+    color: #555;       /* Couleur de base du texte */
+}
+
+.recorded-by-tag strong {
+    color: #000;       /* Nom en noir pour plus de visibilité */
+    font-weight: 600;  /* Un peu plus gras */
+}
+
     </style>
 <script>
 // La fonction getAvatarColor (qui est déjà présente dans votre code)
@@ -2931,7 +3019,9 @@ function getAvatarColor(name) {
     const index = Math.abs(hash % filteredColors.length);
     return filteredColors[index];
 }
+
 async function chargerApprovisionnements(statusFilter = 'all') {
+    const selectedUser = document.getElementById("filterPurchasesByUser").value;
     const container = document.getElementById("approvisionnementHistoryList");
     container.innerHTML = `
         <ion-item style="--background: transparent; box-shadow: none; border-bottom: none; margin-bottom: 0;">
@@ -3043,6 +3133,11 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 .where("timestamp", ">=", startOfDayFirestoreTimestamp)
                 .where("timestamp", "<=", endOfDayFirestoreTimestamp)
                 .orderBy("timestamp", "desc");
+            
+            if (selectedUser && selectedUser !== 'all') {
+                query = query.where("enregistreParNom", "==", selectedUser);
+            }
+            
 
             if (statusFilter === 'paid') {
                 query = query.where("isPaid", "==", true);
@@ -3107,14 +3202,11 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                 const avatarBgColor = getAvatarColor(supplierName);
                 let itemListHTML = '';
                 if (appro.items && Array.isArray(appro.items)) {
-                    const itemsToDisplay = appro.items.slice(0, 2);
-                    itemsToDisplay.forEach(item => {
+                    // CORRECTION : On parcourt tous les articles au lieu de se limiter aux 2 premiers.
+                    appro.items.forEach(item => {
                         const itemName = item.produit || 'Article inconnu';
                         itemListHTML += `<p class="item-line">${item.quantite} x ${itemName} - ${parseFloat(item.prixAchat || 0).toLocaleString('fr-FR')} FCFA</p>`;
                     });
-                    if (appro.items.length > 2) {
-                        itemListHTML += `<p class="item-line" style="font-style: italic;">...et ${appro.items.length - 2} autre(s) article(s)</p>`;
-                    }
                 } else {
                     itemListHTML = '<p class="item-line" style="color: #888;">Aucun article détaillé</p>';
                 }
@@ -3126,12 +3218,16 @@ async function chargerApprovisionnements(statusFilter = 'all') {
                     <ion-label style="padding: 12px 16px;">
                         <div class="main-content-wrapper" style="display: flex; align-items: center; width: 100%;">
                             <div class="avatar-circle" style="background-color: ${avatarBgColor};"> ${initials} </div>
-                            <div class="left-info">
-                                <div class="supplier-name">${supplierName}</div>
-                                <div class="purchase-date">${dateAppro}</div>
-                                <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
-                                ${fraisTransportDisplay} ${remainingAmountDisplay}
-                            </div>
+                           <div class="left-info">
+    <div class="supplier-name">${supplierName}</div>
+    <div class="purchase-date">${dateAppro}</div>
+    <div class="item-list-container" style="margin-top: 5px;">${itemListHTML}</div>
+    ${fraisTransportDisplay} ${remainingAmountDisplay}
+
+    <div class="recorded-by-tag">
+        Saisi par : <strong>${appro.enregistreParNom || 'N/A'}</strong>
+    </div>
+</div>
                             <div class="right-info">
                                 <div class="total-amount" style="color: ${amountColor};">XOF ${parseFloat(appro.totalCost || 0).toLocaleString('fr-FR')}</div>
                                 <div class="payment-method">${paymentStatusText}</div>
@@ -5879,6 +5975,12 @@ function retirerApproItem(index) {
 }
 
  async function finaliserApprovisionnement() {
+  const user = firebase.auth().currentUser;
+    if (!user) {
+      alert("Erreur: Utilisateur non connecté. Reconnexion nécessaire.");
+      hideSaleLoader();
+      return;
+    }
     if (currentApproItems.length === 0) {
         alert("Le panier d'approvisionnement est vide.");
         return;
@@ -5988,7 +6090,9 @@ function retirerApproItem(index) {
             fraisTransport: fraisTransport,
             status: 'validé',
             typeAchat: typeAchat,// On ajoute le type d'achat ici
-            productNames: finalItemsForFirestore.map(it => it.produit) // Ajoute la liste des noms de produits
+            productNames: finalItemsForFirestore.map(it => it.produit),
+            enregistreParUid: user.uid,
+            enregistreParNom: user.displayName || user.email// Ajoute la liste des noms de produits
         };
 
         if (typeAchat === 'normal') {
@@ -7806,36 +7910,27 @@ function updateDepensePapaBalance() {
 // Remplacez la fonction updateBalanceDisplay existante par celle-ci
 
 function updateBalanceDisplay() {
-// On lit la date depuis notre nouvel input
     const selectedDateValue = document.getElementById('treso-date-filter').value;
-    
-    // Si une date est sélectionnée, on l'utilise. Sinon, on prend la date du jour.
-    // L'ajout de 'T00:00:00' évite les problèmes de fuseau horaire.
-    const selectedDate = selectedDateValue 
-                         ? new Date(selectedDateValue + 'T00:00:00') 
-                         : new Date();
-    
-    const dateString = selectedDate.toISOString().slice(0, 10); // Format AAAA-MM-JJ
 
-    // On recalcule les bornes de la journée en fonction de la date choisie
+    if (!selectedDateValue) {
+        return;
+    }
+
+    const dateString = selectedDateValue;
+
+    const selectedDate = new Date(selectedDateValue + 'T00:00:00');
     const startOfDayMillis = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0, 0).getTime();
     const endOfDayMillis = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999).getTime();
-
-    // On doit aussi mettre à jour la variable `todayString` utilisée pour le snapshot
-    const todayString = dateString;
-
-    
-
     const startOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(startOfDayMillis);
     const endOfDayTimestamp = firebase.firestore.Timestamp.fromMillis(endOfDayMillis);
 
     Promise.all([
-        // 1. Solde initial global de la trésorerie pour aujourd'hui
-        dbFirestore.collection("tresorerieSnapshots").doc(todayString).get().then(doc => {
+        // 1. Récupération du solde initial
+        dbFirestore.collection("tresorerieSnapshots").doc(dateString).get().then(doc => {
             return doc.exists ? doc.data().openingBalanceGlobal || 0 : 0;
         }),
 
-        // 2. Total des ventes du jour (Entrées) ET Total Profit
+        // 2. Récupération des ventes
         dbFirestore.collection("ventes")
             .where("timestamp", ">=", startOfDayTimestamp)
             .where("timestamp", "<=", endOfDayTimestamp)
@@ -7853,7 +7948,7 @@ function updateBalanceDisplay() {
                 return { totalVentes, totalProfit };
             }),
 
-        // 3. Total des approvisionnements du jour (Coût des articles seulement)
+        // 3. Récupération des approvisionnements
         dbFirestore.collection("approvisionnement")
             .where("timestamp", ">=", startOfDayTimestamp)
             .where("timestamp", "<=", endOfDayTimestamp)
@@ -7869,7 +7964,7 @@ function updateBalanceDisplay() {
                 return totalAppro;
             }),
 
-        // 4. Total des dépenses du jour (séparées par type)
+        // 4. Récupération des dépenses (LOGIQUE IDENTIQUE AU PDF)
         dbFirestore.collection("depenses")
             .where("timestamp", ">=", startOfDayMillis)
             .where("timestamp", "<=", endOfDayMillis)
@@ -7877,26 +7972,28 @@ function updateBalanceDisplay() {
             .then(snapshot => {
                 let totalDepensesFonctionnelles = 0;
                 let totalDepensesPapa = 0;
-                let totalFraisTransport = 0; // On va aussi récupérer les frais de transport ici
+                let totalFraisTransport = 0; // On continue de l'isoler pour l'affichage
+                
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const montant = parseFloat(data.montant) || 0;
-                    if (data.type === "depense fonctionnelle") {
-                        if (data.description && data.description.toLowerCase().includes('frais transport achat')) {
-                            totalFraisTransport += montant;
-                        } else {
-                            totalDepensesFonctionnelles += montant;
-                        }
+                    const desc = (data.description || "").toLowerCase();
+                    
+                    const isFraisTransport = desc.includes('frais transport achat');
+                    const isApproExpense = desc.startsWith('approvisionnement');
+
+                    if (isFraisTransport) {
+                        totalFraisTransport += montant;
                     } else if (data.type === "papa") {
                         totalDepensesPapa += montant;
+                    } else if (!isApproExpense) { // LA CONDITION CLÉ : On exclut les dépenses d'appro
+                        totalDepensesFonctionnelles += montant;
                     }
-                    // 'depense' seul peut être un ancien type de dépense fonctionnelle, à vous de voir si vous voulez l'inclure
-                    // si (data.type === "depense") { totalDepensesFonctionnelles += montant; }
                 });
                 return { totalDepensesFonctionnelles, totalDepensesPapa, totalFraisTransport };
             }),
 
-        // 5. Total des remboursements du jour (Injection)
+        // 5. Récupération des remboursements
         dbFirestore.collection("remboursements")
             .where("timestamp", ">=", startOfDayMillis)
             .where("timestamp", "<=", endOfDayMillis)
@@ -7904,48 +8001,45 @@ function updateBalanceDisplay() {
             .then(snapshot => {
                 let totalRemboursements = 0;
                 snapshot.forEach(doc => {
-                    const data = doc.data();
-                    totalRemboursements += parseFloat(data.montant) || 0;
+                    totalRemboursements += parseFloat(doc.data().montant) || 0;
                 });
                 return totalRemboursements;
             })
-
     ])
     .then(([
         openingBalanceGlobal,
         { totalVentes, totalProfit },
         totalAppro,
-        { totalDepensesFonctionnelles, totalDepensesPapa, totalFraisTransport }, // Destructuration modifiée
+        { totalDepensesFonctionnelles, totalDepensesPapa, totalFraisTransport },
         totalRemboursements
     ]) => {
-        // Mise à jour des éléments individuels de calcul
-        document.getElementById("treso-opening-balance").textContent = "XOF " + openingBalanceGlobal.toLocaleString('fr-FR');
-        document.getElementById("treso-total-ventes").textContent = "+XOF " + totalVentes.toLocaleString('fr-FR');
-        document.getElementById("treso-total-remboursements").textContent = "+XOF " + totalRemboursements.toLocaleString('fr-FR');
-        
-        document.getElementById("treso-total-depenses-fonctionnelles").textContent = "-XOF " + totalDepensesFonctionnelles.toLocaleString('fr-FR');
-        document.getElementById("treso-total-depenses-papa").textContent = "-XOF " + totalDepensesPapa.toLocaleString('fr-FR');
-        
-        document.getElementById("treso-total-frais-transport").textContent = "-XOF " + totalFraisTransport.toLocaleString('fr-FR');
-        document.getElementById("treso-total-appro").textContent = "-XOF " + totalAppro.toLocaleString('fr-FR');
-        document.getElementById("treso-daily-profit").textContent = "XOF " + totalProfit.toLocaleString('fr-FR');
-
-        // Calcul du Solde Final Global
+        // Le solde final doit aussi ignorer les frais de transport car ils sont déjà inclus
+        // dans le coût ajusté des approvisionnements. Ici on les soustrait car on les affiche séparément.
         const soldeFinalGlobal =
             openingBalanceGlobal +
             totalVentes +
             totalRemboursements -
             totalDepensesFonctionnelles -
             totalDepensesPapa -
-            totalFraisTransport -
+            totalFraisTransport - // On le soustrait car il est affiché à part
             totalAppro;
-
+        
+        // Mise à jour de l'interface utilisateur
+        document.getElementById("treso-opening-balance").textContent = "XOF " + openingBalanceGlobal.toLocaleString('fr-FR');
+        document.getElementById("treso-total-ventes").textContent = "+XOF " + totalVentes.toLocaleString('fr-FR');
+        document.getElementById("treso-total-remboursements").textContent = "+XOF " + totalRemboursements.toLocaleString('fr-FR');
+        document.getElementById("treso-total-depenses-fonctionnelles").textContent = "-XOF " + totalDepensesFonctionnelles.toLocaleString('fr-FR');
+        document.getElementById("treso-total-depenses-papa").textContent = "-XOF " + totalDepensesPapa.toLocaleString('fr-FR');
+        document.getElementById("treso-total-frais-transport").textContent = "-XOF " + totalFraisTransport.toLocaleString('fr-FR');
+        document.getElementById("treso-total-appro").textContent = "-XOF " + totalAppro.toLocaleString('fr-FR');
+        document.getElementById("treso-daily-profit").textContent = "XOF " + totalProfit.toLocaleString('fr-FR');
         document.getElementById("balance-sold").textContent = "XOF " + soldeFinalGlobal.toLocaleString('fr-FR');
 
-        // Mettre à jour l'affichage des comptes individuels (caisse, momo, banque)
         majCartesTresorerie();
     })
-    .catch(error => console.error("Erreur updateBalanceDisplay:", error));
+    .catch(error => {
+        console.error("ERREUR MAJEURE DANS updateBalanceDisplay:", error);
+    });
 }
         /**
      * Récupère le solde cumulatif depuis le document "tresorerie/balance".
@@ -8240,6 +8334,7 @@ function voirHistoriqueStock(stockId, e) {
       lucide.createIcons(); 
       break;
     case 'historique':
+         populateUserFilters();
          const salesTabsDefaultValue = document.getElementById('sales-tabs').value || 'all';
         filterSalesHistory(salesTabsDefaultValue); // Pass the current tab value
         break;
@@ -8295,29 +8390,23 @@ case 'article-detail':
   }
   break;
 
-  case 'start-day':
-      // rien de spécial à faire
+    case 'start-day':
       break;
-
-  case 'dettes-fournisseurs':
+    case 'dettes-fournisseurs':
             chargerDettesFournisseurs();
             break;
-   case 'approvisionnement-historique':
-        chargerApprovisionnements(); // Appelle la fonction de chargement des données pour ce nouvel écran
-        break;
+    case 'approvisionnement-historique':
+        populateUserFilters();
+        chargerApprovisionnements(); 
+        break; 
     case 'vendor-credit-detail':
-      // The content will be loaded by showVendorCreditDetails when the card is clicked.
-      // Nothing extra needed here for initial screen display besides making it active.
       break;
-
     case 'fournisseur-credit-detail':
-      // L'appel à showSupplierDebtDetailsPage peuple déjà l'écran, donc pas de logique ici.
+      
       break;
   }
 }
 
-
-   
     // Récupération de l’overlay
 const offlineOverlay = document.getElementById('offlineOverlay');
 
@@ -8574,7 +8663,14 @@ function continuerDepuisPanier() {
       }
     }
  async function finaliserVente(clientNom, clientNumero, vendeur, photoData, observationsVendeur, isDelivery, livreurNom, livreurNumero, lieuLivraison) {
-    showSaleLoader();
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      alert("Erreur: Utilisateur non connecté. Reconnexion nécessaire.");
+      hideSaleLoader();
+      return;
+    }
+  showSaleLoader();
+    
     const now = new Date();
     const dateVente = now.toLocaleDateString("fr-FR");
     const heureVente = now.toLocaleTimeString("fr-FR");
@@ -8620,7 +8716,9 @@ function continuerDepuisPanier() {
         observationsVendeur,
         isDelivery,
         deliveryStatus: isDelivery ? "en cours" : null,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        enregistreParUid: user.uid,
+        enregistreParNom: user.displayName || user.email
     };
 
     const compteId = document.getElementById("compteSelectVente").value;
@@ -8721,84 +8819,7 @@ function continuerDepuisPanier() {
 }
 
     
-    // Affichage des livraisons
-    function afficherLivraisons() {
-      getSalesForTodayFirestore()
-        .then(sales => {
-          const livraisons = sales.filter(sale => sale.isDelivery);
-          livraisons.sort((a, b) => b.id.localeCompare(a.id));
-          const container = document.getElementById("livraisonsContainer");
-          container.innerHTML = "";
-          if(livraisons.length === 0) {
-            container.innerHTML = "<p>Aucune livraison enregistrée aujourd'hui.</p>";
-            return;
-          }
-          livraisons.forEach(sale => {
-            let statusEmoji = "🟠 En cours";
-            if(sale.deliveryStatus === "réussie") {
-              statusEmoji = "🟢 Réussie";
-            } else if(sale.deliveryStatus === "échouée") {
-              statusEmoji = "🔴 Échouée";
-            }
-            const card = document.createElement("div");
-            card.className = "vente-card";
-            if(sale.deliveryStatus === "échouée") {
-              card.classList.add("echouee");
-            }
-            let actionButtons = "";
-            if(sale.deliveryStatus === "en cours") {
-              actionButtons = 
-                `<button onclick="marquerCommeReussie('${sale.id}')">Marquer comme Réussie</button>
-                <button onclick="marquerCommeEchouee('${sale.id}')">Marquer comme Échouée</button>`;
-            }
-            card.innerHTML = 
-              `<p><strong>${sale.clientNom}</strong> (${sale.clientNumero})</p>
-              <p>Vendeur : ${sale.vendeur}</p>
-              <p>Livraison par : ${sale.livreurNom || ""} (${sale.livreurNumero || ""})</p>
-              <p>Lieu : ${sale.lieuLivraison || ""}</p>
-              <p>Statut : ${statusEmoji}</p>
-              <p>Total : ${sale.overallTotal}</p>
-              <button onclick="ouvrirDetails('${sale.id}')">Détails</button>
-              ${actionButtons}`;
-            container.appendChild(card);
-          });
-        })
-        .catch(error => console.error("Erreur lors de la récupération des livraisons : " + error.message));
-    }
     
-    // Fonctions de marquage des livraisons
-    function marquerCommeReussie(id) {
-      if(confirm("Voulez-vous marquer cette livraison comme réussie et la convertir en vente ?")) {
-        getSaleByIdFirestore(id)
-          .then(sale => {
-            sale.deliveryStatus = "réussie";
-            sale.convertedToSale = true;
-            updateSaleFirestore(sale.id, sale)
-              .then(() => {
-                alert("Livraison marquée comme réussie et convertie en vente !");
-                afficherLivraisons();
-                afficherVentes();
-              })
-              .catch(error => alert("Erreur lors de la mise à jour de la vente : " + error.message));
-          })
-          .catch(error => alert("Erreur dans marquerCommeReussie : " + error.message));
-      }
-    }
-    function marquerCommeEchouee(id) {
-      if(confirm("Voulez-vous marquer cette livraison comme échouée ?")) {
-        getSaleByIdFirestore(id)
-          .then(sale => {
-            sale.deliveryStatus = "échouée";
-            updateSaleFirestore(sale.id, sale)
-              .then(() => {
-                alert("Livraison marquée comme échouée !");
-                afficherLivraisons();
-              })
-              .catch(error => alert("Erreur lors de la mise à jour de la livraison : " + error.message));
-          })
-          .catch(error => alert("Erreur dans marquerCommeEchouee : " + error.message));
-      }
-    }
     
     // Détails d'une vente
     function ouvrirDetails(id) {
@@ -11378,6 +11399,6 @@ async function creerDettesDeVente(saleId, saleData) {
     console.log("Traitement des dettes de consignation terminé.");
 }
 </script>
-
+<script src="livraison.js"></script>
 </body>
 </html>
