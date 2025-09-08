@@ -1971,8 +1971,12 @@ function generateInvoicePDF(sale) {
             const pu = cleanNumber(item.prix);
             const total = cleanNumber(item.total);
             
+            let designation = item.produit || "Article inconnu";
+            if (item.dureeGarantie && item.dureeGarantie !== "Aucune") {
+                designation += `\n(Garantie : ${item.dureeGarantie})`;
+            }
             const itemData = [
-                item.produit || "Article inconnu",
+                designation,
                 fmt(pu),
                 item.quantite || "0",
                 `${fmt(total)} FCFA`
@@ -2018,11 +2022,20 @@ function generateInvoicePDF(sale) {
         const totalText = `TOTAL HT: ${fmt(overallTotal)} FCFA`;
         doc.text(totalText, 555, footerY, { align: 'right' });
 
-        // --- Garantie 1 an ---
-        // On aligne cette mention à gauche, sur la même ligne visuelle que le total
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(9);
-        doc.text("Avec Garantie de 1 semaine", 40, footerY);
+        // --- Garantie ---
+        let commonGarantie = null;
+        if (sale.items && sale.items.length > 0) {
+            const firstGarantie = sale.items[0].dureeGarantie;
+            if (firstGarantie && firstGarantie !== "Aucune" && sale.items.every(item => item.dureeGarantie === firstGarantie)) {
+                commonGarantie = firstGarantie;
+            }
+        }
+
+        if (commonGarantie) {
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(9);
+            doc.text(`Avec Garantie de ${commonGarantie}`, 40, footerY);
+        }
 
         // On descend pour la suite
         footerY += 30;
@@ -4273,6 +4286,10 @@ async function generateSupplierCreditPDF() {
                     <i data-lucide="list"></i>
                     <span>Répertoire d'IMEI</span>
                 </li>
+                <li class="menu-list-item" onclick="window.location.hash='garanties'">
+                    <i data-lucide="shield-check"></i>
+                    <span>Gestion Garanties</span>
+                </li>
             </ul>
         </div>
 
@@ -4328,6 +4345,43 @@ async function generateSupplierCreditPDF() {
       <div style="padding: 15px;">
         <!-- Ajoutez ici le contenu du répertoire d'IMEI -->
         <p>Liste des IMEI...</p>
+      </div>
+    </section>
+
+    <!-- Screen: Gestion des Garanties -->
+    <section id="screen-garanties" class="screen">
+      <header>
+        <button class="back-btn" onclick="window.location.hash='menu'">
+          <i data-lucide="arrow-left"></i>
+        </button>
+        <h1>Gestion des Garanties</h1>
+      </header>
+      <div class="form-section">
+        <div class="input-with-icon">
+          <i data-lucide="search"></i>
+          <input type="text" id="garantie-search-input" placeholder="Rechercher un produit..." oninput="filterGarantieProducts()">
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+          <input type="checkbox" id="garantie-select-all" onchange="toggleSelectAllGaranties(this.checked)" style="width: auto; margin-right: 10px;">
+          <label for="garantie-select-all">Tout sélectionner</label>
+        </div>
+        <div id="garanties-product-list" style="max-height: 40vh; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: var(--border-radius);">
+          <!-- La liste des produits sera injectée ici par le JS -->
+          <p>Chargement des produits...</p>
+        </div>
+      </div>
+      <div class="form-section" style="position: sticky; bottom: 0; background: white;">
+        <h2>Actions</h2>
+        <label for="garantie-duration-select">Appliquer la garantie :</label>
+        <select id="garantie-duration-select">
+          <option value="Aucune">Aucune</option>
+          <option value="1 semaine">1 semaine</option>
+          <option value="1 mois">1 mois</option>
+          <option value="1 an (12 mois)">1 an (12 mois)</option>
+        </select>
+        <button id="garantie-apply-btn" class="btn-modern" onclick="applyGaranties()">
+          Appliquer aux produits sélectionnés
+        </button>
       </div>
     </section>
 
@@ -8402,6 +8456,9 @@ case 'article-detail':
     case 'dettes-fournisseurs':
             chargerDettesFournisseurs();
             break;
+    case 'garanties':
+      loadAndDisplayGaranties();
+      break;
     case 'approvisionnement-historique':
         populateUserFilters();
         chargerApprovisionnements(); 
@@ -8483,6 +8540,7 @@ function addOrIncrementItem(prod) {
     currentItems[idx].quantite += 1;
     currentItems[idx].total     = currentItems[idx].quantite * currentItems[idx].prix;
     currentItems[idx].category  = prod.category;
+    currentItems[idx].dureeGarantie = prod.dureeGarantie;
   } else {                                      // premier ajout
     if (prod.stock < 1) {
       showToast("Stock épuisé !");
@@ -8493,7 +8551,8 @@ function addOrIncrementItem(prod) {
       prix     : prod.price,
       quantite : 1,
       total    : prod.price,
-      category : prod.category
+      category : prod.category,
+      dureeGarantie: prod.dureeGarantie
     });
   }
 
@@ -11449,6 +11508,130 @@ async function creerDettesDeVente(saleId, saleData) {
     // On exécute toutes les créations de dettes en une seule fois
     await batch.commit();
     console.log("Traitement des dettes de consignation terminé.");
+}
+
+// ====================================================================
+// GESTION DES GARANTIES
+// ====================================================================
+
+let allGarantieProducts = []; // Cache for warranty products
+
+async function loadAndDisplayGaranties() {
+    const productListContainer = document.getElementById('garanties-product-list');
+    if (!productListContainer) return;
+    productListContainer.innerHTML = '<p>Chargement des produits...</p>';
+
+    try {
+        const snapshot = await dbFirestore.collection('stock').orderBy('name').get();
+        allGarantieProducts = [];
+        snapshot.forEach(doc => {
+            allGarantieProducts.push({ id: doc.id, ...doc.data() });
+        });
+        renderGarantieProducts(allGarantieProducts);
+    } catch (error) {
+        console.error("Erreur chargement produits pour garantie:", error);
+        productListContainer.innerHTML = '<p style="color:red;">Erreur de chargement.</p>';
+    }
+}
+
+function renderGarantieProducts(products) {
+    const productListContainer = document.getElementById('garanties-product-list');
+    if (!productListContainer) return;
+
+    if (products.length === 0) {
+        productListContainer.innerHTML = '<p>Aucun produit trouvé.</p>';
+        return;
+    }
+
+    productListContainer.innerHTML = products.map(product => `
+        <div class="garantie-product-item" style="display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+            <input type="checkbox" class="garantie-product-checkbox" data-id="${product.id}" onchange="updateGarantieApplyButton()" style="width: auto; margin-right: 15px;">
+            <div style="flex-grow: 1;">
+                <div class="product-name" style="font-weight: 500;">${product.name}</div>
+                <div class="current-garantie" style="font-size: 14px; color: #666;">
+                    Garantie : ${product.dureeGarantie || 'Non définie'}
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    const selectAllCheckbox = document.getElementById('garantie-select-all');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+    updateGarantieApplyButton();
+}
+
+function filterGarantieProducts() {
+    const searchTerm = document.getElementById('garantie-search-input').value.toLowerCase();
+    const items = document.querySelectorAll('.garantie-product-item');
+    items.forEach(item => {
+        const productName = item.querySelector('.product-name').textContent.toLowerCase();
+        if (productName.includes(searchTerm)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function toggleSelectAllGaranties(checked) {
+    document.querySelectorAll('#garanties-product-list .garantie-product-checkbox').forEach(checkbox => {
+        // Only toggle visible checkboxes
+        if (checkbox.closest('.garantie-product-item').style.display !== 'none') {
+            checkbox.checked = checked;
+        }
+    });
+    updateGarantieApplyButton();
+}
+
+function updateGarantieApplyButton() {
+    const selectedCount = document.querySelectorAll('.garantie-product-checkbox:checked').length;
+    const applyBtn = document.getElementById('garantie-apply-btn');
+    if (!applyBtn) return;
+
+    if (selectedCount > 0) {
+        applyBtn.textContent = `Appliquer aux ${selectedCount} produits sélectionnés`;
+        applyBtn.disabled = false;
+    } else {
+        applyBtn.textContent = 'Appliquer aux produits sélectionnés';
+        applyBtn.disabled = true;
+    }
+}
+
+async function applyGaranties() {
+    const selectedCheckboxes = document.querySelectorAll('.garantie-product-checkbox:checked');
+    const newGarantie = document.getElementById('garantie-duration-select').value;
+
+    if (selectedCheckboxes.length === 0) {
+        showToast("Veuillez sélectionner au moins un produit.");
+        return;
+    }
+
+    if (!confirm(`Voulez-vous vraiment appliquer la garantie "${newGarantie}" à ${selectedCheckboxes.length} produits ?`)) {
+        return;
+    }
+
+    showSaleLoader();
+
+    try {
+        const batch = dbFirestore.batch();
+        selectedCheckboxes.forEach(checkbox => {
+            const productId = checkbox.dataset.id;
+            const productRef = dbFirestore.collection('stock').doc(productId);
+            batch.update(productRef, { dureeGarantie: newGarantie });
+        });
+
+        await batch.commit();
+        showToast("Garanties appliquées avec succès !");
+        await loadAndDisplayGaranties(); // Refresh the list
+
+    } catch (error) {
+        console.error("Erreur lors de l'application des garanties :", error);
+        showToast("Une erreur est survenue.", "error");
+    } finally {
+        hideSaleLoader();
+    }
 }
 </script>
 <script src="livraison.js"></script>
